@@ -1,186 +1,91 @@
-# Design-Doc: Goldspeicher-Idle-Game
+# Vault Run – Produkt- und Technik-Spezifikation
 
-**Zweck dieses Dokuments:** Vollständige Spezifikation für einen spielbaren Prototypen.
-**Zielplattform:** Browser (TypeScript / Vite), später mobil via Capacitor.
-**Status:** Kernmechanik und Balancing sind durchgerechnet und simulativ validiert. Prestige und Meta-Progression sind offen.
+## Vision
 
----
+Der Spieler ist ein Geschäftsmann, der Gold verdient und daraus Schritt für Schritt einen hochautomatisierten, gesicherten Logistikbetrieb aufbaut. Er ist kein Räuber. Der Name „Vault Run“ bezeichnet die regelmäßige Fahrt zum Tresor.
 
-## 1. Kernidee
+Die erste Version ist ein optisch polierter Vertical Slice für Browser und PWA. Smartphone-Hochformat ist die primäre Oberfläche; Desktop erhält eine eigene vollwertige Anordnung. Die Architektur soll eine spätere Capacitor-App ermöglichen. Sprache ist zunächst Deutsch, das bevorzugte Monetarisierungsmodell wäre ein Einmalkauf.
 
-Ein Klick produziert Goldmünzen. Diese müssen durch eine **Logistikkette** transportiert werden, bevor sie als Vermögen zählen. Jedes Glied der Kette kann zum Engpass werden — der Reiz des Spiels besteht darin, permanent den aktuell schwächsten Engpass zu identifizieren und auszubauen.
+## Kernloop ab dem ersten Tap
 
-Das Spiel ist bewusst **kein** reiner Zahlen-Zuwachs. Der Kern ist ein Durchsatzproblem mit drei konkurrierenden Achsen.
-
-### Währung
-
-**Fiktive Goldmünzen**, keine reale Währung.
-
-Begründung: Reale Währung wird bei Beträgen jenseits von 10^15 unfreiwillig komisch und wirft Fragen auf (Inflation, Kaufkraft), die das Spiel nicht beantworten will. Goldmünzen sind abstrakt genug, um beliebig zu skalieren.
-
-**1 Klick = 1 Münze** als Startwert. Bewusst nicht 0,10 € o. ä. — krumme Startwerte machen alle Folgeformeln unnötig hässlich.
-
----
-
-## 2. Die Kette
-
-```
-Klick/Produktion  →  TRUHE  →  FAHRER  →  TRESOR
-   (Münzen/s)      (Puffer)   (Fuhren)   (Vermögen)
+```text
+Geschäft → Geschäftstruhe → Transport → Tresor → Investition
 ```
 
-| Glied | Rolle | Ausbaubar durch |
+Alle vier Stationen sind von Anfang an sichtbar. Nur Gold im Tresor ist ausgebbar.
+
+Zu Beginn übernimmt der Spieler den Transport selbst. Während er unterwegs ist, kann er keine weiteren Geschäfte abschließen und auch seine Mitarbeiter pausieren. Die ersten Transport-Upgrades sind deshalb:
+
+1. Bessere Schuhe
+2. Fahrrad
+3. Auto
+
+Sie verkürzen die Fahrt und erhöhen die Ladung, beseitigen aber nicht den Zielkonflikt. Der erste große Automatisierungssprung ist ein Bote: Fahrten starten danach automatisch und das Geschäft produziert während des Transports weiter. Anschließend skalieren Ladekapazität und Anzahl der gemeinsam fahrenden Fahrzeuge als Konvoi.
+
+## Aktiv und idle
+
+- Ein Tap auf „Geschäft abschließen“ erzeugt sofort Gold in der Truhe.
+- Upgrades erhöhen den Wert eines Abschlusses.
+- Mitarbeiter erzeugen passives Gold.
+- Taps bleiben dauerhaft lohnend, werden aber relativ zur automatisierten Produktion weniger wichtig.
+- Der Spieler soll in kurzen aktiven Phasen investieren und optimieren können, danach aber sinnvoll idle fortschreiten.
+- Ein Run soll mehrere Tage tragen. Prestige ist noch nicht Teil des Vertical Slice; das Savegame ist dafür versioniert vorbereitet.
+
+## Kette und Engpässe
+
+| Station | Funktion | Typische Upgrades |
 |---|---|---|
-| **Produktion** | Münzen/s aus Klicks + Autoklick | Münzen pro Klick, Autoklicker |
-| **Truhe** | Puffer, den der Fahrer abholt | Truhen-Kapazität |
-| **Fahrer** | Transport in diskreten Fuhren | Ladung/Fuhre, Anzahl Fahrer |
-| **Tresor** | Endlager, zählt als Vermögen | Tresor-Kapazität, Sicherheit |
+| Geschäft | Aktive und passive Produktion | bessere Abschlüsse, Mitarbeiter |
+| Truhe | Ungesicherter Puffer | Kapazität |
+| Transport | Diskrete Lieferung | Schuhe, Fahrrad, Auto, Bote, Transporter, Konvoi |
+| Tresor | Geschütztes und ausgebbares Vermögen | Kapazität, Sicherheit |
 
-### KRITISCH: Der Fahrer fährt in diskreten Fuhren
+Transport bleibt immer diskret. Zu Fahrtbeginn wird eine feste Ladung aus der Truhe genommen und ist bis zur Ankunft als `inTransitGold` gebunden. Neue Produktion bleibt in der Truhe. Der Transport nimmt nie mehr mit, als noch in den Tresor passt.
 
-Dies ist die wichtigste Designentscheidung des Dokuments und darf beim Prototyping **nicht** vereinfacht werden.
+## Diebstahl und Sicherheit
 
-Wenn der Fahrer als kontinuierlicher Fluss modelliert wird, ist die Truhe im Dauerbetrieb **vollständig wirkungslos** — ein Puffer zwischen zwei konstanten Raten limitiert nichts, es gilt schlicht `min(Produktion, Fahrer)`. Die Truhe wäre dann totes UI.
+Diebstahl findet aktiv und offline statt, greift aber nur ungesichertes Gold in der Truhe an. Tresorgold und bereits transportierte Ladung sind sicher.
 
-Erst durch diskrete Fuhren bekommt sie eine Rolle: Alle `TICK` Sekunden fährt der Fahrer los und nimmt `Ladung` Münzen mit. Zwischen zwei Fuhren muss die Truhe die gesamte Produktion aufnehmen können, sonst geht der Überschuss verloren.
+Statt einer unsichtbaren Zufallswahrscheinlichkeit nutzt das Spiel eine sichtbare Aufmerksamkeitsanzeige:
 
----
+- Sie steigt, solange Gold in der Truhe liegt.
+- Eine vollere Truhe erhöht sie schneller.
+- Bei 100 % wird ein prozentualer Anteil des Truheninhalts gestohlen.
+- Danach fällt die Anzeige auf einen kleinen Restwert zurück.
+- Sicherheitsstufen verlangsamen den Anstieg und senken den Verlust.
 
-## 3. Kernformel
+Sicherheitsstufen: Einfaches Schloss, Wachhund, Kameras, Wachdienst und Sicherheitszentrale. Sie werden im Tresorbereich ausgebaut und sind integraler Teil seiner Progression. Es gibt bewusst kein reales Nachtfenster; dadurch werden unterschiedliche Spielzeiten nicht benachteiligt und Manipulation über die Gerätezeit vermieden.
 
-Der effektive Durchsatz zum Tresor ist das schwächste Glied:
+## Offline-Fortschritt
 
-```
-Rate = min(
-  Produktion,                          // Münzen/s
-  Fahrer × Ladung / TICK,              // Transportkapazität
-  Truhe / TICK                         // Pufferkapazität
-)
-```
+Beim Öffnen oder Zurückkehren in den Tab rekonstruiert dieselbe Engine maximal acht Stunden:
 
-Drei Terme → es bindet immer genau einer. Der Spieler sieht idealerweise im UI, **welcher** gerade bindet.
+- passive Produktion,
+- Produktionspausen beim eigenen Transport,
+- diskrete Fahrten,
+- automatisierte Folgefahrten,
+- Überfüllungsverluste,
+- Aufmerksamkeit und Einbrüche,
+- Tresorgrenzen.
 
-Der **Tresor steht bewusst außerhalb** dieses `min()`. Er deckelt nicht die Rate, sondern das **Vermögen**. Läuft er voll, steht die gesamte Kette — das ist ein anders gelagerter Druck als die drei Durchsatz-Engpässe und braucht eigenes UI-Feedback.
+Ein Rückkehrdialog fasst verdientes, gesichertes und gestohlenes Gold zusammen. Die Simulationslogik ist zeitbasiert und unabhängig von der Bildrate.
 
----
+## Savegame
 
-## 4. Formeln und Konstanten
+Der Spielstand liegt zunächst lokal im Browser und enthält eine `schemaVersion`, Timestamps, Upgrades, Bestände, Lebenszeitstatistiken und Ereigniszähler. Autosave erfolgt regelmäßig und beim Verlassen des Tabs. Die PWA funktioniert nach dem ersten Laden auch ohne Netz.
 
-```ts
-const TICK = 30;                          // Fuhrintervall in Sekunden
+## Audio und Haptik
 
-// Effekt-Kurven (n = Anzahl gekaufter Upgrades dieser Achse)
-const prod   = (n: number) => 1    * 1.30 ** n;   // Münzen/s
-const truhe  = (n: number) => 50   * 1.30 ** n;   // Kapazität in Münzen
-const ladung = (n: number) => 20   * 1.30 ** n;   // Münzen pro Fuhre
-const tresor = (n: number) => 5000 * 1.40 ** n;   // Vermögensdeckel
+Taps, Käufe und abgeschlossene Fahrten besitzen kurze synthetisierte Soundeffekte. Unterstützte Browser erhalten zusätzlich dezente Vibrationen. Eine spätere native App kann dieselben Ereignisse über Capacitor mit nativer Haptik verbinden. Reduzierte Bewegungseinstellungen des Betriebssystems werden respektiert.
 
-// Kosten-Kurven
-const kosten = {
-  klick:  (n: number) => 12  * 1.36 ** n,
-  truhe:  (n: number) => 40  * 1.36 ** n,
-  ladung: (n: number) => 90  * 1.36 ** n,
-  fahrer: (n: number) => 600 * 1.90 ** n,   // Sprung-Upgrade: verdoppelt Durchsatz
-  tresor: (n: number) => 300 * 1.35 ** n,
-};
-```
+## Technische Architektur
 
-### Warum diese Zahlen
+- React, TypeScript und Vite
+- UI-unabhängige TypeScript-Spielengine
+- Vitest für Engine- und Offline-Regeln
+- SVG/CSS-basierte Darstellung ohne Game-Engine
+- `vite-plugin-pwa` für Manifest und Service Worker
+- GitHub Actions für Tests, Build und Pages-Deployment
+- Local Storage mit versioniertem Savegame
 
-**Symmetrieregel (nicht verhandelbar):** Damit der Engpass dauerhaft rotiert, muss `ln(Kostenfaktor) / ln(Effektfaktor)` auf allen drei Durchsatz-Achsen gleich sein.
-
-Ein Gegentest mit additivem Klick-Upgrade (`+1 Münze/Klick`) und flacherer Kostenkurve ergab eine Engpass-Verteilung von **90 / 16 / 14** — Produktion dominierte, das Spiel degenerierte zu „immer Klick kaufen". Additive Effekte werden relativ immer schwächer (Zuwachs `1/n`), was die Kostenkurve ausgleichen müsste.
-
-Mit symmetrischen multiplikativen Kurven: **69 / 68 / 63** über 200 Käufe. Die Kaufreihenfolge rotiert sauber (`LA KL TR LA KL TR …`).
-
-**Kostenfaktor muss größer als Effektfaktor sein.** Bei `g = e` beschleunigt sich das Spiel unbegrenzt: Der Testlauf erreichte nach 1,2 h bereits 1,4 Mio Münzen/s ohne jede Verlangsamung. Der gewählte Spread (1.36 vs. 1.30) bremst sanft.
-
-**Unterschiedliche Basiskosten (12 / 40 / 90) sind Absicht.** Sie erzeugen die interessante Frühphase: In den ersten 20 Minuten wechselte der Engpass sechsmal, weil die Achsen unterschiedlich teuer starten, aber gleich schnell wachsen.
-
-**Der Extra-Fahrer (Faktor 1.90) ist bewusst ein seltenes Sprung-Upgrade.** Er verdoppelt den Durchsatz auf einen Schlag, überholt kurzzeitig alles und macht danach sofort Ladung oder Truhe zum Engpass. Setzt Akzente in einer sonst gleichmäßigen Kurve.
-
-### Referenz-Zielwerte aus der Simulation
-
-Greedy-Agent (kauft immer das effizienteste Upgrade), Parameter wie oben:
-
-| Käufe | Zeit | Rate |
-|---|---|---|
-| 25 | 28 min | 10 Münzen/s |
-| 50 | 44 min | 62 Münzen/s |
-| 100 | 1,3 h | 1.550 Münzen/s |
-| 150 | 2,1 h | 38.374 Münzen/s |
-| 200 | 3,3 h | 846.434 Münzen/s |
-
-Das ist eine gute Länge für die erste Prestige-Runde. Wenn der Prototyp deutlich davon abweicht, stimmt etwas mit der Implementierung nicht.
-
----
-
-## 5. Phasen-Gating
-
-Das Spiel öffnet seine Systeme gestaffelt, statt alles sofort zu zeigen:
-
-1. **Start:** Nur Klicken und Truhe. Truhe füllt sich, Spieler baut Kapazität aus.
-2. **Trigger:** Truhen-Kapazität wird zu teuer (empirisch: ab ca. Upgrade-Stufe 8–10 spürbar).
-3. **Freischaltung Tresor:** Jetzt wird sichtbar, dass die Truhe nur Puffer ist. Das Vermögen zieht in den Tresor um.
-4. **Freischaltung Fahrer:** Sofort mit dem Tresor, sonst kommt kein Gold an.
-5. **Freischaltung Sicherheit:** Sobald ein Schwellenvermögen erreicht ist (Vorschlag: 10.000 Münzen im Tresor).
-
-Neue Systeme sind stärkere Motivatoren als größere Zahlen. Freischaltungen an Meilensteine binden, nicht an Zeit.
-
----
-
-## 6. Diebstahl und Sicherheit
-
-### Grundregel: Diebe plündern NUR die Truhe, niemals den Tresor
-
-Dies ist eine harte Designregel. Begründung:
-
-- Der klassische Frustmoment „8 Stunden weg, alles verloren" führt zur Deinstallation. Verlustaversion ist bei Idle Games ein sehr scharfes Werkzeug.
-- Wenn nur die Truhe betroffen ist, wird der **Fahrer zur Sicherheitsmaßnahme**: Gold schnell wegbringen = geschützt. Das verzahnt die drei Systeme, statt ein viertes danebenzustellen.
-- Der Tresor wird dadurch zum echten Safe Haven — thematisch stimmig und mechanisch entlastend.
-
-### Mechanik
-
-- Einbruchswahrscheinlichkeit steigt mit dem **Truheninhalt** (nicht mit dem Gesamtvermögen).
-- Sicherheits-Upgrades senken die Wahrscheinlichkeit und/oder den prozentualen Verlust.
-- Verlust immer als **Prozentsatz des Truheninhalts**, nie als absoluter Betrag.
-- **Nachtfenster:** Zwischen 22:00 und 08:00 Uhr Ortszeit finden keine Einbrüche statt.
-
-### Falls Tresor-Risiko später gewünscht
-
-Nur als abwehrbares Event mit Vorwarnung, nie als stiller Prozentabzug. Für den Prototypen ausdrücklich **nicht** einbauen.
-
----
-
-## 7. Datenmodell und Tick-Loop
-
-```ts
-interface GameState {
-  // Upgrade-Stufen
-  klickLvl: number;
-  truheLvl: number;
-  ladungLvl: number;
-  fahrerCount: number;      // startet bei 1
-  tresorLvl: number;
-  sicherheitLvl: number;
-
-  // Bestände
-  truheInhalt: number;      // Münzen im Puffer
-  tresorInhalt: number;     // Vermögen
-  guthaben: number;         // ausgebbar
-
-  // Timing
-  letzteFuhre: number;      // Timestamp
-  letzterTick: number;      // Timestamp für Offline-Berechnung
-}
-```
-
-**Tick-Loop (Vorschlag: 10 Hz für UI, Logik zeitbasiert per Delta):**
-
-1. Produktion auf `truheInhalt` addieren, gedeckelt auf `truhe(truheLvl)`. Überschuss verfällt (mit sichtbarem UI-Feedback — der Spieler muss merken, dass er verliert).
-2. Wenn `now - letzteFuhre >= TICK`: Fuhre abwickeln. `min(truheInhalt, fahrerCount × ladung(ladungLvl))` von Truhe in Tresor verschieben, gedeckelt auf `tresor(tresorLvl)`.
-3. Einbruchs-Roll (nur außerhalb des Nachtfensters, Wahrscheinlichkeit abhängig von `truheInhalt` und `sicherheitLvl`).
-
-**Wichtig:** Der Tick-Loop muss zeitbasiert (`delta`) rechnen, nicht frame-basiert. Sonst driftet das Spiel je nach Framerate und Offline-Progress wird inkonsistent.
-
----
+Prestige, Cloud-Sync, App-Store-Pakete und Monetarisierung folgen erst, wenn der Kernloop anhand des Vertical Slice validiert wurde.
