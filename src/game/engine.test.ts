@@ -7,6 +7,7 @@ import {
   getSlotUpgrades,
   passiveRate,
   securityRating,
+  slotVisualLevel,
   slotUpgradeCost,
   vaultCapacity,
 } from './config'
@@ -116,6 +117,14 @@ describe('Vault Run engine', () => {
     state = buySlotUpgrade(state, 'miners', 2)
     expect(state.minerLevels).toEqual([0, 0, 1, 0])
     expect(passiveRate(state)).toBeGreaterThan(0)
+  })
+
+  it('shows the first miner sprite at level one while a hired transporter becomes a horse', () => {
+    expect(slotVisualLevel('miners', 0)).toBe(0)
+    expect(slotVisualLevel('miners', 1)).toBe(0)
+    expect(slotVisualLevel('miners', 2)).toBe(1)
+    expect(slotVisualLevel('transporters', 0)).toBe(0)
+    expect(slotVisualLevel('transporters', 1)).toBe(1)
   })
 
   it('spends only secured treasure-chest gold on equipment', () => {
