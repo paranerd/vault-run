@@ -6,13 +6,14 @@ import {
   ChartNoAxesCombined,
   Clock3,
   Coins,
+  Eye,
   Footprints,
   Landmark,
   LockKeyhole,
   RotateCcw,
-  ShieldCheck,
   SlidersHorizontal,
   Truck,
+  UsersRound,
   Vault,
   Volume2,
   VolumeX,
@@ -357,7 +358,6 @@ function App() {
           <strong><Coins size={18} /> {formatGold(state.vaultGold)}</strong>
         </div>
         <div className="header-actions">
-          <div className="live-status"><i /> {formatGold(passiveRate(state))}/s</div>
           <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
             {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
           </button>
@@ -421,22 +421,33 @@ function App() {
                   <strong>{formatGold(state.chestGold)}</strong>
                   <small>von {formatGold(chestMax)}</small>
                 </div>
-                <button
-                  ref={chestRef}
-                  className={`station-visual station-visual--chest ${chestFull ? 'is-closed' : ''}`}
-                  style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}
-                  onClick={handleTransport}
-                  disabled={!canUseChest}
-                  aria-label={`${state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
-                >
-                  <ChestGlyph closed={chestFull} />
-                  {canUseChest && (
-                    <span className="chest-action-badge" aria-hidden="true">
-                      <TransportGlyph kind={state.courierUnlocked ? 'truck' : currentTransport.icon} size={13} />
-                    </span>
-                  )}
-                </button>
-                <div className="threat-line"><ShieldCheck size={13} /> Aufmerksamkeit <b>{Math.floor(state.threat)}%</b></div>
+                <div className="chest-visual-row">
+                  <button
+                    ref={chestRef}
+                    className={`station-visual station-visual--chest ${chestFull ? 'is-closed' : ''}`}
+                    style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}
+                    onClick={handleTransport}
+                    disabled={!canUseChest}
+                    aria-label={`${state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
+                  >
+                    <ChestGlyph closed={chestFull} />
+                    {canUseChest && (
+                      <span className="chest-action-badge" aria-hidden="true">
+                        <TransportGlyph kind={state.courierUnlocked ? 'truck' : currentTransport.icon} size={13} />
+                      </span>
+                    )}
+                  </button>
+                  <div className="chest-indicators" aria-label="Geschäftsstatus">
+                    <div className="chest-indicator chest-indicator--production" aria-label={`Passive Produktion: ${formatGold(passiveRate(state))} Gold pro Sekunde`}>
+                      <UsersRound size={16} aria-hidden="true" />
+                      <strong>{formatGold(passiveRate(state))}/s</strong>
+                    </div>
+                    <div className="chest-indicator chest-indicator--attention" aria-label={`Aufmerksamkeit: ${Math.floor(state.threat)} Prozent`}>
+                      <Eye size={16} aria-hidden="true" />
+                      <strong>{Math.floor(state.threat)}%</strong>
+                    </div>
+                  </div>
+                </div>
               </article>
             </div>
 
