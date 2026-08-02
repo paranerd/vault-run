@@ -132,20 +132,8 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
 .station { min-width: 148px; padding: 5px; text-align: center; }
 .chest-station { width: min(340px, 100%); }
 .station.is-full .station-visual { animation: full-alert .9s ease-in-out infinite; }
-.amount-display span,.station-heading strong { display: block; color: var(--muted); font-size: 11px; font-weight: 800; }
-.amount-display strong {
-  display: block;
-  overflow: hidden;
-  margin-top: 2px;
-  color: var(--ink);
-  font-size: clamp(23px, 7vw, 34px);
-  line-height: 1;
-  letter-spacing: -.055em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.amount-display small,.station-heading span { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
-.station-heading { min-height: 30px; display: flex; flex-direction: column; justify-content: center; }
+.station-heading strong { display: block; color: var(--muted); font-size: 11px; font-weight: 800; }
+.station-heading { min-height: 20px; display: flex; flex-direction: column; justify-content: center; }
 
 .station-visual {
   position: relative;
@@ -160,13 +148,6 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   border-radius: 24px;
 }
 .station-visual svg { position: relative; z-index: 2; }
-.station-visual::before {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: var(--fill);
-  transition: height .2s ease-out;
-}
 .station-visual--chest {
   color: #8b5900;
   background: linear-gradient(145deg, #fff7dd, #ffe7a2);
@@ -176,9 +157,6 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
 .station-visual--chest:not(:disabled) { box-shadow: 0 9px 22px rgba(156,101,0,.16); }
 .station-visual--chest:not(:disabled):active { transform: translateY(3px) scale(.97); }
 .station-visual--chest:disabled { cursor: default; }
-.station-visual--chest::before {
-  background: linear-gradient(180deg, rgba(244,185,66,.42), rgba(244,185,66,.88));
-}
 .chest-glyph { width: 55px; height: 55px; overflow: visible; }
 .chest-glyph__lid,.chest-glyph__body {
   fill: rgba(255,255,255,.55);
@@ -232,17 +210,18 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
 .chest-indicator--production svg { color: var(--green); }
 .chest-indicator--attention svg { color: var(--red); }
 .station-visual--vault { color: #3451d1; background: linear-gradient(145deg, #eef1ff, #dbe3ff); }
-.station-visual--vault::before { background: linear-gradient(180deg, rgba(113,139,232,.34), rgba(52,81,209,.68)); }
+.storage-meter { width: 92px; margin: 4px auto 0; }
+.storage-meter__bar { height: 6px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.storage-meter__bar i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), #d99512); transition: width .2s ease-out; }
+.vault-station .storage-meter__bar i { background: linear-gradient(90deg, #718be8, var(--blue)); }
+.storage-meter__amount { margin-top: 4px; display: flex; align-items: baseline; justify-content: center; color: var(--muted); line-height: 1; white-space: nowrap; }
+.storage-meter__amount strong { color: var(--ink); font-size: 15px; letter-spacing: -.035em; }
+.storage-meter__amount span { font-size: 9px; font-weight: 700; }
 .security-line { margin-top: 7px; display: flex; gap: 4px; align-items: center; color: var(--muted); font-size: 8px; font-weight: 700; white-space: nowrap; }
 .security-line { justify-content: center; overflow: hidden; color: var(--green); text-overflow: ellipsis; }
 
 .transport-lane { width: min(184px, 58vw); min-height: 54px; height: 100%; }
 .road { position: relative; width: 100%; height: 100%; min-height: 54px; }
-.road-line { position: absolute; top: 0; bottom: 0; width: 36%; border: 2px solid #cbd2df; }
-.road-line--out { left: 13%; border-right: 0; border-radius: 48% 0 0 48%; }
-.road-line--back { right: 13%; border-left: 0; border-radius: 0 48% 48% 0; }
-.direction { position: absolute; color: #a6afbf; font-size: 12px; font-weight: 800; }
-.direction--out { top: 19%; left: 18%; }.direction--back { right: 18%; bottom: 19%; }
 .vehicle {
   --vehicle-position: 0%;
   position: absolute;
@@ -315,6 +294,8 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
 }
 .gold-button__icon { width: 39px; height: 35px; display: grid; place-items: center; }
 .gold-button > strong { font-size: 17px; line-height: 1; letter-spacing: -.025em; }
+.gold-button__progress { position: absolute; right: 13px; bottom: 9px; left: 13px; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(94,66,8,.2); }
+.gold-button__progress i { display: block; width: 0; height: 100%; border-radius: inherit; background: #fff9df; transition: width .1s linear; }
 .gold-button:active:not(:disabled) { transform: translateY(4px) scale(.98); box-shadow: 0 7px 14px rgba(178,124,17,.18), inset 0 1px rgba(255,255,255,.75); }
 .gold-button:disabled { cursor: not-allowed; }
 .gold-button:disabled { filter: grayscale(.65); opacity: .62; }
@@ -451,8 +432,8 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   .station { padding-top: 2px; padding-bottom: 2px; }
   .station-visual { width: 58px; height: 58px; margin: 3px auto; border-radius: 18px; }
   .station-visual svg { width: 41px; height: 41px; }
-  .amount-display strong { font-size: 21px; }
-  .station-heading { min-height: 29px; }
+  .station-heading { min-height: 18px; }
+  .storage-meter { margin-top: 2px; }
   .security-line { margin-top: 3px; }
   .chest-indicators { gap: 5px; }
   .action-dock { min-height: 93px; }
@@ -472,9 +453,9 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   .core-loop { grid-template-rows: auto minmax(48px,1fr) auto minmax(0,1fr); }
   .station { min-width: 230px; padding: 10px 14px; }
   .chest-station { width: min(440px,100%); }
-  .amount-display strong { font-size: clamp(32px,4vw,44px); }
-  .station-heading strong { font-size: 14px; }.station-heading span { font-size: 11px; }
+  .station-heading strong { font-size: 14px; }
   .station-visual { width: 102px; height: 102px; border-radius: 30px; margin: 8px auto; }.station-visual svg { width: 64px; height: 64px; }
+  .storage-meter { width: 118px; margin-top: 6px; }.storage-meter__bar { height: 7px; }.storage-meter__amount strong { font-size: 18px; }.storage-meter__amount span { font-size: 10px; }
   .chest-indicators { min-width: 78px; margin-left: 16px; gap: 10px; }
   .chest-indicator { gap: 8px; }.chest-indicator svg { width: 19px; height: 19px; }.chest-indicator strong { font-size: 12px; }
   .transport-lane { width: 250px; min-height: 82px; }

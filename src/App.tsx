@@ -138,6 +138,27 @@ function ChestGlyph({ closed }: { closed: boolean }) {
   )
 }
 
+function StorageMeter({ value, capacity, label }: { value: number; capacity: number; label: string }) {
+  const fill = percentage(value, capacity)
+  return (
+    <div className="storage-meter">
+      <div
+        className="storage-meter__bar"
+        role="progressbar"
+        aria-label={`${label} zu ${Math.round(fill)} Prozent gefüllt`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(fill)}
+      >
+        <i style={{ width: `${fill}%` }} />
+      </div>
+      <div className="storage-meter__amount">
+        <strong>{formatGold(value)}</strong><span>/{formatGold(capacity)}</span>
+      </div>
+    </div>
+  )
+}
+
 function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: GameState; onBuy: (id: UpgradeId) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
@@ -237,6 +258,9 @@ function App() {
   const isTravelling = state.transportEndsAt !== null
   const isExpressTravelling = state.expressEndsAt !== null
   const businessPaused = isTravelling && !state.courierUnlocked
+  const manualTransportProgress = businessPaused
+    ? percentage(now - (state.transportStartedAt ?? now), (state.transportEndsAt ?? now) - (state.transportStartedAt ?? now))
+    : 100
   const tripPosition = roundTripPosition(state.transportStartedAt, state.transportEndsAt, now)
   const expressPosition = roundTripPosition(state.expressStartedAt, state.expressEndsAt, now)
   const currentTransport = TRANSPORTS[state.transportLevel]
@@ -371,28 +395,16 @@ function App() {
               <article className="station vault-station">
                 <div className="station-heading">
                   <strong>Tresor</strong>
-                  <span>Kapazität {formatGold(vaultMax)}</span>
                 </div>
-                <div
-                  className="station-visual station-visual--vault"
-                  style={{ '--fill': `${percentage(state.vaultGold, vaultMax)}%` } as CSSProperties}
-                  role="progressbar"
-                  aria-label={`Tresor zu ${Math.round(percentage(state.vaultGold, vaultMax))} Prozent gefüllt`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(percentage(state.vaultGold, vaultMax))}
-                >
+                <div className="station-visual station-visual--vault">
                   <Vault size={49} strokeWidth={1.55} />
                 </div>
+                <StorageMeter value={state.vaultGold} capacity={vaultMax} label="Tresor" />
                 <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
               </article>
 
               <div className="transport-lane" aria-label="Transportstrecke">
                 <div className="road">
-                  <span className="road-line road-line--out" />
-                  <span className="road-line road-line--back" />
-                  <span className="direction direction--out">↑</span>
-                  <span className="direction direction--back">↓</span>
                   {isTravelling && (
                     <div
                       className={`vehicle ${mainAtVault ? 'is-returning' : ''}`}
@@ -416,16 +428,13 @@ function App() {
               </div>
 
               <article className={`station chest-station ${chestFull ? 'is-full' : ''}`}>
-                <div className="amount-display">
-                  <span>Truhe</span>
-                  <strong>{formatGold(state.chestGold)}</strong>
-                  <small>von {formatGold(chestMax)}</small>
+                <div className="station-heading">
+                  <strong>Truhe</strong>
                 </div>
                 <div className="chest-visual-row">
                   <button
                     ref={chestRef}
                     className={`station-visual station-visual--chest ${chestFull ? 'is-closed' : ''}`}
-                    style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}
                     onClick={handleTransport}
                     disabled={!canUseChest}
                     aria-label={`${state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
@@ -448,6 +457,7 @@ function App() {
                     </div>
                   </div>
                 </div>
+                <StorageMeter value={state.chestGold} capacity={chestMax} label="Truhe" />
               </article>
             </div>
 
@@ -489,6 +499,18 @@ function App() {
               >
                 <span className="gold-button__icon"><Coins size={31} /></span>
                 <strong>{chestFull ? 'Truhe voll' : businessPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
+                {businessPaused && (
+                  <span
+                    className="gold-button__progress"
+                    role="progressbar"
+                    aria-label="Eigener Transport"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(manualTransportProgress)}
+                  >
+                    <i style={{ width: `${manualTransportProgress}%` }} />
+                  </span>
+                )}
               </button>
               <button className={`dock-button ${panel === 'stats' ? 'is-active' : ''}`} onClick={() => openPanel('stats')}>
                 <ChartNoAxesCombined size={22} /><span>Statistik</span>
