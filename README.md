@@ -16,7 +16,8 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Pickhacke
 ## Gestaltung
 
 - konsistente 32-Bit-Fantasy-Sprites für alle sichtbaren Upgrade-Stufen
-- `Pixelify Sans` als lokal gebündelte, gut lesbare Pixel-Schrift
+- zweistufige Typografie: lokal gebündelte `Pixelify Sans` für kurze Spielbegriffe und Systemschrift für längere, gut lesbare Texte
+- ruhige Pixelminen-Kulisse und eine code-native 16×16-Pixelmünze für Beträge und Schürfanimationen
 - warme Pergament-, Holz-, Stein- und Goldpalette
 - harte Pixel-Schatten, gerasterte Fortschrittsbalken und PWA-App-Icon im selben Stil
 

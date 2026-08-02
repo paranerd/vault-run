@@ -49,7 +49,7 @@ Ein Tap auf den Beutel startet die Reise. Nach Anheuern des Fuhrknechts löst de
 
 Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Schürfaktion, Goldbeutel, Reise und Schatztruhe bleiben dauerhaft sichtbar. Beutel- und Truhenbetrag sind die prominentesten Zahlen. Der Beutel selbst startet die manuelle Reise beziehungsweise die Eilreise. Ist er voll, wird die Schürfaktion deaktiviert und ein Schlag erzeugt weder Gold noch Überfüllungsverlust. Ein Fortschrittsbalken im Schürf-Button zeigt die eigene Reise, während der Spieler nicht abbauen kann. Erzeugtes Gold fliegt langsam und auf leicht variierenden Bahnen zum Beutel.
 
-Der Stil ist Fantasy-Pixel-Art mit warmem Pergament, dunklem Holz, Stein, Kupfer und Gold. Harte Rahmen, blockige Schatten und segmentierte Balken ersetzen die vorherigen weichen, modernen Flächen. `Pixelify Sans` ist lokal gebündelt und verbindet Pixel-Charakter mit guter Lesbarkeit auf kleinen Displays.
+Der Stil ist Fantasy-Pixel-Art mit warmem Pergament, dunklem Holz, Stein, Kupfer und Gold. Harte Rahmen, blockige Schatten und segmentierte Balken ersetzen die vorherigen weichen, modernen Flächen. Die lokal gebündelte `Pixelify Sans` bleibt kurzen Spielbegriffen, Überschriften und markanten Zahlen vorbehalten; Beschreibungen und längere Texte nutzen die Systemschrift für bessere Lesbarkeit. Eine kontrastarme Pixelminen-Kulisse mit Stollenbalken, Steinraster und vereinzelten Erzpunkten belebt den Hintergrund, ohne mit den Bedienelementen zu konkurrieren. Goldbeträge und Schürfanimationen verwenden dieselbe code-native 16×16-Pixelmünze.
 
 Die Haupt- und Upgrade-Icons zeigen sichtbare Progression:
 
