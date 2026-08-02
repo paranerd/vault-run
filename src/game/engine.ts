@@ -1,4 +1,5 @@
 import {
+  GOLD_FLIGHT_DURATION_MS,
   MAX_OFFLINE_SECONDS,
   cargoCapacity,
   chestCapacity,
@@ -92,7 +93,7 @@ export function startTransport(state: GameState, now = Date.now()): GameState {
   next.inTransitGold = payload
   next.transportStartedAt = now
   const duration = transportDuration(next) * 1000
-  next.transportDeliveredAt = now + duration / 2
+  next.transportDeliveredAt = now + GOLD_FLIGHT_DURATION_MS
   next.transportEndsAt = now + duration
   return next
 }
@@ -106,7 +107,7 @@ export function startExpressTransport(state: GameState, now = Date.now()): GameS
   next.expressGold = payload
   next.expressStartedAt = now
   const duration = expressDuration(next) * 1000
-  next.expressDeliveredAt = now + duration / 2
+  next.expressDeliveredAt = now + GOLD_FLIGHT_DURATION_MS
   next.expressEndsAt = now + duration
   return next
 }
