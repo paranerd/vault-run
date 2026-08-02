@@ -73,6 +73,11 @@ const effectValue = (value: number) => Math.floor(value).toLocaleString('de-DE')
 const effectRate = (value: number) => value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
+export const slotVisualLevel = (group: SlotGroup, level: number) => {
+  if (group === 'transporters') return Math.max(0, level)
+  return Math.max(0, level - 1)
+}
+
 export const tapValue = (state: GameState) => 1 * 1.42 ** state.tapLevel
 export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
 export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
@@ -194,7 +199,7 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       available: true,
       accent: SLOT_ACCENT[group],
       spriteFamily: SLOT_SPRITE[group],
-      spriteLevel: level,
+      spriteLevel: slotVisualLevel(group, level),
     }
   })
 }

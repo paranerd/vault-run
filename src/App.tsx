@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
+  BarChart3,
   Check,
   Clock3,
   Eye,
   RotateCcw,
+  Settings,
   ShieldCheck,
   Volume2,
   VolumeX,
@@ -19,6 +21,7 @@ import {
   hasAutomaticTransport,
   passiveRate,
   securityRating,
+  slotVisualLevel,
   tapValue,
   threatReductionPerClick,
   transportDuration,
@@ -48,8 +51,9 @@ interface PanelState {
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
 
-interface CoinFlight {
+interface GoldFlight {
   id: number
+  kind: 'coin' | 'pile'
   value: number
   left: number
   top: number
@@ -125,6 +129,14 @@ function PixelCoin({ className = '' }: { className?: string }) {
   )
 }
 
+function PixelGoldPile() {
+  return (
+    <span className="pixel-gold-pile" aria-hidden="true">
+      <PixelCoin /><PixelCoin /><PixelCoin />
+    </span>
+  )
+}
+
 function UpgradeIcon() {
   return <img className="equipment-button__icon" src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
 }
@@ -170,7 +182,7 @@ function SlotGrid({
         const index = rawIndex as SlotIndex
         return (
           <button key={index} className={level === 0 ? 'is-empty' : ''} onClick={() => onOpen(index)} aria-label={`Slot ${index + 1}, ${level === 0 ? 'unbesetzt' : `Stufe ${level}`}`}>
-            <PixelSprite family={family} level={level} />
+            <PixelSprite family={family} level={slotVisualLevel(SECTION_SLOT_GROUP[section], level)} />
             <b>{level === 0 ? '+' : level}</b>
           </button>
         )
@@ -183,8 +195,9 @@ function SlotGrid({
 function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView; state: GameState; focused?: boolean; onBuy: (upgrade: UpgradeView) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
+  const unowned = Boolean(upgrade.slot && upgrade.level === 'Unbesetzt')
   return (
-    <article className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''}`}>
+    <article className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''} ${unowned ? 'is-unowned' : ''}`}>
       <div className="upgrade-card__content">
         <span className="upgrade-card__sprite"><PixelSprite family={upgrade.spriteFamily} level={upgrade.spriteLevel} /></span>
         <div className="upgrade-card__details">
@@ -207,15 +220,20 @@ function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView;
 function App() {
   const [state, setState] = useState<GameState>(() => loadGame())
   const [panel, setPanel] = useState<PanelState | null>(null)
+  const [headerPanel, setHeaderPanel] = useState<'settings' | 'stats' | null>(null)
+  const [resetArmed, setResetArmed] = useState(false)
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
-  const [coinFlights, setCoinFlights] = useState<CoinFlight[]>([])
+  const [goldFlights, setGoldFlights] = useState<GoldFlight[]>([])
   const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
   const [upgradeNoticePulsing, setUpgradeNoticePulsing] = useState(false)
   const sceneRef = useRef<HTMLDivElement>(null)
   const bagButtonRef = useRef<HTMLButtonElement>(null)
+  const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
   const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
+  const lastMainTransportStart = useRef(state.transportStartedAt)
+  const lastExpressTransportStart = useRef(state.expressStartedAt)
   const previousAffordable = useRef(new Set<string>())
   const pulseTimer = useRef<number | null>(null)
 
@@ -281,28 +299,40 @@ function App() {
     setPanel({ section, kind, focus })
   }
 
-  const launchCoin = (value: number) => {
+  const launchGold = (value: number, kind: GoldFlight['kind']) => {
     const scene = sceneRef.current?.getBoundingClientRect()
-    const source = mineButtonRef.current?.getBoundingClientRect()
-    const target = bagButtonRef.current?.getBoundingClientRect()
+    const source = (kind === 'coin' ? mineButtonRef : bagButtonRef).current?.getBoundingClientRect()
+    const target = (kind === 'coin' ? bagButtonRef : chestButtonRef).current?.getBoundingClientRect()
     if (!scene || !source || !target) return
     const left = source.left + source.width / 2 - scene.left
     const top = source.top + source.height / 2 - scene.top
     const endX = target.left + target.width / 2 - scene.left - left
     const endY = target.top + target.height / 2 - scene.top - top
-    setCoinFlights((current) => [...current.slice(-5), {
+    setGoldFlights((current) => [...current.slice(-5), {
       id: ++flightSequence.current,
+      kind,
       value,
       left,
       top,
-      midX: endX * 0.5 + (Math.random() - 0.5) * 34,
-      midY: endY * 0.5 - 22 - Math.random() * 24,
+      midX: endX * 0.5 + (Math.random() - 0.5) * (kind === 'coin' ? 34 : 18),
+      midY: endY * 0.5 - (kind === 'coin' ? 22 + Math.random() * 24 : 14),
       endX: endX + (Math.random() - 0.5) * 6,
       endY: endY + (Math.random() - 0.5) * 6,
       rotation: (Math.random() - 0.5) * 70,
-      duration: 850 + Math.random() * 250,
+      duration: kind === 'coin' ? 850 + Math.random() * 250 : 900,
     }])
   }
+
+  useEffect(() => {
+    if (state.transportStartedAt !== null && state.transportStartedAt !== lastMainTransportStart.current && state.inTransitGold > 0) {
+      launchGold(state.inTransitGold, 'pile')
+    }
+    if (state.expressStartedAt !== null && state.expressStartedAt !== lastExpressTransportStart.current && state.expressGold > 0) {
+      launchGold(state.expressGold, 'pile')
+    }
+    lastMainTransportStart.current = state.transportStartedAt
+    lastExpressTransportStart.current = state.expressStartedAt
+  }, [state.transportStartedAt, state.expressStartedAt, state.inTransitGold, state.expressGold])
 
   const now = Date.now()
   const bagMax = chestCapacity(state)
@@ -322,6 +352,10 @@ function App() {
   const canStartExpress = automatic && !expressTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
   const canTransport = automatic ? canStartExpress : canStartMain
   const transportSeconds = automatic ? transportDuration(state) : 0
+  const chestRevealed = state.tripCount > 0
+    || state.vaultGold > 0
+    || (state.transportEndsAt !== null && state.inTransitGold === 0)
+    || (state.expressEndsAt !== null && state.expressGold === 0)
 
   const unseenFor = (section: SectionId, kind: PanelKind) => {
     const prefix = kind === 'equipment' ? `equipment:${section === 'mine' ? 'tap' : section === 'bag' ? 'chest' : 'vault'}` : `slot:${SECTION_SLOT_GROUP[section]}:`
@@ -332,14 +366,17 @@ function App() {
     if (playerTravelling || bagFull) return
     const earned = Math.min(tapValue(state), Math.max(0, bagMax - state.chestGold))
     setState((current) => tap(current))
-    launchCoin(earned)
+    launchGold(earned, 'coin')
     playTone('coin', sound)
     haptic(8)
   }
 
   const handleTransport = () => {
     if (!canTransport) return
-    setState((current) => automatic ? startExpressTransport(current, Date.now()) : startTransport(current, Date.now()))
+    const next = automatic ? startExpressTransport(state, Date.now()) : startTransport(state, Date.now())
+    const payload = automatic ? next.expressGold : next.inTransitGold
+    if (payload <= 0) return
+    setState(next)
     playTone('trip', sound)
     haptic(18)
   }
@@ -366,13 +403,22 @@ function App() {
     })
   }
 
-  const confirmReset = () => {
-    if (window.confirm('Den lokalen Spielstand wirklich löschen?')) {
-      localStorage.removeItem(UPGRADE_NOTICE_KEY)
-      setSeenUpgradeLevels(new Set())
-      setState(resetGame())
-      setPanel(null)
+  const handleReset = () => {
+    if (!resetArmed) {
+      setResetArmed(true)
+      return
     }
+    localStorage.removeItem(UPGRADE_NOTICE_KEY)
+    setSeenUpgradeLevels(new Set())
+    setState(resetGame())
+    setPanel(null)
+    setHeaderPanel(null)
+    setResetArmed(false)
+  }
+
+  const closeHeaderPanel = () => {
+    setHeaderPanel(null)
+    setResetArmed(false)
   }
 
   const panelUpgrades = panel
@@ -382,10 +428,10 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand-mark" aria-label="Vault Run"><PixelSprite family="pickaxe" level={3} /></div>
+        <button className="header-button" onClick={() => setHeaderPanel('settings')} aria-label="Einstellungen öffnen"><Settings size={21} /></button>
         <div className="header-wealth"><strong><PixelCoin /> {formatGold(state.vaultGold)}</strong></div>
         <div className="header-actions">
-          <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>{sound ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
+          <button className="header-button" onClick={() => setHeaderPanel('stats')} aria-label="Statistik öffnen"><BarChart3 size={21} /></button>
         </div>
       </header>
 
@@ -400,7 +446,7 @@ function App() {
                 <StatTile /><StatTile />
               </div>
               <div className="section-center">
-                <button className="section-action" disabled={state.threat <= 0} onClick={handleSecure} aria-label={`Aufmerksamkeit um ${threatReductionPerClick(state)} senken`}>
+                <button ref={chestButtonRef} className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'}`} disabled={!chestRevealed || state.threat <= 0} onClick={handleSecure} aria-label={chestRevealed ? `Aufmerksamkeit um ${threatReductionPerClick(state)} senken` : 'Schatztruhe noch nicht erreicht'}>
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
                 <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('chest', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('chest', 'equipment')} aria-label="Schatztruhe ausbauen">
@@ -422,8 +468,8 @@ function App() {
                 <StatTile />
               </div>
               <div className="section-center">
-                <button ref={bagButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={!canTransport} onClick={handleTransport} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : 'Gold zur Schatztruhe transportieren'}>
-                  {playerTravelling && <i className="section-action__progress" style={{ width: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                <button ref={bagButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''} ${bagFull && canTransport ? 'is-full' : ''}`} disabled={!canTransport} onClick={handleTransport} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : 'Gold zur Schatztruhe transportieren'}>
+                  {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
                 <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('bag', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('bag', 'equipment')} aria-label="Beutel ausbauen">
@@ -445,7 +491,7 @@ function App() {
               </div>
               <div className="section-center">
                 <button ref={mineButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={playerTravelling || bagFull} onClick={handleTap} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : `Gold schürfen: ${formatGold(tapValue(state))}`}>
-                  {playerTravelling && <i className="section-action__progress" style={{ width: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                  {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
                 <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('mine', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('mine', 'equipment')} aria-label="Pickhacke ausbauen">
@@ -456,8 +502,8 @@ function App() {
             </div>
           </article>
 
-          {coinFlights.map((flight) => (
-            <i key={flight.id} className="flying-coin" style={{
+          {goldFlights.map((flight) => (
+            <i key={flight.id} className={`flying-gold flying-gold--${flight.kind}`} style={{
               left: flight.left,
               top: flight.top,
               '--coin-mid-x': `${flight.midX}px`,
@@ -467,8 +513,8 @@ function App() {
               '--coin-rotation': `${flight.rotation}deg`,
               '--coin-end-rotation': `${flight.rotation * 1.7}deg`,
               '--coin-duration': `${flight.duration}ms`,
-            } as CSSProperties} onAnimationEnd={() => setCoinFlights((current) => current.filter((item) => item.id !== flight.id))}>
-              <PixelCoin /><span>+{formatGold(flight.value)}</span>
+            } as CSSProperties} onAnimationEnd={() => setGoldFlights((current) => current.filter((item) => item.id !== flight.id))}>
+              {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatGold(flight.value)}</span>
             </i>
           ))}
         </div>
@@ -488,10 +534,40 @@ function App() {
               <div className="upgrade-list">
                 {panelUpgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focus === upgrade.slot?.index} onBuy={handleBuy} />)}
               </div>
-              <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Spielstand löschen</button>
             </div>
           </aside>
         </>
+      )}
+
+      {headerPanel && (
+        <div className="header-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeHeaderPanel()}>
+          <section className="header-modal" role="dialog" aria-modal="true" aria-labelledby="header-modal-title">
+            <button className="header-modal__close" onClick={closeHeaderPanel} aria-label="Popup schließen">×</button>
+            <span className="modal-kicker">VAULT RUN</span>
+            <h2 id="header-modal-title">{headerPanel === 'settings' ? 'Einstellungen' : 'Statistik'}</h2>
+            {headerPanel === 'settings' ? (
+              <div className="settings-list">
+                <button className="settings-toggle" onClick={toggleSound} aria-pressed={sound}>
+                  {sound ? <Volume2 size={22} /> : <VolumeX size={22} />}
+                  <span><strong>Sounds</strong><small>{sound ? 'Ein' : 'Aus'}</small></span>
+                </button>
+                <button className={`settings-reset ${resetArmed ? 'is-armed' : ''}`} onClick={handleReset}>
+                  <RotateCcw size={21} />
+                  <span>{resetArmed ? 'Erneut tippen: wirklich neu starten' : 'Spiel neu starten'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="statistics-grid">
+                <div><span>Insgesamt geschürft</span><strong>{formatGold(state.lifetimeGold)}</strong></div>
+                <div><span>Transporte</span><strong>{state.tripCount}</strong></div>
+                <div><span>Aktuell gesichert</span><strong>{formatGold(state.vaultGold)}</strong></div>
+                <div><span>Gestohlen</span><strong>{formatGold(state.stolenGold)}</strong></div>
+                <div><span>Verloren</span><strong>{formatGold(state.lostGold)}</strong></div>
+                <div><span>Diebeszüge</span><strong>{state.theftCount}</strong></div>
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
       {state.lastOfflineReport && (

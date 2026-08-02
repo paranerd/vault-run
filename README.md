@@ -17,10 +17,11 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Unter dem
 ## Gestaltung
 
 - konsistente 32-Bit-Fantasy-Sprites für alle sichtbaren Upgrade-Stufen
-- zweistufige Typografie: lokal gebündelte `Pixelify Sans` für kurze Spielbegriffe und Systemschrift für längere, gut lesbare Texte
+- durchgängige, lokal gebündelte `Jersey 10` für eine besser lesbare Pixel-Typografie
 - ruhige Pixelminen-Kulisse und eine code-native 16×16-Pixelmünze für Beträge und Schürfanimationen
 - warme Pergament-, Holz-, Stein- und Goldpalette
 - drei Pixel-Trennstreifen, kompakte 2×2-Raster, harte Pixel-Schatten, gerasterte Fortschrittsbalken und PWA-App-Icon im selben Stil
+- Einstellungen mit Soundsteuerung und doppelter Neustart-Bestätigung sowie eine eigene Statistikübersicht im Header
 
 ## Entwicklung
 
