@@ -63,6 +63,8 @@ export interface UpgradeView {
   name: string
   description: string
   level: string
+  currentEffect: string
+  nextEffect: string
   cost: number
   available: boolean
   maxed?: boolean
