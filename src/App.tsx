@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
-  ArrowDown,
-  Bike,
-  BriefcaseBusiness,
-  Car,
   Check,
-  ChevronRight,
   Clock3,
   Coins,
-  Footprints,
   LockKeyhole,
-  PackageOpen,
   RotateCcw,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
-  Truck,
-  Users,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -25,6 +17,7 @@ import {
   cargoCapacity,
   chestCapacity,
   convoySize,
+  expressDuration,
   getUpgrades,
   passiveRate,
   tapValue,
@@ -32,15 +25,37 @@ import {
   transportName,
   vaultCapacity,
 } from './game/config'
-import { advanceGame, buyUpgrade, dismissOfflineReport, startTransport, tap } from './game/engine'
+import {
+  advanceGame,
+  buyUpgrade,
+  dismissOfflineReport,
+  startExpressTransport,
+  startTransport,
+  tap,
+} from './game/engine'
 import { formatDuration, formatGold } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
-import type { GameState, UpgradeId, UpgradeView } from './game/types'
+import type { GameState, UpgradeCategory, UpgradeId, UpgradeView } from './game/types'
 
 type Panel = 'upgrades' | 'log'
+type Filter = 'all' | UpgradeCategory
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'all', label: 'Alle' },
+  { id: 'production', label: 'Produktion' },
+  { id: 'storage', label: 'Lagerung' },
+  { id: 'transport', label: 'Transport' },
+  { id: 'security', label: 'Sicherheit' },
+]
 
 function percentage(value: number, capacity: number) {
   return Math.max(0, Math.min(100, (value / capacity) * 100))
+}
+
+function roundTripPosition(start: number | null, end: number | null, now: number) {
+  if (start === null || end === null) return 0
+  const progress = percentage(now - start, end - start)
+  return progress <= 50 ? progress * 2 : (100 - progress) * 2
 }
 
 function playTone(kind: 'coin' | 'trip' | 'upgrade', enabled: boolean) {
@@ -51,17 +66,17 @@ function playTone(kind: 'coin' | 'trip' | 'upgrade', enabled: boolean) {
     const context = new AudioContextClass()
     const oscillator = context.createOscillator()
     const gain = context.createGain()
-    oscillator.type = kind === 'trip' ? 'triangle' : 'sine'
-    oscillator.frequency.setValueAtTime(kind === 'coin' ? 620 : kind === 'upgrade' ? 440 : 220, context.currentTime)
-    oscillator.frequency.exponentialRampToValueAtTime(kind === 'coin' ? 880 : kind === 'upgrade' ? 660 : 330, context.currentTime + 0.08)
-    gain.gain.setValueAtTime(0.045, context.currentTime)
+    oscillator.type = kind === 'trip' ? 'square' : 'sine'
+    oscillator.frequency.setValueAtTime(kind === 'coin' ? 650 : kind === 'upgrade' ? 440 : 220, context.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(kind === 'coin' ? 920 : kind === 'upgrade' ? 680 : 330, context.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.035, context.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12)
     oscillator.connect(gain).connect(context.destination)
     oscillator.start()
     oscillator.stop(context.currentTime + 0.12)
     oscillator.addEventListener('ended', () => void context.close())
   } catch {
-    // Audio is progressive enhancement and can be blocked by the browser.
+    // Sound is progressive enhancement and can be blocked by the browser.
   }
 }
 
@@ -70,26 +85,22 @@ function haptic(duration = 10) {
 }
 
 function Meter({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'danger' | 'safe' }) {
-  return (
-    <div className={`meter meter--${tone}`} aria-hidden="true">
-      <span style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
-    </div>
-  )
+  return <div className={`meter meter--${tone}`} aria-hidden="true"><span style={{ width: `${value}%` }} /></div>
 }
 
 function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: GameState; onBuy: (id: UpgradeId) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
   return (
-    <article className={`upgrade-card upgrade-card--${upgrade.accent} ${!upgrade.available ? 'is-locked' : ''}`}>
-      <div className="upgrade-card__head">
-        <span className="eyebrow">{upgrade.level}</span>
-        {upgrade.maxed && <span className="maxed"><Check size={12} /> Aktiv</span>}
+    <article className={`upgrade-card upgrade-card--${upgrade.category} ${!upgrade.available ? 'is-locked' : ''}`}>
+      <div className="upgrade-card__top">
+        <span>{upgrade.level}</span>
+        {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
       </div>
       <h3>{upgrade.name}</h3>
       <p>{upgrade.description}</p>
       {!upgrade.available && !upgrade.maxed ? (
-        <div className="unlock-note"><LockKeyhole size={14} /> Erst den Boten einstellen</div>
+        <span className="locked-note"><LockKeyhole size={13} /> Erst den Boten einstellen</span>
       ) : (
         <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade.id)}>
           {upgrade.maxed ? 'Erledigt' : <><Coins size={15} /> {formatGold(upgrade.cost)}</>}
@@ -101,7 +112,8 @@ function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: G
 
 function App() {
   const [state, setState] = useState<GameState>(() => loadGame())
-  const [panel, setPanel] = useState<Panel>('upgrades')
+  const [panel, setPanel] = useState<Panel | null>(null)
+  const [filter, setFilter] = useState<Filter>('all')
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
   const [tapPulse, setTapPulse] = useState(0)
   const lastTrips = useRef(state.tripCount)
@@ -133,20 +145,26 @@ function App() {
   }, [state.tripCount, sound])
 
   const upgrades = useMemo(() => getUpgrades(state), [state])
+  const visibleUpgrades = filter === 'all' ? upgrades : upgrades.filter((upgrade) => upgrade.category === filter)
   const now = Date.now()
-  const isTravelling = state.transportEndsAt !== null
-  const tripProgress = isTravelling && state.transportStartedAt
-    ? percentage(now - state.transportStartedAt, state.transportEndsAt! - state.transportStartedAt)
-    : 0
-  const secondsLeft = isTravelling ? Math.max(0, (state.transportEndsAt! - now) / 1000) : transportDuration(state)
-  const businessPaused = isTravelling && !state.courierUnlocked
   const chestMax = chestCapacity(state)
   const vaultMax = vaultCapacity(state)
+  const chestFull = state.chestGold >= chestMax - 0.001
+  const isTravelling = state.transportEndsAt !== null
+  const isExpressTravelling = state.expressEndsAt !== null
+  const businessPaused = isTravelling && !state.courierUnlocked
+  const tripPosition = roundTripPosition(state.transportStartedAt, state.transportEndsAt, now)
+  const expressPosition = roundTripPosition(state.expressStartedAt, state.expressEndsAt, now)
+  const secondsLeft = isTravelling ? Math.max(0, (state.transportEndsAt! - now) / 1000) : transportDuration(state)
   const currentTransport = TRANSPORTS[state.transportLevel]
-  const VehicleIcon = currentTransport.icon === 'bike' ? Bike : currentTransport.icon === 'car' ? Car : Footprints
+  const mainAtVault = state.transportDeliveredAt !== null && now >= state.transportDeliveredAt
+  const expressAtVault = state.expressDeliveredAt !== null && now >= state.expressDeliveredAt
+  const vaultReserved = state.inTransitGold + state.expressGold
+  const canStartTransport = !isTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
+  const canStartExpress = state.courierUnlocked && !isExpressTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
 
   const handleTap = () => {
-    if (businessPaused) return
+    if (businessPaused || chestFull) return
     setState((current) => tap(current))
     setTapPulse((value) => value + 1)
     playTone('coin', sound)
@@ -154,12 +172,15 @@ function App() {
   }
 
   const handleTransport = () => {
-    const before = state.transportEndsAt
-    setState((current) => startTransport(current, Date.now()))
-    if (before === null && state.chestGold > 0 && state.vaultGold < vaultMax) {
-      playTone('trip', sound)
-      haptic(18)
+    if (state.courierUnlocked) {
+      if (!canStartExpress) return
+      setState((current) => startExpressTransport(current, Date.now()))
+    } else {
+      if (!canStartTransport) return
+      setState((current) => startTransport(current, Date.now()))
     }
+    playTone('trip', sound)
+    haptic(18)
   }
 
   const handleBuy = (id: UpgradeId) => {
@@ -175,6 +196,7 @@ function App() {
     })
   }
 
+  const openPanel = (next: Panel) => setPanel((current) => current === next ? null : next)
   const confirmReset = () => {
     if (window.confirm('Den lokalen Spielstand wirklich löschen?')) setState(resetGame())
   }
@@ -182,131 +204,142 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">
-          <div className="brand__mark"><LockKeyhole size={19} /></div>
-          <div><span className="eyebrow">Gold & Logistik</span><strong>Vault Run</strong></div>
-        </div>
-        <div className="wealth">
-          <span>Gesichertes Vermögen</span>
-          <strong><Coins size={18} /> {formatGold(state.vaultGold)}</strong>
-        </div>
-        <button className="icon-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
+        <div className="brand-mark" aria-hidden="true"><span>V</span></div>
+        <div className="brand-copy"><span>Gold & Logistik</span><strong>Vault Run</strong></div>
+        <div className="live-status"><i /> {formatGold(passiveRate(state))}/s</div>
+        <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
           {sound ? <Volume2 size={20} /> : <VolumeX size={20} />}
         </button>
       </header>
 
-      <main className="workspace">
-        <section className="game-column" aria-label="Deine Goldlogistik">
-          <div className="run-status">
-            <div><span className="status-dot" /> Standort in Betrieb</div>
-            <span>{formatGold(passiveRate(state))} Gold/s passiv</span>
+      <main className="app-layout">
+        <section className="game-stage" aria-label="Deine Goldlogistik">
+          <div className="scene-labels">
+            <span>DEIN BETRIEB</span>
+            <strong>{businessPaused ? `Zurück in ${Math.ceil(secondsLeft)} Sek.` : 'Betriebsbereit'}</strong>
           </div>
 
-          <div className="facility">
-            <article className={`station station--business ${businessPaused ? 'is-paused' : ''}`}>
-              <div className="station__header">
-                <div className="station-icon"><BriefcaseBusiness size={22} /></div>
-                <div><span className="eyebrow">01 · Geschäft</span><h2>Gold verdienen</h2></div>
-                <span className="stat-pill">+{formatGold(tapValue(state))}</span>
-              </div>
-              <p className="station-copy">Schließe lukrative Geschäfte ab. Das Gold landet zunächst ungesichert in deiner Truhe.</p>
-              <button className={`deal-button ${businessPaused ? 'is-paused' : ''}`} onClick={handleTap} disabled={businessPaused}>
-                <span className="deal-button__shine" />
-                <span className="deal-button__icon"><BriefcaseBusiness size={25} /></span>
-                <span><strong>{businessPaused ? 'Du bist unterwegs' : 'Geschäft abschließen'}</strong><small>{businessPaused ? `Zurück in ${Math.ceil(secondsLeft)} Sek.` : `+${formatGold(tapValue(state))} Gold`}</small></span>
-                <Sparkles size={18} />
-                <i key={tapPulse} className="coin-pop">+{formatGold(tapValue(state))}</i>
-              </button>
-              <div className="micro-stats"><span><Users size={14} /> {state.staffLevel || 'Kein'} Team</span><span>{formatGold(passiveRate(state))}/s</span></div>
-            </article>
-
-            <div className="chain-arrow"><ArrowDown size={18} /><span>ungesichert</span></div>
-
-            <article className="station station--chest">
-              <div className="station__header">
-                <div className="station-icon"><PackageOpen size={22} /></div>
-                <div><span className="eyebrow">02 · Zwischenlager</span><h2>Geschäftstruhe</h2></div>
-                <strong className="station-value">{formatGold(state.chestGold)}</strong>
-              </div>
-              <div className="chest-visual">
-                <div className="chest-lid" />
-                <div className="chest-body"><span style={{ height: `${percentage(state.chestGold, chestMax)}%` }} /></div>
-                <Coins className="chest-emblem" size={24} />
-              </div>
-              <div className="capacity-line"><span>Füllstand</span><span>{formatGold(state.chestGold)} / {formatGold(chestMax)}</span></div>
-              <Meter value={percentage(state.chestGold, chestMax)} />
-              <div className="risk-block">
-                <div className="capacity-line"><span><ShieldCheck size={14} /> Aufmerksamkeit</span><strong>{Math.floor(state.threat)} %</strong></div>
-                <Meter value={state.threat} tone="danger" />
-                <small>Viel ungesichertes Gold zieht Einbrecher an – auch offline.</small>
-              </div>
-            </article>
-
-            <div className="chain-arrow"><ArrowDown size={18} /><span>{state.courierUnlocked ? 'automatisch' : 'selbst transportieren'}</span></div>
-
-            <article className="station station--route">
-              <div className="station__header">
-                <div className="station-icon"><Truck size={22} /></div>
-                <div><span className="eyebrow">03 · Transport</span><h2>{transportName(state)}</h2></div>
-                <span className="stat-pill">{Math.floor(cargoCapacity(state))} Ladung</span>
-              </div>
-              <div className={`route ${isTravelling ? 'is-moving' : ''}`}>
-                <div className="route__origin"><PackageOpen size={16} /></div>
-                <div className="route__line"><span style={{ width: `${tripProgress}%` }} /></div>
-                <div className="vehicle" style={{ '--trip-progress': `${tripProgress}%` } as CSSProperties}>
-                  <VehicleIcon size={24} />
-                  {convoySize(state) > 1 && <b>×{convoySize(state)}</b>}
+          <div className="pixel-scene">
+            <div className="skyline" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+            <div className="storage-row">
+              <article className={`pixel-station chest-station ${chestFull ? 'is-full' : ''}`}>
+                <div className="amount-display">
+                  <span>TRUHE</span>
+                  <strong>{formatGold(state.chestGold)}</strong>
+                  <small>von {formatGold(chestMax)}</small>
                 </div>
-                <div className="route__target"><LockKeyhole size={16} /></div>
+                <div className="pixel-chest" aria-hidden="true">
+                  <i className="chest-gold" style={{ height: `${percentage(state.chestGold, chestMax)}%` }} />
+                  <span className="chest-lock" />
+                </div>
+                <Meter value={percentage(state.chestGold, chestMax)} />
+                <div className="threat-line"><ShieldCheck size={13} /> Aufmerksamkeit <b>{Math.floor(state.threat)}%</b></div>
+              </article>
+
+              <div className="transport-lane" aria-label="Transportstrecke">
+                <div className="lane-caption">
+                  <span>{transportName(state)}</span>
+                  <b>{Math.floor(cargoCapacity(state))} Ladung</b>
+                </div>
+                <div className="road">
+                  <span className="road-dashes" />
+                  <span className="direction direction--out">→</span>
+                  <span className="direction direction--back">←</span>
+                  {isTravelling && (
+                    <div
+                      className={`pixel-vehicle vehicle--${currentTransport.icon} ${mainAtVault ? 'is-returning' : ''}`}
+                      style={{ '--vehicle-position': `${tripPosition}%` } as CSSProperties}
+                    >
+                      {state.inTransitGold > 0 && <b>{formatGold(state.inTransitGold)}</b>}
+                      {convoySize(state) > 1 && <em>×{convoySize(state)}</em>}
+                    </div>
+                  )}
+                  {isExpressTravelling && (
+                    <div
+                      className={`pixel-vehicle pixel-vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
+                      style={{ '--vehicle-position': `${expressPosition}%` } as CSSProperties}
+                    >
+                      {state.expressGold > 0 && <b>{formatGold(state.expressGold)}</b>}
+                    </div>
+                  )}
+                </div>
+                <div className="trip-status">
+                  <Clock3 size={13} />
+                  {isTravelling
+                    ? `${mainAtVault ? 'Rückweg' : 'Hinweg'} · ${Math.ceil(secondsLeft)} Sek.`
+                    : state.courierUnlocked ? 'Bote wartet auf Gold' : `${transportDuration(state)} Sek. Rundfahrt`}
+                </div>
               </div>
-              <div className="trip-readout">
-                <span><Clock3 size={14} /> {isTravelling ? `Noch ${Math.ceil(secondsLeft)} Sek.` : `${transportDuration(state)} Sek. Fahrzeit`}</span>
-                <strong>{isTravelling ? `${formatGold(state.inTransitGold)} unterwegs` : 'Bereit'}</strong>
-              </div>
-              <button className="transport-button" onClick={handleTransport} disabled={isTravelling || state.chestGold <= 0 || state.courierUnlocked || state.vaultGold >= vaultMax}>
-                {state.courierUnlocked ? <><Check size={17} /> Bote fährt automatisch</> : isTravelling ? 'Transport läuft …' : <><ChevronRight size={17} /> Transport starten</>}
+
+              <article className="pixel-station vault-station">
+                <div className="amount-display amount-display--vault">
+                  <span>TRESOR</span>
+                  <strong>{formatGold(state.vaultGold)}</strong>
+                  <small>von {formatGold(vaultMax)}</small>
+                </div>
+                <div className="pixel-vault" aria-hidden="true">
+                  <span className="vault-door"><i /><i /><i /></span>
+                  <span className="vault-shine" />
+                </div>
+                <Meter value={percentage(state.vaultGold, vaultMax)} tone="safe" />
+                <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
+              </article>
+            </div>
+
+            <div className="coin-stream" aria-hidden="true"><span /><span /><span /></div>
+            {tapPulse > 0 && <i key={tapPulse} className="flying-coin">+{formatGold(tapValue(state))}</i>}
+
+            <div className="action-dock">
+              <button className="gold-button" disabled={businessPaused || chestFull} onClick={handleTap} aria-label={`Gold verdienen: ${formatGold(tapValue(state))}`}>
+                <span className="pixel-coin"><i>V</i></span>
+                <strong>{chestFull ? 'TRUHE VOLL' : businessPaused ? 'UNTERWEGS' : `+${formatGold(tapValue(state))}`}</strong>
+                <small>{chestFull ? 'Erst transportieren' : 'Gold verdienen'}</small>
+                <Sparkles className="coin-spark" size={18} />
               </button>
-            </article>
 
-            <div className="chain-arrow chain-arrow--safe"><ArrowDown size={18} /><span>gesichert</span></div>
-
-            <article className="station station--vault">
-              <div className="station__header">
-                <div className="station-icon"><LockKeyhole size={22} /></div>
-                <div><span className="eyebrow">04 · Vermögen</span><h2>Dein Tresor</h2></div>
-                <strong className="station-value">{formatGold(state.vaultGold)}</strong>
-              </div>
-              <div className="vault-visual">
-                <div className="vault-door"><div className="vault-wheel"><span /><span /><span /><i /></div></div>
-                <div className="vault-glow" style={{ opacity: Math.max(.08, percentage(state.vaultGold, vaultMax) / 100) }} />
-              </div>
-              <div className="capacity-line"><span>Kapazität</span><span>{formatGold(state.vaultGold)} / {formatGold(vaultMax)}</span></div>
-              <Meter value={percentage(state.vaultGold, vaultMax)} tone="safe" />
-              <div className="security-label"><ShieldCheck size={16} /><span>{SECURITY[state.securityLevel].name}</span><small>–{Math.round((1 - SECURITY[state.securityLevel].loss / SECURITY[0].loss) * 100)} % Verlust</small></div>
-            </article>
+              <button
+                className="transport-button"
+                onClick={handleTransport}
+                disabled={state.courierUnlocked ? !canStartExpress : !canStartTransport}
+              >
+                <span className={`transport-pixel-icon transport-pixel-icon--${currentTransport.icon}`} aria-hidden="true" />
+                <span>
+                  <strong>{state.courierUnlocked ? (isExpressTravelling ? 'Express läuft' : 'Expressfahrt') : (isTravelling ? 'Du bist unterwegs' : 'Gold transportieren')}</strong>
+                  <small>{state.courierUnlocked ? `${expressDuration(state).toLocaleString('de-DE')} Sek. Rundfahrt` : `${transportDuration(state)} Sek. hin & zurück`}</small>
+                </span>
+              </button>
+            </div>
           </div>
         </section>
 
-        <aside className="management-panel">
-          <div className="panel-tabs">
-            <button className={panel === 'upgrades' ? 'is-active' : ''} onClick={() => setPanel('upgrades')}>Investitionen</button>
+        <aside className={`management-sheet ${panel ? 'is-open' : ''}`} aria-label="Management">
+          <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Management schließen">×</button>
+          <div className="sheet-tabs">
+            <button className={(panel ?? 'upgrades') === 'upgrades' ? 'is-active' : ''} onClick={() => setPanel('upgrades')}>Upgrades</button>
             <button className={panel === 'log' ? 'is-active' : ''} onClick={() => setPanel('log')}>Logbuch</button>
           </div>
 
-          {panel === 'upgrades' ? (
-            <div className="upgrade-list">
-              <div className="panel-intro"><span className="eyebrow">Wachstum finanzieren</span><h2>Dein Betrieb</h2><p>Nur Gold im Tresor kann investiert werden.</p></div>
-              {upgrades.map((upgrade) => <UpgradeCard key={upgrade.id} upgrade={upgrade} state={state} onBuy={handleBuy} />)}
+          {(panel ?? 'upgrades') === 'upgrades' ? (
+            <div className="sheet-content">
+              <div className="sheet-heading"><span>INVESTIEREN</span><h2>Betrieb ausbauen</h2><p>Bezahlt wird mit Gold aus dem Tresor.</p></div>
+              <div className="filter-row" aria-label="Upgrade-Kategorien">
+                {FILTERS.map((item) => (
+                  <button key={item.id} className={filter === item.id ? 'is-active' : ''} onClick={() => setFilter(item.id)}>{item.label}</button>
+                ))}
+              </div>
+              <div className="upgrade-list">
+                {visibleUpgrades.map((upgrade) => <UpgradeCard key={upgrade.id} upgrade={upgrade} state={state} onBuy={handleBuy} />)}
+              </div>
             </div>
           ) : (
-            <div className="log-panel">
-              <div className="panel-intro"><span className="eyebrow">Betriebsdaten</span><h2>Logbuch</h2></div>
+            <div className="sheet-content log-panel">
+              <div className="sheet-heading"><span>BETRIEBSDATEN</span><h2>Logbuch</h2></div>
               <dl className="ledger">
                 <div><dt>Gold insgesamt</dt><dd>{formatGold(state.lifetimeGold)}</dd></div>
-                <div><dt>Erfolgreiche Fahrten</dt><dd>{state.tripCount}</dd></div>
+                <div><dt>Fahrten</dt><dd>{state.tripCount}</dd></div>
                 <div><dt>Einbrüche</dt><dd>{state.theftCount}</dd></div>
                 <div><dt>Gestohlen</dt><dd>{formatGold(state.stolenGold)}</dd></div>
-                <div><dt>Wegen Überfüllung verloren</dt><dd>{formatGold(state.lostGold)}</dd></div>
+                <div><dt>Überfüllung</dt><dd>{formatGold(state.lostGold)}</dd></div>
               </dl>
               <h3 className="event-title">Letzte Ereignisse</h3>
               <div className="event-list">
@@ -314,17 +347,25 @@ function App() {
                   <div key={event.id} className={`event event--${event.kind}`}><span />{event.message}</div>
                 )) : <p className="empty-log">Noch ist es ruhig. Zeit für das erste Geschäft.</p>}
               </div>
-              <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Lokalen Spielstand löschen</button>
+              <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Spielstand löschen</button>
             </div>
           )}
         </aside>
       </main>
 
+      <nav className="bottom-nav" aria-label="Spielmenü">
+        <button className={panel === 'upgrades' ? 'is-active' : ''} onClick={() => openPanel('upgrades')}><SlidersHorizontal size={20} /><span>Upgrades</span></button>
+        <div className="nav-wealth"><span>TRESOR</span><strong><Coins size={15} /> {formatGold(state.vaultGold)}</strong></div>
+        <button className={panel === 'log' ? 'is-active' : ''} onClick={() => openPanel('log')}><Clock3 size={20} /><span>Logbuch</span></button>
+      </nav>
+
+      {panel && <button className="sheet-backdrop" aria-label="Management schließen" onClick={() => setPanel(null)} />}
+
       {state.lastOfflineReport && (
         <div className="modal-backdrop" role="presentation">
           <section className="offline-modal" role="dialog" aria-modal="true" aria-labelledby="offline-title">
-            <div className="offline-icon"><Clock3 size={28} /></div>
-            <span className="eyebrow">Willkommen zurück</span>
+            <div className="offline-icon"><Clock3 size={27} /></div>
+            <span className="pixel-kicker">WILLKOMMEN ZURÜCK</span>
             <h2 id="offline-title">Dein Betrieb war aktiv</h2>
             <p>{formatDuration(state.lastOfflineReport.seconds)} wurden nachberechnet.</p>
             <div className="offline-grid">

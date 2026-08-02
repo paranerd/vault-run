@@ -40,7 +40,15 @@ Sie verkürzen die Fahrt und erhöhen die Ladung, beseitigen aber nicht den Ziel
 | Transport | Diskrete Lieferung | Schuhe, Fahrrad, Auto, Bote, Transporter, Konvoi |
 | Tresor | Geschütztes und ausgebbares Vermögen | Kapazität, Sicherheit |
 
-Transport bleibt immer diskret. Zu Fahrtbeginn wird eine feste Ladung aus der Truhe genommen und ist bis zur Ankunft als `inTransitGold` gebunden. Neue Produktion bleibt in der Truhe. Der Transport nimmt nie mehr mit, als noch in den Tresor passt.
+Transport bleibt immer diskret. Die angegebene Transportzeit bezeichnet eine vollständige Rundfahrt: Hin- und Rückweg dauern jeweils die Hälfte. Zu Fahrtbeginn wird eine feste Ladung aus der Truhe genommen und ist bis zur Ankunft als `inTransitGold` gebunden. Nach der halben Zeit wird sie im Tresor abgeladen; erst nach der gleich langen Rückfahrt ist der Spieler beziehungsweise das Fahrzeug wieder verfügbar. Neue Produktion bleibt in der Truhe. Der Transport nimmt nie mehr mit, als noch in den Tresor passt.
+
+Nach Einstellung des Boten bleibt der Transportbutton als aktive Expressfahrt erhalten. Sie kann parallel zur automatischen Fuhre gestartet werden und wird als zweites Fahrzeug auf der Strecke dargestellt.
+
+## Oberfläche
+
+Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Goldmünze, Truhe, Transportstrecke, manueller Transport beziehungsweise Expressfahrt und Tresor bleiben dauerhaft sichtbar. Truhen- und Tresorbetrag sind die prominentesten Zahlen. Ist die Truhe voll, wird die Goldmünze deaktiviert und ein Tap erzeugt weder Gold noch Überfüllungsverlust.
+
+Der Stil ist helle, moderne Pixel-Art mit klaren Flächen und warmen Goldakzenten. Upgrades und Logbuch öffnen mobil in einem intern scrollbaren Bottom Sheet. Upgrades lassen sich nach Alle, Produktion, Lagerung, Transport und Sicherheit filtern.
 
 ## Diebstahl und Sicherheit
 

@@ -27,6 +27,7 @@ export const cargoCapacity = (state: GameState) => {
   return base * 1.65 ** state.cargoLevel * convoySize(state)
 }
 export const transportDuration = (state: GameState) => TRANSPORTS[state.transportLevel].duration
+export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
 export const transportName = (state: GameState) => TRANSPORTS[state.transportLevel].name
 
 const cost = (base: number, factor: number, level: number) => Math.ceil(base * factor ** level)
@@ -56,46 +57,55 @@ export function getUpgrades(state: GameState): UpgradeView[] {
       id: 'tap', name: 'Bessere Abschlüsse',
       description: `Jeder Tap bringt danach ${Math.ceil(tapValue(state) * 1.42)} Gold.`,
       level: `Stufe ${state.tapLevel + 1}`, cost: upgradeCost(state, 'tap'), available: true, accent: 'business',
+      category: 'production',
     },
     {
       id: 'staff', name: state.staffLevel ? 'Team erweitern' : 'Ersten Mitarbeiter einstellen',
       description: `Passives Geschäft: ${passiveRate({ ...state, staffLevel: state.staffLevel + 1 }).toFixed(1)} Gold/s.`,
       level: state.staffLevel ? `${state.staffLevel} Mitarbeiter` : 'Noch manuell', cost: upgradeCost(state, 'staff'), available: true, accent: 'business',
+      category: 'production',
     },
     {
       id: 'chest', name: 'Größere Geschäftstruhe',
       description: `Mehr ungesichertes Gold zwischen zwei Fahrten lagern.`,
       level: `${Math.floor(chestCapacity(state))} Kapazität`, cost: upgradeCost(state, 'chest'), available: true, accent: 'logistics',
+      category: 'storage',
     },
     {
       id: 'transport', name: nextTransport ?? 'Transport ausgereizt',
       description: transportMaxed ? 'Das Auto ist für diesen Standort schnell genug.' : 'Kürzere Fahrt, größere Ladung und weniger Ausfallzeit.',
       level: transportName(state), cost: upgradeCost(state, 'transport'), available: !transportMaxed, maxed: transportMaxed, accent: 'logistics',
+      category: 'transport',
     },
     {
       id: 'courier', name: state.courierUnlocked ? 'Bote eingestellt' : 'Boten einstellen',
       description: state.courierUnlocked ? 'Fahrten starten automatisch. Du kannst weiter Geschäfte machen.' : 'Automatisiert den Transport und beendet die Produktionspause.',
       level: state.courierUnlocked ? 'Automatisiert' : 'Du fährst selbst', cost: upgradeCost(state, 'courier'), available: !state.courierUnlocked, maxed: state.courierUnlocked, accent: 'logistics',
+      category: 'transport',
     },
     {
       id: 'cargo', name: 'Größerer Transporter',
       description: 'Erhöht die Ladekapazität des gesamten Konvois um 65 %.',
       level: `Ladung ${Math.floor(cargoCapacity(state))}`, cost: upgradeCost(state, 'cargo'), available: state.courierUnlocked, accent: 'logistics',
+      category: 'transport',
     },
     {
       id: 'convoy', name: 'Weiteres Fahrzeug',
       description: 'Ein zusätzliches Fahrzeug fährt sichtbar im gemeinsamen Konvoi.',
       level: `${convoySize(state)} Fahrzeug${convoySize(state) === 1 ? '' : 'e'}`, cost: upgradeCost(state, 'convoy'), available: state.courierUnlocked, accent: 'logistics',
+      category: 'transport',
     },
     {
       id: 'vault', name: 'Tresor erweitern',
       description: `Geschütztes Vermögen auf ${Math.floor(vaultCapacity({ ...state, vaultLevel: state.vaultLevel + 1 }))} erhöhen.`,
       level: `${Math.floor(vaultCapacity(state))} Kapazität`, cost: upgradeCost(state, 'vault'), available: true, accent: 'vault',
+      category: 'storage',
     },
     {
       id: 'security', name: nextSecurity ?? 'Maximale Sicherheit',
       description: securityMaxed ? 'Dieser Standort ist maximal geschützt.' : 'Einbrüche werden seltener und richten weniger Schaden an.',
       level: SECURITY[state.securityLevel].name, cost: upgradeCost(state, 'security'), available: !securityMaxed, maxed: securityMaxed, accent: 'vault',
+      category: 'security',
     },
   ]
 }

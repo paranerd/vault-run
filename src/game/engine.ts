@@ -3,6 +3,7 @@ import {
   SECURITY,
   cargoCapacity,
   chestCapacity,
+  expressDuration,
   passiveRate,
   tapValue,
   transportDuration,
@@ -15,7 +16,7 @@ const STEP_MS = 500
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     savedAt: now,
     lastTick: now,
     chestGold: 0,
@@ -35,7 +36,12 @@ export function createInitialState(now = Date.now()): GameState {
     securityLevel: 0,
     threat: 0,
     transportStartedAt: null,
+    transportDeliveredAt: null,
     transportEndsAt: null,
+    expressGold: 0,
+    expressStartedAt: null,
+    expressDeliveredAt: null,
+    expressEndsAt: null,
     tripCount: 0,
     theftCount: 0,
     eventSequence: 0,
@@ -61,16 +67,19 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
 
 export function tap(state: GameState): GameState {
   if (state.transportEndsAt !== null && !state.courierUnlocked) return state
+  if (state.chestGold >= chestCapacity(state)) return state
   const next = structuredClone(state)
-  const earned = storeGold(next, tapValue(next))
-  if (!earned) addEvent(next, 'warning', 'Die Truhe ist voll – transportiere dein Gold.')
+  storeGold(next, tapValue(next))
   return next
+}
+
+function availableVaultSpace(state: GameState): number {
+  return Math.max(0, vaultCapacity(state) - state.vaultGold - state.inTransitGold - state.expressGold)
 }
 
 export function startTransport(state: GameState, now = Date.now()): GameState {
   if (state.transportEndsAt !== null || state.chestGold <= 0) return state
-  const vaultFree = Math.max(0, vaultCapacity(state) - state.vaultGold)
-  const payload = Math.min(state.chestGold, cargoCapacity(state), vaultFree)
+  const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
   if (payload <= 0) {
     const blocked = structuredClone(state)
     addEvent(blocked, 'warning', 'Der Tresor ist voll.')
@@ -80,19 +89,49 @@ export function startTransport(state: GameState, now = Date.now()): GameState {
   next.chestGold -= payload
   next.inTransitGold = payload
   next.transportStartedAt = now
-  next.transportEndsAt = now + transportDuration(next) * 1000
+  const duration = transportDuration(next) * 1000
+  next.transportDeliveredAt = now + duration / 2
+  next.transportEndsAt = now + duration
   return next
 }
 
-function completeTransport(state: GameState, report?: OfflineReport): void {
-  const delivered = state.inTransitGold
+export function startExpressTransport(state: GameState, now = Date.now()): GameState {
+  if (!state.courierUnlocked || state.expressEndsAt !== null || state.chestGold <= 0) return state
+  const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
+  if (payload <= 0) return state
+  const next = structuredClone(state)
+  next.chestGold -= payload
+  next.expressGold = payload
+  next.expressStartedAt = now
+  const duration = expressDuration(next) * 1000
+  next.expressDeliveredAt = now + duration / 2
+  next.expressEndsAt = now + duration
+  return next
+}
+
+function deliverTransport(state: GameState, express: boolean, report?: OfflineReport): void {
+  const delivered = express ? state.expressGold : state.inTransitGold
   state.vaultGold = Math.min(vaultCapacity(state), state.vaultGold + delivered)
+  if (express) state.expressGold = 0
+  else state.inTransitGold = 0
+  if (report) report.delivered += delivered
+  if (delivered > 0) addEvent(state, 'success', `${Math.floor(delivered)} Gold sicher im Tresor.`)
+}
+
+function completeTransport(state: GameState): void {
   state.inTransitGold = 0
   state.transportStartedAt = null
+  state.transportDeliveredAt = null
   state.transportEndsAt = null
   state.tripCount += 1
-  if (report) report.delivered += delivered
-  addEvent(state, 'success', `${Math.floor(delivered)} Gold sicher im Tresor.`)
+}
+
+function completeExpressTransport(state: GameState): void {
+  state.expressGold = 0
+  state.expressStartedAt = null
+  state.expressDeliveredAt = null
+  state.expressEndsAt = null
+  state.tripCount += 1
 }
 
 function runTheft(state: GameState, report?: OfflineReport): void {
@@ -122,8 +161,13 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
       Object.assign(state, started)
     }
 
-    const transportEvent = state.transportEndsAt ?? Number.POSITIVE_INFINITY
-    const nextCursor = Math.min(target, cursor + STEP_MS, transportEvent)
+    const nextEvent = Math.min(
+      state.inTransitGold > 0 ? state.transportDeliveredAt ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY,
+      state.transportEndsAt ?? Number.POSITIVE_INFINITY,
+      state.expressGold > 0 ? state.expressDeliveredAt ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY,
+      state.expressEndsAt ?? Number.POSITIVE_INFINITY,
+    )
+    const nextCursor = Math.min(target, cursor + STEP_MS, nextEvent)
     const dt = Math.max(0, nextCursor - cursor) / 1000
     const businessPaused = state.transportEndsAt !== null && !state.courierUnlocked
     if (!businessPaused) storeGold(state, passiveRate(state) * dt, report)
@@ -135,7 +179,14 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
     }
 
     cursor = nextCursor
-    if (state.transportEndsAt !== null && cursor >= state.transportEndsAt) completeTransport(state, report)
+    if (state.inTransitGold > 0 && state.transportDeliveredAt !== null && cursor >= state.transportDeliveredAt) {
+      deliverTransport(state, false, report)
+    }
+    if (state.expressGold > 0 && state.expressDeliveredAt !== null && cursor >= state.expressDeliveredAt) {
+      deliverTransport(state, true, report)
+    }
+    if (state.transportEndsAt !== null && cursor >= state.transportEndsAt) completeTransport(state)
+    if (state.expressEndsAt !== null && cursor >= state.expressEndsAt) completeExpressTransport(state)
   }
 
   state.lastTick = now

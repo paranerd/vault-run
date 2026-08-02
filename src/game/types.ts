@@ -9,6 +9,8 @@ export type UpgradeId =
   | 'vault'
   | 'security'
 
+export type UpgradeCategory = 'production' | 'storage' | 'transport' | 'security'
+
 export interface GameEvent {
   id: number
   kind: 'success' | 'warning' | 'info'
@@ -23,7 +25,7 @@ export interface OfflineReport {
 }
 
 export interface GameState {
-  schemaVersion: 1
+  schemaVersion: 2
   savedAt: number
   lastTick: number
   chestGold: number
@@ -43,7 +45,12 @@ export interface GameState {
   securityLevel: number
   threat: number
   transportStartedAt: number | null
+  transportDeliveredAt: number | null
   transportEndsAt: number | null
+  expressGold: number
+  expressStartedAt: number | null
+  expressDeliveredAt: number | null
+  expressEndsAt: number | null
   tripCount: number
   theftCount: number
   eventSequence: number
@@ -60,4 +67,5 @@ export interface UpgradeView {
   available: boolean
   maxed?: boolean
   accent: 'business' | 'logistics' | 'vault'
+  category: UpgradeCategory
 }
