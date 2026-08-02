@@ -1,15 +1,13 @@
-export type UpgradeId =
-  | 'tap'
-  | 'staff'
-  | 'chest'
-  | 'transport'
-  | 'courier'
-  | 'cargo'
-  | 'convoy'
-  | 'vault'
-  | 'security'
+export type SectionId = 'mine' | 'bag' | 'chest'
+export type EquipmentUpgradeId = 'tap' | 'chest' | 'vault'
+export type SlotGroup = 'miners' | 'transporters' | 'guards'
+export type SlotIndex = 0 | 1 | 2 | 3
+export type SlotLevels = [number, number, number, number]
 
-export type UpgradeCategory = 'production' | 'storage' | 'transport' | 'security'
+export interface SlotUpgradeTarget {
+  group: SlotGroup
+  index: SlotIndex
+}
 
 export interface GameEvent {
   id: number
@@ -25,7 +23,7 @@ export interface OfflineReport {
 }
 
 export interface GameState {
-  schemaVersion: 3
+  schemaVersion: 4
   savedAt: number
   lastTick: number
   chestGold: number
@@ -35,14 +33,11 @@ export interface GameState {
   lostGold: number
   stolenGold: number
   tapLevel: number
-  staffLevel: number
   chestLevel: number
-  transportLevel: number
-  courierUnlocked: boolean
-  cargoLevel: number
-  convoyLevel: number
   vaultLevel: number
-  securityLevel: number
+  minerLevels: SlotLevels
+  transporterLevels: SlotLevels
+  guardLevels: SlotLevels
   threat: number
   transportStartedAt: number | null
   transportDeliveredAt: number | null
@@ -59,7 +54,8 @@ export interface GameState {
 }
 
 export interface UpgradeView {
-  id: UpgradeId
+  key: string
+  section: SectionId
   name: string
   description: string
   level: string
@@ -69,5 +65,8 @@ export interface UpgradeView {
   available: boolean
   maxed?: boolean
   accent: 'business' | 'logistics' | 'vault'
-  category: UpgradeCategory
+  spriteFamily: 'pickaxe' | 'bag' | 'chest' | 'transport' | 'security'
+  spriteLevel: number
+  equipmentId?: EquipmentUpgradeId
+  slot?: SlotUpgradeTarget
 }

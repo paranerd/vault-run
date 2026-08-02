@@ -1,22 +1,26 @@
 import {
   MAX_OFFLINE_SECONDS,
-  SECURITY,
   cargoCapacity,
   chestCapacity,
+  equipmentUpgradeCost,
   expressDuration,
+  hasAutomaticTransport,
   passiveRate,
+  securityFactor,
+  securityLoss,
+  slotUpgradeCost,
   tapValue,
+  threatReductionPerClick,
   transportDuration,
-  upgradeCost,
   vaultCapacity,
 } from './config'
-import type { GameEvent, GameState, OfflineReport, UpgradeId } from './types'
+import type { EquipmentUpgradeId, GameEvent, GameState, OfflineReport, SlotGroup, SlotIndex } from './types'
 
 const STEP_MS = 500
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     savedAt: now,
     lastTick: now,
     chestGold: 0,
@@ -26,14 +30,11 @@ export function createInitialState(now = Date.now()): GameState {
     lostGold: 0,
     stolenGold: 0,
     tapLevel: 0,
-    staffLevel: 0,
     chestLevel: 0,
-    transportLevel: 0,
-    courierUnlocked: false,
-    cargoLevel: 0,
-    convoyLevel: 0,
     vaultLevel: 0,
-    securityLevel: 0,
+    minerLevels: [0, 0, 0, 0],
+    transporterLevels: [0, 0, 0, 0],
+    guardLevels: [0, 0, 0, 0],
     threat: 0,
     transportStartedAt: null,
     transportDeliveredAt: null,
@@ -66,7 +67,7 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
 }
 
 export function tap(state: GameState): GameState {
-  if (state.transportEndsAt !== null && !state.courierUnlocked) return state
+  if (state.transportEndsAt !== null && !hasAutomaticTransport(state)) return state
   if (state.chestGold >= chestCapacity(state)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
@@ -96,7 +97,7 @@ export function startTransport(state: GameState, now = Date.now()): GameState {
 }
 
 export function startExpressTransport(state: GameState, now = Date.now()): GameState {
-  if (!state.courierUnlocked || state.expressEndsAt !== null || state.chestGold <= 0) return state
+  if (!hasAutomaticTransport(state) || state.expressEndsAt !== null || state.chestGold <= 0) return state
   const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
   if (payload <= 0) return state
   const next = structuredClone(state)
@@ -135,14 +136,20 @@ function completeExpressTransport(state: GameState): void {
 }
 
 function runTheft(state: GameState, report?: OfflineReport): void {
-  const security = SECURITY[state.securityLevel]
-  const stolen = state.chestGold * security.loss
+  const stolen = state.chestGold * securityLoss(state)
   state.chestGold -= stolen
   state.stolenGold += stolen
   state.theftCount += 1
   state.threat = 8
   if (report) report.stolen += stolen
   addEvent(state, 'warning', `Diebeszug: ${Math.ceil(stolen)} ungesichertes Gold verloren.`)
+}
+
+export function lowerThreat(state: GameState): GameState {
+  if (state.threat <= 0) return state
+  const next = structuredClone(state)
+  next.threat = Math.max(0, next.threat - threatReductionPerClick(next))
+  return next
 }
 
 export function advanceGame(input: GameState, now = Date.now(), offline = false): GameState {
@@ -156,9 +163,8 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
 
   let cursor = state.lastTick
   while (cursor < target) {
-    if (state.courierUnlocked && state.transportEndsAt === null && state.chestGold > 0 && state.vaultGold < vaultCapacity(state)) {
-      const started = startTransport(state, cursor)
-      Object.assign(state, started)
+    if (hasAutomaticTransport(state) && state.transportEndsAt === null && state.chestGold > 0 && state.vaultGold < vaultCapacity(state)) {
+      Object.assign(state, startTransport(state, cursor))
     }
 
     const nextEvent = Math.min(
@@ -169,12 +175,12 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
     )
     const nextCursor = Math.min(target, cursor + STEP_MS, nextEvent)
     const dt = Math.max(0, nextCursor - cursor) / 1000
-    const businessPaused = state.transportEndsAt !== null && !state.courierUnlocked
-    if (!businessPaused) storeGold(state, passiveRate(state) * dt, report)
+    const miningPaused = state.transportEndsAt !== null && !hasAutomaticTransport(state)
+    if (!miningPaused) storeGold(state, passiveRate(state) * dt, report)
 
     if (state.chestGold > 0) {
       const fill = state.chestGold / chestCapacity(state)
-      state.threat += dt * (0.045 + 0.075 * fill) / SECURITY[state.securityLevel].factor
+      state.threat += dt * (0.045 + 0.075 * fill) / securityFactor(state)
       if (state.threat >= 100) runTheft(state, report)
     }
 
@@ -195,36 +201,26 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
   return state
 }
 
-export function buyUpgrade(state: GameState, id: UpgradeId): GameState {
-  const price = upgradeCost(state, id)
-  if (!Number.isFinite(price) || state.vaultGold < price) return state
-  if (id === 'cargo' || id === 'convoy') {
-    if (!state.courierUnlocked) return state
-  }
-
+export function buyEquipmentUpgrade(state: GameState, id: EquipmentUpgradeId): GameState {
+  const price = equipmentUpgradeCost(state, id)
+  if (state.vaultGold < price) return state
   const next = structuredClone(state)
   next.vaultGold -= price
-  switch (id) {
-    case 'tap': next.tapLevel += 1; break
-    case 'staff': next.staffLevel += 1; break
-    case 'chest': next.chestLevel += 1; break
-    case 'transport':
-      if (next.transportLevel >= 3) return state
-      next.transportLevel += 1
-      break
-    case 'courier':
-      if (next.courierUnlocked) return state
-      next.courierUnlocked = true
-      break
-    case 'cargo': next.cargoLevel += 1; break
-    case 'convoy': next.convoyLevel += 1; break
-    case 'vault': next.vaultLevel += 1; break
-    case 'security':
-      if (next.securityLevel >= SECURITY.length - 1) return state
-      next.securityLevel += 1
-      break
-  }
-  addEvent(next, 'info', 'Ausbau abgeschlossen.')
+  if (id === 'tap') next.tapLevel += 1
+  else if (id === 'chest') next.chestLevel += 1
+  else next.vaultLevel += 1
+  addEvent(next, 'info', 'Ausrüstung verbessert.')
+  return next
+}
+
+export function buySlotUpgrade(state: GameState, group: SlotGroup, index: SlotIndex): GameState {
+  const price = slotUpgradeCost(state, group, index)
+  if (state.vaultGold < price) return state
+  const next = structuredClone(state)
+  next.vaultGold -= price
+  const levels = group === 'miners' ? next.minerLevels : group === 'transporters' ? next.transporterLevels : next.guardLevels
+  levels[index] += 1
+  addEvent(next, 'info', `${group === 'miners' ? 'Bergmann' : group === 'transporters' ? 'Fuhrknecht' : 'Wache'} ${index + 1} verbessert.`)
   return next
 }
 

@@ -1,4 +1,12 @@
-import type { GameState, UpgradeId, UpgradeView } from './types'
+import type {
+  EquipmentUpgradeId,
+  GameState,
+  SectionId,
+  SlotGroup,
+  SlotIndex,
+  SlotLevels,
+  UpgradeView,
+} from './types'
 
 export const MAX_OFFLINE_SECONDS = 8 * 60 * 60
 
@@ -23,132 +31,176 @@ export const TREASURE_CHESTS = [
   'Ultimative Juwelentruhe',
 ] as const
 
-export const TRANSPORTS = [
-  { name: 'Zu Fuß', upgrade: 'Packpferd', duration: 12, capacity: 20, icon: 'courier' },
-  { name: 'Packpferd', upgrade: 'Schatzkarren', duration: 9, capacity: 24, icon: 'horse' },
-  { name: 'Schatzkarren', upgrade: 'Königliche Kutsche', duration: 6, capacity: 48, icon: 'cart' },
-  { name: 'Königliche Kutsche', upgrade: null, duration: 4, capacity: 100, icon: 'carriage' },
-] as const
-
-export const SECURITY = [
-  { name: 'Eisenschloss', next: 'Wachhund', factor: 1, loss: 0.3 },
-  { name: 'Wachhund', next: 'Wachturm', factor: 1.8, loss: 0.24 },
-  { name: 'Wachturm', next: 'Königsgarde', factor: 3, loss: 0.18 },
-  { name: 'Königsgarde', next: 'Schatzfestung', factor: 5, loss: 0.12 },
-  { name: 'Schatzfestung', next: null, factor: 8, loss: 0.08 },
-] as const
-
-export const tapValue = (state: GameState) => 1 * 1.42 ** state.tapLevel
-export const passiveRate = (state: GameState) => state.staffLevel === 0 ? 0 : 0.65 * 1.5 ** (state.staffLevel - 1)
-export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
-export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
-export const convoySize = (state: GameState) => 1 + state.convoyLevel
-export const cargoCapacity = (state: GameState) => {
-  const base = TRANSPORTS[state.transportLevel].capacity
-  return base * 1.65 ** state.cargoLevel * convoySize(state)
+export const SECTION_SLOT_GROUP: Record<SectionId, SlotGroup> = {
+  mine: 'miners',
+  bag: 'transporters',
+  chest: 'guards',
 }
-export const transportDuration = (state: GameState) => TRANSPORTS[state.transportLevel].duration
-export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
-export const transportName = (state: GameState) => TRANSPORTS[state.transportLevel].name
 
-const effectValue = (value: number) => Math.floor(value).toLocaleString('de-DE')
-const effectRate = (value: number) => value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
-const visualStage = (level: number) => Math.min(3, level)
+export const SECTION_LABEL: Record<SectionId, string> = {
+  mine: 'Mine',
+  bag: 'Beutel',
+  chest: 'Truhe',
+}
+
+const SLOT_NAMES: Record<SlotGroup, string> = {
+  miners: 'Bergmann',
+  transporters: 'Fuhrknecht',
+  guards: 'Wache',
+}
+
+const SLOT_SECTION: Record<SlotGroup, SectionId> = {
+  miners: 'mine',
+  transporters: 'bag',
+  guards: 'chest',
+}
+
+const SLOT_ACCENT: Record<SlotGroup, UpgradeView['accent']> = {
+  miners: 'business',
+  transporters: 'logistics',
+  guards: 'vault',
+}
+
+const SLOT_SPRITE: Record<SlotGroup, UpgradeView['spriteFamily']> = {
+  miners: 'pickaxe',
+  transporters: 'transport',
+  guards: 'security',
+}
 
 const cost = (base: number, factor: number, level: number) => Math.ceil(base * factor ** level)
+const visualStage = (level: number) => Math.min(3, Math.max(0, level))
+const effectValue = (value: number) => Math.floor(value).toLocaleString('de-DE')
+const effectRate = (value: number) => value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
+const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
-export function upgradeCost(state: GameState, id: UpgradeId): number {
+export const tapValue = (state: GameState) => 1 * 1.42 ** state.tapLevel
+export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
+export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
+export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
+export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
+
+export const activeTransporters = (state: GameState) => state.transporterLevels.filter((level) => level > 0).length
+export const hasAutomaticTransport = (state: GameState) => activeTransporters(state) > 0
+export const transporterCapacity = (level: number) => level === 0 ? 0 : 12 * 1.55 ** (level - 1)
+export const automaticTransportAmount = (state: GameState) => state.transporterLevels.reduce((total, level) => total + transporterCapacity(level), 0)
+export const cargoCapacity = (state: GameState) => Math.max(20, automaticTransportAmount(state))
+export const transportDuration = (state: GameState) => {
+  const active = activeTransporters(state)
+  if (active === 0) return 12
+  const experience = totalLevels(state.transporterLevels) - active
+  return Math.max(3, 12 / (1 + (active - 1) * 0.18 + experience * 0.12))
+}
+export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
+export const transportVisualLevel = (state: GameState) => visualStage(Math.max(...state.transporterLevels))
+
+export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
+export const securityLoss = (state: GameState) => Math.max(0.06, 0.3 * 0.86 ** guardStrength(state))
+export const securityFactor = (state: GameState) => 1 + guardStrength(state) * 0.6
+export const securityRating = (state: GameState) => Math.round((1 - securityLoss(state)) * 100)
+export const threatReductionPerClick = (state: GameState) => 8 + Math.min(8, guardStrength(state) * 0.5)
+
+export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
   switch (id) {
     case 'tap': return cost(12, 1.58, state.tapLevel)
-    case 'staff': return cost(75, 1.72, state.staffLevel)
     case 'chest': return cost(45, 1.62, state.chestLevel)
-    case 'transport': return [35, 110, 360][state.transportLevel] ?? Number.POSITIVE_INFINITY
-    case 'courier': return state.courierUnlocked ? Number.POSITIVE_INFINITY : 240
-    case 'cargo': return cost(320, 1.78, state.cargoLevel)
-    case 'convoy': return cost(1_600, 2.2, state.convoyLevel)
     case 'vault': return cost(300, 1.85, state.vaultLevel)
-    case 'security': return cost(180, 2.05, state.securityLevel)
   }
 }
 
-export function getUpgrades(state: GameState): UpgradeView[] {
-  const transportMaxed = state.transportLevel >= TRANSPORTS.length - 1
-  const securityMaxed = state.securityLevel >= SECURITY.length - 1
-  const nextTransport = TRANSPORTS[state.transportLevel].upgrade
-  const nextSecurity = SECURITY[state.securityLevel].next
+export function slotUpgradeCost(state: GameState, group: SlotGroup, index: SlotIndex): number {
+  const bases: Record<SlotGroup, number> = { miners: 75, transporters: 180, guards: 150 }
+  const factors: Record<SlotGroup, number> = { miners: 1.72, transporters: 1.78, guards: 1.8 }
+  const levels = group === 'miners' ? state.minerLevels : group === 'transporters' ? state.transporterLevels : state.guardLevels
+  return cost(bases[group], factors[group], levels[index])
+}
 
-  return [
-    {
-      id: 'tap', name: visualStage(state.tapLevel) < PICKAXES.length - 1 ? PICKAXES[visualStage(state.tapLevel) + 1] : 'Pickhacke verzaubern',
-      description: `Jeder Schlag löst danach ${Math.ceil(tapValue(state) * 1.42)} Gold aus dem Fels.`,
-      level: PICKAXES[visualStage(state.tapLevel)], cost: upgradeCost(state, 'tap'), available: true, accent: 'business',
-      currentEffect: `+${Math.ceil(tapValue(state))}`,
-      nextEffect: `+${Math.ceil(tapValue({ ...state, tapLevel: state.tapLevel + 1 }))}`,
-      category: 'production',
-    },
-    {
-      id: 'staff', name: state.staffLevel ? 'Bergleute anheuern' : 'Ersten Bergmann anheuern',
-      description: `Deine Mine fördert dann ${passiveRate({ ...state, staffLevel: state.staffLevel + 1 }).toFixed(1)} Gold/s.`,
-      level: state.staffLevel ? `${state.staffLevel} Bergleute` : 'Du schürfst allein', cost: upgradeCost(state, 'staff'), available: true, accent: 'business',
-      currentEffect: `${effectRate(passiveRate(state))}/s`,
-      nextEffect: `${effectRate(passiveRate({ ...state, staffLevel: state.staffLevel + 1 }))}/s`,
-      category: 'production',
-    },
-    {
-      id: 'chest', name: visualStage(state.chestLevel) < BAGS.length - 1 ? BAGS[visualStage(state.chestLevel) + 1] : 'Goldsack verstärken',
-      description: `Mehr frisch geschürftes Gold vor der nächsten Reise sammeln.`,
-      level: BAGS[visualStage(state.chestLevel)], cost: upgradeCost(state, 'chest'), available: true, accent: 'logistics',
-      currentEffect: effectValue(chestCapacity(state)),
-      nextEffect: effectValue(chestCapacity({ ...state, chestLevel: state.chestLevel + 1 })),
-      category: 'storage',
-    },
-    {
-      id: 'transport', name: nextTransport ?? 'Transport ausgereizt',
-      description: transportMaxed ? 'Die königliche Kutsche ist der schnellste Goldtransport.' : 'Kürzere Reise, größere Ladung und weniger Ausfallzeit.',
-      level: transportName(state), cost: upgradeCost(state, 'transport'), available: !transportMaxed, maxed: transportMaxed, accent: 'logistics',
-      currentEffect: `${TRANSPORTS[state.transportLevel].duration} Sek. · ${effectValue(TRANSPORTS[state.transportLevel].capacity)} Gold`,
-      nextEffect: transportMaxed ? 'Maximal' : `${TRANSPORTS[state.transportLevel + 1].duration} Sek. · ${effectValue(TRANSPORTS[state.transportLevel + 1].capacity)} Gold`,
-      category: 'transport',
-    },
-    {
-      id: 'courier', name: state.courierUnlocked ? 'Fuhrknecht angeheuert' : 'Fuhrknecht anheuern',
-      description: state.courierUnlocked ? 'Reisen starten automatisch. Du kannst in der Mine weiterschürfen.' : 'Automatisiert den Transport und beendet die Abbaupause.',
-      level: state.courierUnlocked ? 'Automatisiert' : 'Du reist selbst', cost: upgradeCost(state, 'courier'), available: !state.courierUnlocked, maxed: state.courierUnlocked, accent: 'logistics',
-      currentEffect: state.courierUnlocked ? 'Automatisch' : 'Manuell',
-      nextEffect: state.courierUnlocked ? 'Maximal' : 'Automatisch',
-      category: 'transport',
-    },
-    {
-      id: 'cargo', name: 'Mehr Laderaum',
-      description: 'Größere Satteltaschen und Wagen erhöhen die Ladung um 65 %.',
-      level: `Ladung ${Math.floor(cargoCapacity(state))}`, cost: upgradeCost(state, 'cargo'), available: state.courierUnlocked, accent: 'logistics',
-      currentEffect: effectValue(cargoCapacity(state)),
-      nextEffect: effectValue(cargoCapacity({ ...state, cargoLevel: state.cargoLevel + 1 })),
-      category: 'transport',
-    },
-    {
-      id: 'convoy', name: 'Weiteres Gespann',
-      description: 'Ein zusätzliches Gespann schließt sich deinem Goldzug an.',
-      level: `${convoySize(state)} Gespann${convoySize(state) === 1 ? '' : 'e'}`, cost: upgradeCost(state, 'convoy'), available: state.courierUnlocked, accent: 'logistics',
-      currentEffect: `${convoySize(state)} Gespann${convoySize(state) === 1 ? '' : 'e'}`,
-      nextEffect: `${convoySize({ ...state, convoyLevel: state.convoyLevel + 1 })} Gespanne`,
-      category: 'transport',
-    },
-    {
-      id: 'vault', name: visualStage(state.vaultLevel) < TREASURE_CHESTS.length - 1 ? TREASURE_CHESTS[visualStage(state.vaultLevel) + 1] : 'Juwelentruhe erweitern',
-      description: `Sicheres Schatzlager auf ${Math.floor(vaultCapacity({ ...state, vaultLevel: state.vaultLevel + 1 }))} Gold erhöhen.`,
-      level: TREASURE_CHESTS[visualStage(state.vaultLevel)], cost: upgradeCost(state, 'vault'), available: true, accent: 'vault',
-      currentEffect: effectValue(vaultCapacity(state)),
-      nextEffect: effectValue(vaultCapacity({ ...state, vaultLevel: state.vaultLevel + 1 })),
-      category: 'storage',
-    },
-    {
-      id: 'security', name: nextSecurity ?? 'Maximale Sicherheit',
-      description: securityMaxed ? 'Dein Schatz ist durch eine ganze Festung geschützt.' : 'Diebeszüge werden seltener und richten weniger Schaden an.',
-      level: SECURITY[state.securityLevel].name, cost: upgradeCost(state, 'security'), available: !securityMaxed, maxed: securityMaxed, accent: 'vault',
-      currentEffect: `${Math.round(SECURITY[state.securityLevel].loss * 100)} % Verlust`,
-      nextEffect: securityMaxed ? 'Maximal' : `${Math.round(SECURITY[state.securityLevel + 1].loss * 100)} % Verlust`,
-      category: 'security',
-    },
-  ]
+function withEquipmentLevel(state: GameState, id: EquipmentUpgradeId): GameState {
+  if (id === 'tap') return { ...state, tapLevel: state.tapLevel + 1 }
+  if (id === 'chest') return { ...state, chestLevel: state.chestLevel + 1 }
+  return { ...state, vaultLevel: state.vaultLevel + 1 }
+}
+
+export function withSlotLevel(state: GameState, group: SlotGroup, index: SlotIndex): GameState {
+  const key = group === 'miners' ? 'minerLevels' : group === 'transporters' ? 'transporterLevels' : 'guardLevels'
+  const levels = [...state[key]] as SlotLevels
+  levels[index] += 1
+  return { ...state, [key]: levels }
+}
+
+export function getEquipmentUpgrade(state: GameState, section: SectionId): UpgradeView {
+  if (section === 'mine') {
+    const next = withEquipmentLevel(state, 'tap')
+    return {
+      key: 'equipment:tap', section, equipmentId: 'tap', name: visualStage(state.tapLevel) < PICKAXES.length - 1 ? PICKAXES[visualStage(state.tapLevel) + 1] : 'Pickhacke verzaubern',
+      description: `Jeder Schlag löst danach ${Math.ceil(tapValue(next))} Gold aus dem Fels.`,
+      level: PICKAXES[visualStage(state.tapLevel)], cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
+      currentEffect: `+${Math.ceil(tapValue(state))}`, nextEffect: `+${Math.ceil(tapValue(next))}`,
+      spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,
+    }
+  }
+  if (section === 'bag') {
+    const next = withEquipmentLevel(state, 'chest')
+    return {
+      key: 'equipment:chest', section, equipmentId: 'chest', name: visualStage(state.chestLevel) < BAGS.length - 1 ? BAGS[visualStage(state.chestLevel) + 1] : 'Goldsack verstärken',
+      description: 'Mehr frisch geschürftes Gold bis zum nächsten Transport sammeln.',
+      level: BAGS[visualStage(state.chestLevel)], cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
+      currentEffect: effectValue(chestCapacity(state)), nextEffect: effectValue(chestCapacity(next)),
+      spriteFamily: 'bag', spriteLevel: state.chestLevel,
+    }
+  }
+  const next = withEquipmentLevel(state, 'vault')
+  return {
+    key: 'equipment:vault', section, equipmentId: 'vault', name: visualStage(state.vaultLevel) < TREASURE_CHESTS.length - 1 ? TREASURE_CHESTS[visualStage(state.vaultLevel) + 1] : 'Juwelentruhe erweitern',
+    description: `Das sichere Schatzlager auf ${effectValue(vaultCapacity(next))} Gold erhöhen.`,
+    level: TREASURE_CHESTS[visualStage(state.vaultLevel)], cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
+    currentEffect: effectValue(vaultCapacity(state)), nextEffect: effectValue(vaultCapacity(next)),
+    spriteFamily: 'chest', spriteLevel: state.vaultLevel,
+  }
+}
+
+export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeView[] {
+  const group = SECTION_SLOT_GROUP[section]
+  const levels = group === 'miners' ? state.minerLevels : group === 'transporters' ? state.transporterLevels : state.guardLevels
+  return levels.map((level, rawIndex) => {
+    const index = rawIndex as SlotIndex
+    const next = withSlotLevel(state, group, index)
+    let currentEffect = 'Unbesetzt'
+    let nextEffect = ''
+    let description = ''
+
+    if (group === 'miners') {
+      currentEffect = level === 0 ? '0/s' : `${effectRate(minerRate(level))}/s`
+      nextEffect = `${effectRate(minerRate(level + 1))}/s`
+      description = 'Schürft selbstständig Gold und arbeitet unabhängig von den anderen Bergleuten.'
+    } else if (group === 'transporters') {
+      currentEffect = level === 0 ? 'Inaktiv' : `${effectValue(transporterCapacity(level))} Gold`
+      nextEffect = `${effectValue(transporterCapacity(level + 1))} Gold`
+      description = 'Erhöht die automatische Transportmenge und verkürzt die Zeit zwischen Fahrten.'
+    } else {
+      currentEffect = `${securityRating(state)}% gesamt`
+      nextEffect = `${securityRating(next)}% gesamt`
+      description = 'Bewacht die Schatztruhe, bremst Aufmerksamkeit und begrenzt Verluste bei Diebeszügen.'
+    }
+
+    return {
+      key: `slot:${group}:${index}`,
+      section: SLOT_SECTION[group],
+      slot: { group, index },
+      name: `${SLOT_NAMES[group]} ${index + 1}`,
+      description,
+      level: level === 0 ? 'Unbesetzt' : `Stufe ${level}`,
+      currentEffect,
+      nextEffect,
+      cost: slotUpgradeCost(state, group, index),
+      available: true,
+      accent: SLOT_ACCENT[group],
+      spriteFamily: SLOT_SPRITE[group],
+      spriteLevel: level,
+    }
+  })
+}
+
+export function getAllUpgrades(state: GameState): UpgradeView[] {
+  const sections: SectionId[] = ['mine', 'bag', 'chest']
+  return sections.flatMap((section) => [getEquipmentUpgrade(state, section), ...getSlotUpgrades(state, section)])
 }

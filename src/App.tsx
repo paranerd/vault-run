@@ -1,42 +1,53 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Check,
-  ChartNoAxesCombined,
   Clock3,
   Eye,
-  LockKeyhole,
   RotateCcw,
+  ShieldCheck,
   SlidersHorizontal,
-  UsersRound,
   Volume2,
   VolumeX,
 } from 'lucide-react'
 import {
-  SECURITY,
+  SECTION_LABEL,
+  SECTION_SLOT_GROUP,
+  automaticTransportAmount,
   chestCapacity,
-  convoySize,
-  getUpgrades,
+  getAllUpgrades,
+  getEquipmentUpgrade,
+  getSlotUpgrades,
+  hasAutomaticTransport,
   passiveRate,
+  securityRating,
   tapValue,
+  threatReductionPerClick,
+  transportDuration,
+  transportVisualLevel,
   vaultCapacity,
 } from './game/config'
 import {
   advanceGame,
-  buyUpgrade,
+  buyEquipmentUpgrade,
+  buySlotUpgrade,
   dismissOfflineReport,
+  lowerThreat,
   startExpressTransport,
   startTransport,
   tap,
 } from './game/engine'
 import { formatDuration, formatGold } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
-import type { GameState, UpgradeCategory, UpgradeId, UpgradeView } from './game/types'
+import type { GameState, SectionId, SlotIndex, UpgradeView } from './game/types'
 
-type Panel = 'upgrades' | 'stats'
-type Filter = 'all' | UpgradeCategory
+type PanelKind = 'equipment' | 'slots'
+interface PanelState {
+  section: SectionId
+  kind: PanelKind
+  focus?: SlotIndex
+}
 
-const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels'
-const WIDE_LAYOUT_QUERY = '(min-width: 760px)'
+const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
 
 interface CoinFlight {
@@ -52,25 +63,12 @@ interface CoinFlight {
   duration: number
 }
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'Alle' },
-  { id: 'production', label: 'Abbau' },
-  { id: 'storage', label: 'Schätze' },
-  { id: 'transport', label: 'Transport' },
-  { id: 'security', label: 'Sicherheit' },
-]
-
 function percentage(value: number, capacity: number) {
+  if (capacity <= 0) return 0
   return Math.max(0, Math.min(100, (value / capacity) * 100))
 }
 
-function roundTripPosition(start: number | null, end: number | null, now: number) {
-  if (start === null || end === null) return 0
-  const progress = percentage(now - start, end - start)
-  return progress <= 50 ? progress * 2 : (100 - progress) * 2
-}
-
-function playTone(kind: 'coin' | 'trip' | 'upgrade', enabled: boolean) {
+function playTone(kind: 'coin' | 'trip' | 'upgrade' | 'secure', enabled: boolean) {
   if (!enabled) return
   try {
     const AudioContextClass = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -78,9 +76,11 @@ function playTone(kind: 'coin' | 'trip' | 'upgrade', enabled: boolean) {
     const context = new AudioContextClass()
     const oscillator = context.createOscillator()
     const gain = context.createGain()
-    oscillator.type = kind === 'trip' ? 'square' : 'sine'
-    oscillator.frequency.setValueAtTime(kind === 'coin' ? 650 : kind === 'upgrade' ? 440 : 220, context.currentTime)
-    oscillator.frequency.exponentialRampToValueAtTime(kind === 'coin' ? 920 : kind === 'upgrade' ? 680 : 330, context.currentTime + 0.08)
+    oscillator.type = kind === 'trip' || kind === 'secure' ? 'square' : 'sine'
+    const start = kind === 'coin' ? 650 : kind === 'upgrade' ? 440 : kind === 'secure' ? 310 : 220
+    const end = kind === 'coin' ? 920 : kind === 'upgrade' ? 680 : kind === 'secure' ? 220 : 330
+    oscillator.frequency.setValueAtTime(start, context.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(end, context.currentTime + 0.08)
     gain.gain.setValueAtTime(0.035, context.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12)
     oscillator.connect(gain).connect(context.destination)
@@ -109,7 +109,7 @@ function spriteStage(level: number, maximum = 3) {
   return Math.min(maximum, Math.max(0, level))
 }
 
-function PixelSprite({ family, level, className = '' }: { family: 'pickaxe' | 'bag' | 'chest' | 'transport' | 'security'; level: number; className?: string }) {
+function PixelSprite({ family, level, className = '' }: { family: UpgradeView['spriteFamily']; level: number; className?: string }) {
   const maximum = family === 'security' ? 4 : 3
   return <img className={`pixel-sprite ${className}`} src={`${SPRITE_ROOT}/${family}-${spriteStage(level, maximum)}.png`} alt="" aria-hidden="true" draggable={false} />
 }
@@ -127,89 +127,95 @@ function PixelCoin({ className = '' }: { className?: string }) {
   )
 }
 
-function UpgradeSprite({ upgrade, state }: { upgrade: UpgradeView; state: GameState }) {
-  if (upgrade.id === 'tap') return <PixelSprite family="pickaxe" level={state.tapLevel} />
-  if (upgrade.id === 'staff') return <PixelSprite family="transport" level={0} />
-  if (upgrade.id === 'chest') return <PixelSprite family="bag" level={state.chestLevel} />
-  if (upgrade.id === 'vault') return <PixelSprite family="chest" level={state.vaultLevel} />
-  if (upgrade.id === 'security') return <PixelSprite family="security" level={state.securityLevel} />
-  return <PixelSprite family="transport" level={state.transportLevel} />
-}
-
-function StorageMeter({ value, capacity, label }: { value: number; capacity: number; label: string }) {
-  const fill = percentage(value, capacity)
+function StatTile({ label, value, icon }: { label?: string; value?: string; icon?: ReactNode }) {
   return (
-    <div className="storage-meter">
-      <div
-        className="storage-meter__bar"
-        role="progressbar"
-        aria-label={`${label} zu ${Math.round(fill)} Prozent gefüllt`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(fill)}
-      >
-        <i style={{ width: `${fill}%` }} />
-      </div>
-      <div className="storage-meter__amount">
-        <strong>{formatGold(value)}</strong><span>/{formatGold(capacity)}</span>
-      </div>
+    <div className={`stat-tile ${label ? '' : 'is-empty'}`} aria-hidden={!label || undefined}>
+      {icon && <span className="stat-tile__icon">{icon}</span>}
+      {label ? <><strong>{value}</strong><span>{label}</span></> : <span>·</span>}
     </div>
   )
 }
 
-function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: GameState; onBuy: (id: UpgradeId) => void }) {
+function SectionProgress({ fill, label, amount, muted = false }: { fill: number; label: string; amount?: string; muted?: boolean }) {
+  return (
+    <div className={`section-progress ${muted ? 'is-muted' : ''}`}>
+      <div className="section-progress__bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fill)}>
+        <i style={{ width: `${fill}%` }} />
+      </div>
+      {amount && <div className="section-progress__amount">{amount}</div>}
+    </div>
+  )
+}
+
+function SlotGrid({
+  section,
+  levels,
+  family,
+  notifying,
+  noticeCount,
+  onOpen,
+}: {
+  section: SectionId
+  levels: readonly number[]
+  family: UpgradeView['spriteFamily']
+  notifying: boolean
+  noticeCount: number
+  onOpen: (index: SlotIndex) => void
+}) {
+  return (
+    <div className={`slot-grid ${notifying ? 'is-notifying' : ''}`} aria-label={`${SECTION_LABEL[section]}: vier Slot-Upgrades`}>
+      {levels.map((level, rawIndex) => {
+        const index = rawIndex as SlotIndex
+        return (
+          <button key={index} className={level === 0 ? 'is-empty' : ''} onClick={() => onOpen(index)} aria-label={`Slot ${index + 1}, ${level === 0 ? 'unbesetzt' : `Stufe ${level}`}`}>
+            <PixelSprite family={family} level={level} />
+            <b>{level === 0 ? '+' : level}</b>
+          </button>
+        )
+      })}
+      {noticeCount > 0 && <em className="slot-grid__badge" aria-label={`${noticeCount} kaufbare Slot-Upgrades`}>{noticeCount}</em>}
+    </div>
+  )
+}
+
+function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView; state: GameState; focused?: boolean; onBuy: (upgrade: UpgradeView) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
   return (
-    <article className={`upgrade-card upgrade-card--${upgrade.category} ${!upgrade.available ? 'is-locked' : ''}`}>
+    <article className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''}`}>
       <div className="upgrade-card__content">
-        <span className="upgrade-card__sprite"><UpgradeSprite upgrade={upgrade} state={state} /></span>
+        <span className="upgrade-card__sprite"><PixelSprite family={upgrade.spriteFamily} level={upgrade.spriteLevel} /></span>
         <div className="upgrade-card__details">
-          <div className="upgrade-card__top">
-            <span>{upgrade.level}</span>
-            {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
-          </div>
+          <div className="upgrade-card__top"><span>{upgrade.level}</span>{upgrade.maxed && <b><Check size={13} /> Aktiv</b>}</div>
           <h3>{upgrade.name}</h3>
           <p>{upgrade.description}</p>
           <div className="upgrade-effects" aria-label="Upgrade-Effekt">
             <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
             <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
           </div>
-          {!upgrade.available && !upgrade.maxed && (
-            <span className="locked-note"><LockKeyhole size={13} /> Erst den Fuhrknecht anheuern</span>
-          )}
         </div>
       </div>
-      {(upgrade.available || upgrade.maxed) && (
-        <button
-          className="buy-button"
-          disabled={disabled}
-          onClick={() => onBuy(upgrade.id)}
-          aria-label={upgrade.maxed ? `${upgrade.name}: erledigt` : `${upgrade.name} für ${formatGold(upgrade.cost)} kaufen`}
-        >
-          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
-        </button>
-      )}
+      <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name} für ${formatGold(upgrade.cost)} Gold verbessern`}>
+        {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
+      </button>
     </article>
   )
 }
 
 function App() {
   const [state, setState] = useState<GameState>(() => loadGame())
-  const [panel, setPanel] = useState<Panel | null>(null)
-  const [filter, setFilter] = useState<Filter>('all')
+  const [panel, setPanel] = useState<PanelState | null>(null)
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
   const [coinFlights, setCoinFlights] = useState<CoinFlight[]>([])
   const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
-  const [upgradeButtonPulsing, setUpgradeButtonPulsing] = useState(false)
-  const [wideLayout, setWideLayout] = useState(() => window.matchMedia(WIDE_LAYOUT_QUERY).matches)
+  const [upgradeNoticePulsing, setUpgradeNoticePulsing] = useState(false)
   const sceneRef = useRef<HTMLDivElement>(null)
-  const chestRef = useRef<HTMLButtonElement>(null)
-  const goldButtonRef = useRef<HTMLButtonElement>(null)
+  const bagButtonRef = useRef<HTMLButtonElement>(null)
+  const mineButtonRef = useRef<HTMLButtonElement>(null)
   const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
-  const previousAffordableLevels = useRef(new Set<string>())
-  const upgradePulseTimer = useRef<number | null>(null)
+  const previousAffordable = useRef(new Set<string>())
+  const pulseTimer = useRef<number | null>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => setState((current) => advanceGame(current, Date.now())), 100)
@@ -233,104 +239,94 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const query = window.matchMedia(WIDE_LAYOUT_QUERY)
-    const updateLayout = () => setWideLayout(query.matches)
-    query.addEventListener('change', updateLayout)
-    return () => query.removeEventListener('change', updateLayout)
-  }, [])
-
-  useEffect(() => {
     if (state.tripCount > lastTrips.current) playTone('trip', sound)
     lastTrips.current = state.tripCount
   }, [state.tripCount, sound])
 
-  const upgrades = useMemo(() => getUpgrades(state), [state])
-  const visibleUpgrades = filter === 'all' ? upgrades : upgrades.filter((upgrade) => upgrade.category === filter)
-  const affordableUpgrades = upgrades.filter((upgrade) => upgrade.available && !upgrade.maxed && state.vaultGold >= upgrade.cost)
-  const affordableLevelKeys = affordableUpgrades.map((upgrade) => `${upgrade.id}:${upgrade.cost}`)
-  const affordableLevelSignature = affordableLevelKeys.join('|')
-  const hasUnseenAffordableUpgrade = affordableLevelKeys.some((key) => !seenUpgradeLevels.has(key))
-  const upgradeNoticeCount = hasUnseenAffordableUpgrade ? affordableUpgrades.length : 0
-  const upgradesVisible = panel === 'upgrades' || (wideLayout && panel !== 'stats')
-  const now = Date.now()
-  const chestMax = chestCapacity(state)
-  const vaultMax = vaultCapacity(state)
-  const chestFull = state.chestGold >= chestMax - 0.001
-  const isTravelling = state.transportEndsAt !== null
-  const isExpressTravelling = state.expressEndsAt !== null
-  const businessPaused = isTravelling && !state.courierUnlocked
-  const manualTransportProgress = businessPaused
-    ? percentage(now - (state.transportStartedAt ?? now), (state.transportEndsAt ?? now) - (state.transportStartedAt ?? now))
-    : 100
-  const tripPosition = roundTripPosition(state.transportStartedAt, state.transportEndsAt, now)
-  const expressPosition = roundTripPosition(state.expressStartedAt, state.expressEndsAt, now)
-  const mainAtVault = state.transportDeliveredAt !== null && now >= state.transportDeliveredAt
-  const expressAtVault = state.expressDeliveredAt !== null && now >= state.expressDeliveredAt
-  const vaultReserved = state.inTransitGold + state.expressGold
-  const canStartTransport = !isTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
-  const canStartExpress = state.courierUnlocked && !isExpressTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
-  const canUseChest = state.courierUnlocked ? canStartExpress : canStartTransport
+  const allUpgrades = useMemo(() => getAllUpgrades(state), [state])
+  const affordable = allUpgrades.filter((upgrade) => upgrade.available && !upgrade.maxed && state.vaultGold >= upgrade.cost)
+  const affordableKeys = affordable.map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
+  const affordableSignature = affordableKeys.join('|')
 
-  const acknowledgeAffordableUpgrades = () => {
-    if (affordableLevelKeys.length === 0) return
+  useEffect(() => {
+    const current = new Set(affordableKeys)
+    const hasNew = affordableKeys.some((key) => !previousAffordable.current.has(key) && !seenUpgradeLevels.has(key))
+    previousAffordable.current = current
+    if (!hasNew || panel) return
+    setUpgradeNoticePulsing(true)
+    if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current)
+    pulseTimer.current = window.setTimeout(() => setUpgradeNoticePulsing(false), 950)
+    return () => {
+      if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current)
+    }
+  }, [affordableSignature, panel, seenUpgradeLevels])
+
+  const acknowledge = (section: SectionId, kind: PanelKind) => {
+    const prefix = kind === 'equipment' ? 'equipment:' : `slot:${SECTION_SLOT_GROUP[section]}:`
+    const relevant = affordable.filter((upgrade) => upgrade.key.startsWith(prefix)).map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
+    if (relevant.length === 0) return
     setSeenUpgradeLevels((current) => {
       const next = new Set(current)
-      affordableLevelKeys.forEach((key) => next.add(key))
+      relevant.forEach((key) => next.add(key))
       localStorage.setItem(UPGRADE_NOTICE_KEY, JSON.stringify([...next]))
       return next
     })
-    setUpgradeButtonPulsing(false)
-    if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
+    setUpgradeNoticePulsing(false)
   }
 
-  useEffect(() => {
-    const currentLevels = new Set(affordableLevelKeys)
-    const hasNewLevel = affordableLevelKeys.some((key) => !previousAffordableLevels.current.has(key) && !seenUpgradeLevels.has(key))
-    previousAffordableLevels.current = currentLevels
-
-    if (!hasNewLevel || upgradesVisible) return
-    setUpgradeButtonPulsing(true)
-    if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
-    upgradePulseTimer.current = window.setTimeout(() => setUpgradeButtonPulsing(false), 950)
-    return () => {
-      if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
-    }
-  }, [affordableLevelSignature, seenUpgradeLevels, upgradesVisible])
-
-  useEffect(() => {
-    if (upgradesVisible) acknowledgeAffordableUpgrades()
-  }, [affordableLevelSignature, upgradesVisible])
+  const openPanel = (section: SectionId, kind: PanelKind, focus?: SlotIndex) => {
+    acknowledge(section, kind)
+    setPanel({ section, kind, focus })
+  }
 
   const launchCoin = (value: number) => {
     const scene = sceneRef.current?.getBoundingClientRect()
-    const source = goldButtonRef.current?.getBoundingClientRect()
-    const target = chestRef.current?.getBoundingClientRect()
+    const source = mineButtonRef.current?.getBoundingClientRect()
+    const target = bagButtonRef.current?.getBoundingClientRect()
     if (!scene || !source || !target) return
-
     const left = source.left + source.width / 2 - scene.left
-    const top = source.top + source.height * 0.28 - scene.top
+    const top = source.top + source.height / 2 - scene.top
     const endX = target.left + target.width / 2 - scene.left - left
     const endY = target.top + target.height / 2 - scene.top - top
-    const sway = (Math.random() - 0.5) * Math.min(92, Math.abs(endX) * 0.55 + 32)
-    const arc = 24 + Math.random() * 38
-
     setCoinFlights((current) => [...current.slice(-5), {
       id: ++flightSequence.current,
       value,
       left,
       top,
-      midX: endX * (0.38 + Math.random() * 0.18) + sway,
-      midY: endY * 0.42 - arc,
-      endX: endX + (Math.random() - 0.5) * 8,
+      midX: endX * 0.5 + (Math.random() - 0.5) * 34,
+      midY: endY * 0.5 - 22 - Math.random() * 24,
+      endX: endX + (Math.random() - 0.5) * 6,
       endY: endY + (Math.random() - 0.5) * 6,
       rotation: (Math.random() - 0.5) * 70,
-      duration: 1_050 + Math.random() * 300,
+      duration: 850 + Math.random() * 250,
     }])
   }
 
+  const now = Date.now()
+  const bagMax = chestCapacity(state)
+  const treasureMax = vaultCapacity(state)
+  const bagFull = state.chestGold >= bagMax - 0.001
+  const automatic = hasAutomaticTransport(state)
+  const mainTravelling = state.transportEndsAt !== null
+  const expressTravelling = state.expressEndsAt !== null
+  const miningPaused = mainTravelling && !automatic
+  const mineReadyProgress = miningPaused
+    ? percentage(now - (state.transportStartedAt ?? now), (state.transportEndsAt ?? now) - (state.transportStartedAt ?? now))
+    : 100
+  const reservedGold = state.inTransitGold + state.expressGold
+  const canStartMain = !mainTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
+  const canStartExpress = automatic && !expressTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
+  const canTransport = automatic ? canStartExpress : canStartMain
+  const transportSeconds = automatic ? transportDuration(state) : 0
+
+  const unseenFor = (section: SectionId, kind: PanelKind) => {
+    const prefix = kind === 'equipment' ? `equipment:${section === 'mine' ? 'tap' : section === 'bag' ? 'chest' : 'vault'}` : `slot:${SECTION_SLOT_GROUP[section]}:`
+    return affordable.filter((upgrade) => upgrade.key.startsWith(prefix) && !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
+  }
+
   const handleTap = () => {
-    if (businessPaused || chestFull) return
-    const earned = Math.min(tapValue(state), Math.max(0, chestMax - state.chestGold))
+    if (miningPaused || bagFull) return
+    const earned = Math.min(tapValue(state), Math.max(0, bagMax - state.chestGold))
     setState((current) => tap(current))
     launchCoin(earned)
     playTone('coin', sound)
@@ -338,19 +334,23 @@ function App() {
   }
 
   const handleTransport = () => {
-    if (state.courierUnlocked) {
-      if (!canStartExpress) return
-      setState((current) => startExpressTransport(current, Date.now()))
-    } else {
-      if (!canStartTransport) return
-      setState((current) => startTransport(current, Date.now()))
-    }
+    if (!canTransport) return
+    setState((current) => automatic ? startExpressTransport(current, Date.now()) : startTransport(current, Date.now()))
     playTone('trip', sound)
     haptic(18)
   }
 
-  const handleBuy = (id: UpgradeId) => {
-    setState((current) => buyUpgrade(current, id))
+  const handleSecure = () => {
+    if (state.threat <= 0) return
+    setState((current) => lowerThreat(current))
+    playTone('secure', sound)
+    haptic(10)
+  }
+
+  const handleBuy = (upgrade: UpgradeView) => {
+    setState((current) => upgrade.equipmentId
+      ? buyEquipmentUpgrade(current, upgrade.equipmentId)
+      : upgrade.slot ? buySlotUpgrade(current, upgrade.slot.group, upgrade.slot.index) : current)
     playTone('upgrade', sound)
     haptic(14)
   }
@@ -362,199 +362,134 @@ function App() {
     })
   }
 
-  const openPanel = (next: Panel) => {
-    if (next === 'upgrades') acknowledgeAffordableUpgrades()
-    setPanel((current) => current === next ? null : next)
-  }
   const confirmReset = () => {
     if (window.confirm('Den lokalen Spielstand wirklich löschen?')) {
       localStorage.removeItem(UPGRADE_NOTICE_KEY)
       setSeenUpgradeLevels(new Set())
       setState(resetGame())
+      setPanel(null)
     }
   }
+
+  const panelUpgrades = panel
+    ? panel.kind === 'equipment' ? [getEquipmentUpgrade(state, panel.section)] : getSlotUpgrades(state, panel.section)
+    : []
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-mark" aria-label="Vault Run"><PixelSprite family="pickaxe" level={3} /></div>
-        <div className="header-wealth">
-          <strong><PixelCoin /> {formatGold(state.vaultGold)}</strong>
-        </div>
+        <div className="header-wealth"><strong><PixelCoin /> {formatGold(state.vaultGold)}</strong></div>
         <div className="header-actions">
-          <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
-            {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
-          </button>
+          <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>{sound ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
         </div>
       </header>
 
-      <main className="app-layout">
-        <section className="game-stage" aria-label="Deine Goldmine">
-          <div className="game-scene" ref={sceneRef}>
-            <div className="core-loop">
-              <article className="station vault-station">
-                <div className="station-heading">
-                  <strong>Schatztruhe</strong>
-                </div>
-                <div className="station-visual station-visual--vault" aria-label="Deine sichere Schatztruhe">
+      <main className="game-stage" aria-label="Dein Goldreich">
+        <div className="game-sections" ref={sceneRef}>
+          <article className="game-section game-section--mine">
+            <h2 className="section-divider"><span>Mine</span></h2>
+            <div className="section-layout">
+              <div className="stats-grid" aria-label="Minenwerte">
+                <StatTile label="Auto / Sek." value={formatGold(passiveRate(state))} />
+                <StatTile label="Gold / Klick" value={`+${formatGold(tapValue(state))}`} />
+                <StatTile /><StatTile />
+              </div>
+              <div className="section-center">
+                <button ref={mineButtonRef} className="section-action" disabled={miningPaused || bagFull} onClick={handleTap} aria-label={`Gold schürfen: ${formatGold(tapValue(state))}`}>
+                  <PixelSprite family="pickaxe" level={state.tapLevel} />
+                  <strong>{bagFull ? 'Voll' : miningPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
+                </button>
+                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('mine', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('mine', 'equipment')} aria-label="Pickhacke ausbauen">
+                  <SlidersHorizontal aria-hidden="true" /><span>Ausbau</span>
+                </button>
+                <SectionProgress fill={mineReadyProgress} label={miningPaused ? 'Zeit bis wieder manuell geschürft werden kann' : 'Manuelles Schürfen bereit'} amount={miningPaused ? 'Wird frei' : 'Bereit'} muted={!miningPaused} />
+              </div>
+              <SlotGrid section="mine" levels={state.minerLevels} family="pickaxe" notifying={upgradeNoticePulsing && unseenFor('mine', 'slots').length > 0} noticeCount={unseenFor('mine', 'slots').length} onOpen={(index) => openPanel('mine', 'slots', index)} />
+            </div>
+          </article>
+
+          <article className="game-section game-section--bag">
+            <h2 className="section-divider"><span>Beutel</span></h2>
+            <div className="section-layout">
+              <div className="stats-grid" aria-label="Beutelwerte">
+                <StatTile label="Aufmerksamkeit" value={`${Math.floor(state.threat)}%`} icon={<Eye aria-hidden="true" />} />
+                <StatTile label="Auto-Menge" value={automatic ? formatGold(automaticTransportAmount(state)) : '–'} />
+                <StatTile label="Auto-Takt" value={automatic ? `${transportSeconds.toLocaleString('de-DE', { maximumFractionDigits: 1 })} s` : 'Manuell'} />
+                <StatTile />
+              </div>
+              <div className="section-center">
+                <button ref={bagButtonRef} className="section-action" disabled={!canTransport} onClick={handleTransport} aria-label="Gold zur Schatztruhe transportieren">
+                  <PixelSprite family="transport" level={transportVisualLevel(state)} />
+                  <strong>{expressTravelling || (!automatic && mainTravelling) ? 'Unterwegs' : 'Transport'}</strong>
+                </button>
+                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('bag', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('bag', 'equipment')} aria-label="Beutel ausbauen">
+                  <SlidersHorizontal aria-hidden="true" /><span>Ausbau</span>
+                </button>
+                <SectionProgress fill={percentage(state.chestGold, bagMax)} label="Füllstand des Goldbeutels" amount={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} />
+              </div>
+              <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('bag', 'slots').length > 0} noticeCount={unseenFor('bag', 'slots').length} onOpen={(index) => openPanel('bag', 'slots', index)} />
+            </div>
+          </article>
+
+          <article className="game-section game-section--chest">
+            <h2 className="section-divider"><span>Truhe</span></h2>
+            <div className="section-layout">
+              <div className="stats-grid" aria-label="Truhenwerte">
+                <StatTile label="Sicherheitsniveau" value={`${securityRating(state)}%`} icon={<ShieldCheck aria-hidden="true" />} />
+                <StatTile /><StatTile /><StatTile />
+              </div>
+              <div className="section-center">
+                <button className="section-action" disabled={state.threat <= 0} onClick={handleSecure} aria-label={`Aufmerksamkeit um ${threatReductionPerClick(state)} senken`}>
                   <PixelSprite family="chest" level={state.vaultLevel} />
-                </div>
-                <StorageMeter value={state.vaultGold} capacity={vaultMax} label="Schatztruhe" />
-                <div className="security-line"><PixelSprite family="security" level={state.securityLevel} /> {SECURITY[state.securityLevel].name}</div>
-              </article>
-
-              <div className="transport-lane" aria-label="Reise zur Schatztruhe">
-                <div className="road">
-                  {isTravelling && (
-                    <div
-                      className={`vehicle ${mainAtVault ? 'is-returning' : ''}`}
-                      style={{ '--vehicle-position': `${tripPosition}%` } as CSSProperties}
-                    >
-                      <PixelSprite family="transport" level={state.transportLevel} />
-                      {state.inTransitGold > 0 && <b className="vehicle__cargo">{formatGold(state.inTransitGold)}</b>}
-                      {convoySize(state) > 1 && <em>×{convoySize(state)}</em>}
-                    </div>
-                  )}
-                  {isExpressTravelling && (
-                    <div
-                      className={`vehicle vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
-                      style={{ '--vehicle-position': `${expressPosition}%` } as CSSProperties}
-                    >
-                      <PixelSprite family="transport" level={state.transportLevel} />
-                      {state.expressGold > 0 && <b className="vehicle__cargo">{formatGold(state.expressGold)}</b>}
-                    </div>
-                  )}
-                </div>
+                  <strong>{state.threat > 0 ? `Risiko −${formatGold(threatReductionPerClick(state))}` : 'Sicher'}</strong>
+                </button>
+                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('chest', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('chest', 'equipment')} aria-label="Schatztruhe ausbauen">
+                  <SlidersHorizontal aria-hidden="true" /><span>Ausbau</span>
+                </button>
+                <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
               </div>
-
-              <article className={`station chest-station ${chestFull ? 'is-full' : ''}`}>
-                <div className="station-heading">
-                  <strong>Goldbeutel</strong>
-                </div>
-                <div className="chest-visual-row">
-                  <button
-                    ref={chestRef}
-                    className={`station-visual station-visual--chest ${chestFull ? 'is-closed' : ''}`}
-                    onClick={handleTransport}
-                    disabled={!canUseChest}
-                    aria-label={`${state.courierUnlocked ? 'Eilreise mit Gold starten' : 'Goldbeutel zur Schatztruhe bringen'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
-                  >
-                    <PixelSprite family="bag" level={state.chestLevel} />
-                    {canUseChest && (
-                      <span className="chest-action-badge" aria-hidden="true">
-                        <PixelSprite family="transport" level={state.transportLevel} />
-                      </span>
-                    )}
-                  </button>
-                  <div className="chest-indicators" aria-label="Minenstatus">
-                    <div className="chest-indicator chest-indicator--production" aria-label={`Passiver Abbau: ${formatGold(passiveRate(state))} Gold pro Sekunde`}>
-                      <UsersRound size={16} aria-hidden="true" />
-                      <strong>{formatGold(passiveRate(state))}/s</strong>
-                    </div>
-                    <div className="chest-indicator chest-indicator--attention" aria-label={`Diebesgefahr: ${Math.floor(state.threat)} Prozent`}>
-                      <Eye size={16} aria-hidden="true" />
-                      <strong>{Math.floor(state.threat)}%</strong>
-                    </div>
-                  </div>
-                </div>
-                <StorageMeter value={state.chestGold} capacity={chestMax} label="Goldbeutel" />
-              </article>
+              <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('chest', 'slots').length > 0} noticeCount={unseenFor('chest', 'slots').length} onOpen={(index) => openPanel('chest', 'slots', index)} />
             </div>
+          </article>
 
-            {coinFlights.map((flight) => (
-              <i
-                key={flight.id}
-                className="flying-coin"
-                style={{
-                  left: flight.left,
-                  top: flight.top,
-                  '--coin-mid-x': `${flight.midX}px`,
-                  '--coin-mid-y': `${flight.midY}px`,
-                  '--coin-end-x': `${flight.endX}px`,
-                  '--coin-end-y': `${flight.endY}px`,
-                  '--coin-rotation': `${flight.rotation}deg`,
-                  '--coin-end-rotation': `${flight.rotation * 1.7}deg`,
-                  '--coin-duration': `${flight.duration}ms`,
-                } as CSSProperties}
-                onAnimationEnd={() => setCoinFlights((current) => current.filter((item) => item.id !== flight.id))}
-              >
-                <PixelCoin /><span>+{formatGold(flight.value)}</span>
-              </i>
-            ))}
-
-            <div className="action-dock">
-              <button
-                className={`dock-button dock-button--upgrades ${panel === 'upgrades' ? 'is-active' : ''} ${upgradeButtonPulsing ? 'is-notifying' : ''}`}
-                onClick={() => openPanel('upgrades')}
-              >
-                <SlidersHorizontal size={22} /><span>Upgrades</span>
-                {upgradeNoticeCount > 0 && <b className="dock-button__badge" aria-label={`${upgradeNoticeCount} kaufbare Upgrades`}>{upgradeNoticeCount}</b>}
-              </button>
-              <button
-                ref={goldButtonRef}
-                className="gold-button"
-                disabled={businessPaused || chestFull}
-                onClick={handleTap}
-                aria-label={`Gold schürfen: ${formatGold(tapValue(state))}`}
-              >
-                <span className="gold-button__icon"><PixelSprite family="pickaxe" level={state.tapLevel} /></span>
-                <strong>{chestFull ? 'Beutel voll' : businessPaused ? 'Auf Reisen' : `+${formatGold(tapValue(state))}`}</strong>
-                {businessPaused && (
-                  <span
-                    className="gold-button__progress"
-                    role="progressbar"
-                    aria-label="Eigene Reise"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(manualTransportProgress)}
-                  >
-                    <i style={{ width: `${manualTransportProgress}%` }} />
-                  </span>
-                )}
-              </button>
-              <button className={`dock-button ${panel === 'stats' ? 'is-active' : ''}`} onClick={() => openPanel('stats')}>
-                <ChartNoAxesCombined size={22} /><span>Statistik</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <aside className={`management-sheet ${panel ? 'is-open' : ''}`} aria-label="Reich ausbauen">
-          <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Ausbau schließen">×</button>
-          <div className="sheet-tabs">
-            <button className={(panel ?? 'upgrades') === 'upgrades' ? 'is-active' : ''} onClick={() => setPanel('upgrades')}>Upgrades</button>
-            <button className={panel === 'stats' ? 'is-active' : ''} onClick={() => setPanel('stats')}>Statistik</button>
-          </div>
-
-          {(panel ?? 'upgrades') === 'upgrades' ? (
-            <div className="sheet-content">
-              <div className="sheet-heading"><span>SCHMIEDE &amp; HANDEL</span><h2>Reich ausbauen</h2><p>Bezahlt wird mit sicherem Gold aus der Schatztruhe.</p></div>
-              <div className="filter-row" aria-label="Upgrade-Kategorien">
-                {FILTERS.map((item) => (
-                  <button key={item.id} className={filter === item.id ? 'is-active' : ''} onClick={() => setFilter(item.id)}>{item.label}</button>
-                ))}
-              </div>
-              <div className="upgrade-list">
-                {visibleUpgrades.map((upgrade) => <UpgradeCard key={upgrade.id} upgrade={upgrade} state={state} onBuy={handleBuy} />)}
-              </div>
-            </div>
-          ) : (
-            <div className="sheet-content log-panel">
-              <div className="sheet-heading"><span>CHRONIK</span><h2>Deine Legende</h2></div>
-              <dl className="ledger">
-                <div><dt>Gold geschürft</dt><dd>{formatGold(state.lifetimeGold)}</dd></div>
-                <div><dt>Reisen</dt><dd>{state.tripCount}</dd></div>
-                <div><dt>Diebeszüge</dt><dd>{state.theftCount}</dd></div>
-                <div><dt>Gestohlen</dt><dd>{formatGold(state.stolenGold)}</dd></div>
-                <div><dt>Nicht eingelagert</dt><dd>{formatGold(state.lostGold)}</dd></div>
-              </dl>
-              <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Spielstand löschen</button>
-            </div>
-          )}
-        </aside>
+          {coinFlights.map((flight) => (
+            <i key={flight.id} className="flying-coin" style={{
+              left: flight.left,
+              top: flight.top,
+              '--coin-mid-x': `${flight.midX}px`,
+              '--coin-mid-y': `${flight.midY}px`,
+              '--coin-end-x': `${flight.endX}px`,
+              '--coin-end-y': `${flight.endY}px`,
+              '--coin-rotation': `${flight.rotation}deg`,
+              '--coin-end-rotation': `${flight.rotation * 1.7}deg`,
+              '--coin-duration': `${flight.duration}ms`,
+            } as CSSProperties} onAnimationEnd={() => setCoinFlights((current) => current.filter((item) => item.id !== flight.id))}>
+              <PixelCoin /><span>+{formatGold(flight.value)}</span>
+            </i>
+          ))}
+        </div>
       </main>
 
-      {panel && <button className="sheet-backdrop" aria-label="Ausbau schließen" onClick={() => setPanel(null)} />}
+      {panel && (
+        <>
+          <button className="sheet-backdrop" aria-label="Ausbau schließen" onClick={() => setPanel(null)} />
+          <aside className="management-sheet is-open" aria-label={`${SECTION_LABEL[panel.section]} ausbauen`}>
+            <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Ausbau schließen">×</button>
+            <div className="sheet-tabs">
+              <button className={panel.kind === 'equipment' ? 'is-active' : ''} onClick={() => openPanel(panel.section, 'equipment')}>Ausrüstung</button>
+              <button className={panel.kind === 'slots' ? 'is-active' : ''} onClick={() => openPanel(panel.section, 'slots')}>{panel.section === 'mine' ? 'Bergleute' : panel.section === 'bag' ? 'Transporte' : 'Wachen'}</button>
+            </div>
+            <div className="sheet-content">
+              <div className="sheet-heading"><span>{SECTION_LABEL[panel.section].toUpperCase()}</span><h2>{panel.kind === 'equipment' ? `${SECTION_LABEL[panel.section]} ausbauen` : `4 ${panel.section === 'mine' ? 'Bergleute' : panel.section === 'bag' ? 'Transporte' : 'Wachen'}`}</h2><p>Bezahlt wird mit Gold aus der Schatztruhe.</p></div>
+              <div className="upgrade-list">
+                {panelUpgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focus === upgrade.slot?.index} onBuy={handleBuy} />)}
+              </div>
+              <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Spielstand löschen</button>
+            </div>
+          </aside>
+        </>
+      )}
 
       {state.lastOfflineReport && (
         <div className="modal-backdrop" role="presentation">
