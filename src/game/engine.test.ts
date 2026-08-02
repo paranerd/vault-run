@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  GOLD_FLIGHT_DURATION_MS,
   automaticTransportAmount,
   cargoCapacity,
   chestCapacity,
@@ -9,6 +10,7 @@ import {
   securityRating,
   slotVisualLevel,
   slotUpgradeCost,
+  tapValue,
   vaultCapacity,
 } from './config'
 import {
@@ -33,7 +35,11 @@ describe('Vault Run engine', () => {
     expect(state.inTransitGold).toBe(10)
     expect(state.vaultGold).toBe(0)
 
-    state = advanceGame(state, 6_000)
+    state = advanceGame(state, GOLD_FLIGHT_DURATION_MS - 1)
+    expect(state.inTransitGold).toBe(10)
+    expect(state.vaultGold).toBe(0)
+
+    state = advanceGame(state, GOLD_FLIGHT_DURATION_MS)
     expect(state.inTransitGold).toBe(0)
     expect(state.vaultGold).toBe(10)
     expect(state.transportEndsAt).toBe(12_000)
@@ -83,6 +89,21 @@ describe('Vault Run engine', () => {
     expect(state.tripCount).toBe(2)
   })
 
+  it('credits an express load on animation arrival without ending its cooldown', () => {
+    let state = createInitialState(0)
+    state.transporterLevels = [1, 0, 0, 0]
+    state.chestGold = 20
+    state = startExpressTransport(state, 0)
+    const cooldownEndsAt = state.expressEndsAt
+
+    state = advanceGame(state, GOLD_FLIGHT_DURATION_MS - 1)
+    expect(state.vaultGold).toBe(0)
+
+    state = advanceGame(state, GOLD_FLIGHT_DURATION_MS)
+    expect(state.vaultGold).toBe(20)
+    expect(state.expressEndsAt).toBe(cooldownEndsAt)
+  })
+
   it('blocks manual mining while the player runs an express transport', () => {
     let state = createInitialState(0)
     state.transporterLevels = [1, 0, 0, 0]
@@ -119,12 +140,13 @@ describe('Vault Run engine', () => {
     expect(passiveRate(state)).toBeGreaterThan(0)
   })
 
-  it('shows the first miner sprite at level one while a hired transporter becomes a horse', () => {
+  it('shows the first sprite for every right-side upgrade at level one', () => {
     expect(slotVisualLevel('miners', 0)).toBe(0)
     expect(slotVisualLevel('miners', 1)).toBe(0)
     expect(slotVisualLevel('miners', 2)).toBe(1)
     expect(slotVisualLevel('transporters', 0)).toBe(0)
-    expect(slotVisualLevel('transporters', 1)).toBe(1)
+    expect(slotVisualLevel('transporters', 1)).toBe(0)
+    expect(slotVisualLevel('transporters', 2)).toBe(1)
   })
 
   it('spends only secured treasure-chest gold on equipment', () => {
@@ -153,6 +175,14 @@ describe('Vault Run engine', () => {
     expect(upgrades).toHaveLength(5)
     expect(upgrades.every((upgrade) => upgrade.currentEffect && upgrade.nextEffect)).toBe(true)
     expect(upgrades[0]).toMatchObject({ currentEffect: '+1', nextEffect: '+2' })
+  })
+
+  it('uses the promised integer pickaxe value in gameplay and upgrade stats', () => {
+    const state = { ...createInitialState(0), tapLevel: 4 }
+    const upgraded = getEquipmentUpgrade(state, 'mine')
+    expect(tapValue(state)).toBe(5)
+    expect(upgraded.currentEffect).toBe('+5')
+    expect(tap(state).chestGold).toBe(5)
   })
 
   it('reduces attention by clicking the treasure chest action', () => {

@@ -9,6 +9,7 @@ import type {
 } from './types'
 
 export const MAX_OFFLINE_SECONDS = 8 * 60 * 60
+export const GOLD_FLIGHT_DURATION_MS = 900
 
 export const PICKAXES = [
   'Rostige Pickhacke',
@@ -74,11 +75,10 @@ const effectRate = (value: number) => value.toLocaleString('de-DE', { maximumFra
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
-  if (group === 'transporters') return Math.max(0, level)
   return Math.max(0, level - 1)
 }
 
-export const tapValue = (state: GameState) => 1 * 1.42 ** state.tapLevel
+export const tapValue = (state: GameState) => Math.ceil(1.42 ** state.tapLevel)
 export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
 export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
 export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel

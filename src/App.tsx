@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import {
   BarChart3,
@@ -13,6 +13,7 @@ import {
   VolumeX,
 } from 'lucide-react'
 import {
+  GOLD_FLIGHT_DURATION_MS,
   SECTION_LABEL,
   SECTION_SLOT_GROUP,
   automaticTransportAmount,
@@ -66,11 +67,17 @@ interface GoldFlight {
   endY: number
   rotation: number
   duration: number
+  preciseValue: boolean
 }
 
 function percentage(value: number, capacity: number) {
   if (capacity <= 0) return 0
   return Math.max(0, Math.min(100, (value / capacity) * 100))
+}
+
+function formatFlightGold(value: number, precise: boolean) {
+  if (!precise || Number.isInteger(value)) return formatGold(value)
+  return value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
 }
 
 function playTone(kind: 'coin' | 'trip' | 'upgrade' | 'secure', enabled: boolean) {
@@ -250,6 +257,8 @@ function App() {
   const lastExpressTransportStart = useRef(state.expressStartedAt)
   const previousAffordable = useRef(new Set<string>())
   const pulseTimer = useRef<number | null>(null)
+  const liveState = useRef(state)
+  liveState.current = state
 
   useEffect(() => {
     const checkForUpdate = () => {
@@ -329,7 +338,7 @@ function App() {
     setPanel({ section, kind, focus })
   }
 
-  const launchGold = (value: number, kind: GoldFlight['kind']) => {
+  const launchGold = useCallback((value: number, kind: GoldFlight['kind'], preciseValue = false) => {
     const scene = sceneRef.current?.getBoundingClientRect()
     const source = (kind === 'coin' ? mineButtonRef : bagButtonRef).current?.getBoundingClientRect()
     const target = (kind === 'coin' ? bagButtonRef : chestButtonRef).current?.getBoundingClientRect()
@@ -349,9 +358,23 @@ function App() {
       endX: endX + (Math.random() - 0.5) * 6,
       endY: endY + (Math.random() - 0.5) * 6,
       rotation: (Math.random() - 0.5) * 70,
-      duration: kind === 'coin' ? 850 + Math.random() * 250 : 900,
+      duration: kind === 'coin' ? 850 + Math.random() * 250 : GOLD_FLIGHT_DURATION_MS,
+      preciseValue,
     }])
-  }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const current = liveState.current
+      const rate = passiveRate(current)
+      const miningPaused = current.transportEndsAt !== null && !hasAutomaticTransport(current)
+      const freeBagSpace = Math.max(0, chestCapacity(current) - current.chestGold)
+      const animatedAmount = Math.min(rate, freeBagSpace)
+      if (!miningPaused && animatedAmount > 0) launchGold(animatedAmount, 'coin', true)
+    }, 1_000)
+    return () => window.clearInterval(timer)
+  }, [launchGold])
 
   useEffect(() => {
     if (state.transportStartedAt !== null && state.transportStartedAt !== lastMainTransportStart.current && state.inTransitGold > 0) {
@@ -362,7 +385,7 @@ function App() {
     }
     lastMainTransportStart.current = state.transportStartedAt
     lastExpressTransportStart.current = state.expressStartedAt
-  }, [state.transportStartedAt, state.expressStartedAt, state.inTransitGold, state.expressGold])
+  }, [state.transportStartedAt, state.expressStartedAt, state.inTransitGold, state.expressGold, launchGold])
 
   const now = Date.now()
   const bagMax = chestCapacity(state)
@@ -526,7 +549,7 @@ function App() {
             <h2 className="section-divider"><span>Mine</span></h2>
             <div className="section-layout">
               <div className="stats-grid" aria-label="Minenwerte">
-                <StatTile label="Auto / Sek." value={formatGold(passiveRate(state))} />
+                <StatTile label="Auto / Sek." value={formatFlightGold(passiveRate(state), true)} />
                 <StatTile label="Gold / Klick" value={`+${formatGold(tapValue(state))}`} />
                 <StatTile /><StatTile />
               </div>
@@ -554,8 +577,11 @@ function App() {
               '--coin-rotation': `${flight.rotation}deg`,
               '--coin-end-rotation': `${flight.rotation * 1.7}deg`,
               '--coin-duration': `${flight.duration}ms`,
-            } as CSSProperties} onAnimationEnd={() => setGoldFlights((current) => current.filter((item) => item.id !== flight.id))}>
-              {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatGold(flight.value)}</span>
+            } as CSSProperties} onAnimationEnd={() => {
+              if (flight.kind === 'pile') setState((current) => advanceGame(current, Date.now()))
+              setGoldFlights((current) => current.filter((item) => item.id !== flight.id))
+            }}>
+              {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatFlightGold(flight.value, flight.preciseValue)}</span>
             </i>
           ))}
         </div>
