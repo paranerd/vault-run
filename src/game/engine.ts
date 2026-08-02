@@ -82,7 +82,7 @@ export function startTransport(state: GameState, now = Date.now()): GameState {
   const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
   if (payload <= 0) {
     const blocked = structuredClone(state)
-    addEvent(blocked, 'warning', 'Der Tresor ist voll.')
+    addEvent(blocked, 'warning', 'Die Schatztruhe ist voll.')
     return blocked
   }
   const next = structuredClone(state)
@@ -115,7 +115,7 @@ function deliverTransport(state: GameState, express: boolean, report?: OfflineRe
   if (express) state.expressGold = 0
   else state.inTransitGold = 0
   if (report) report.delivered += delivered
-  if (delivered > 0) addEvent(state, 'success', `${Math.floor(delivered)} Gold sicher im Tresor.`)
+  if (delivered > 0) addEvent(state, 'success', `${Math.floor(delivered)} Gold sicher in der Schatztruhe.`)
 }
 
 function completeTransport(state: GameState): void {
@@ -142,7 +142,7 @@ function runTheft(state: GameState, report?: OfflineReport): void {
   state.theftCount += 1
   state.threat = 8
   if (report) report.stolen += stolen
-  addEvent(state, 'warning', `Einbruch: ${Math.ceil(stolen)} ungesichertes Gold verloren.`)
+  addEvent(state, 'warning', `Diebeszug: ${Math.ceil(stolen)} ungesichertes Gold verloren.`)
 }
 
 export function advanceGame(input: GameState, now = Date.now(), offline = false): GameState {
@@ -224,7 +224,7 @@ export function buyUpgrade(state: GameState, id: UpgradeId): GameState {
       next.securityLevel += 1
       break
   }
-  addEvent(next, 'info', 'Investition abgeschlossen.')
+  addEvent(next, 'info', 'Ausbau abgeschlossen.')
   return next
 }
 
