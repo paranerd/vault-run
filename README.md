@@ -2,6 +2,8 @@
 
 Vault Run ist ein mobile-first Idle-Game über ein wachsendes Goldgeschäft. Verdientes Gold ist erst ausgebbar, nachdem es von der Geschäftstruhe in den Tresor transportiert wurde.
 
+Die helle Pixel-Art-Hauptszene passt ohne Seitenscrollen auf ein Smartphone-Display. Goldmünze, Truhe, Hin- und Rückfahrt, Expressfahrt und Tresor bleiben jederzeit erreichbar; Upgrades liegen in einem gefilterten Bottom Sheet.
+
 ## Kernloop
 
 1. Geschäfte abschließen und Gold verdienen.
