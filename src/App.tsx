@@ -18,15 +18,12 @@ import {
 } from 'lucide-react'
 import {
   SECURITY,
-  TAP_COOLDOWN_MS,
   TRANSPORTS,
-  cargoCapacity,
   chestCapacity,
   convoySize,
   getUpgrades,
   passiveRate,
   tapValue,
-  transportName,
   vaultCapacity,
 } from './game/config'
 import {
@@ -101,10 +98,6 @@ function haptic(duration = 10) {
   navigator.vibrate?.(duration)
 }
 
-function Meter({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'danger' | 'safe' }) {
-  return <div className={`meter meter--${tone}`} aria-hidden="true"><span style={{ width: `${value}%` }} /></div>
-}
-
 function TransportGlyph({ kind, size = 24 }: { kind: string; size?: number }) {
   if (kind === 'footprints') return <Footprints size={size} />
   if (kind === 'bike') return <Bike size={size} />
@@ -136,17 +129,25 @@ function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: G
   const disabled = !upgrade.available || !affordable || upgrade.maxed
   return (
     <article className={`upgrade-card upgrade-card--${upgrade.category} ${!upgrade.available ? 'is-locked' : ''}`}>
-      <div className="upgrade-card__top">
-        <span>{upgrade.level}</span>
-        {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
+      <div className="upgrade-card__content">
+        <div className="upgrade-card__top">
+          <span>{upgrade.level}</span>
+          {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
+        </div>
+        <h3>{upgrade.name}</h3>
+        <p>{upgrade.description}</p>
+        {!upgrade.available && !upgrade.maxed && (
+          <span className="locked-note"><LockKeyhole size={13} /> Erst den Boten einstellen</span>
+        )}
       </div>
-      <h3>{upgrade.name}</h3>
-      <p>{upgrade.description}</p>
-      {!upgrade.available && !upgrade.maxed ? (
-        <span className="locked-note"><LockKeyhole size={13} /> Erst den Boten einstellen</span>
-      ) : (
-        <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade.id)}>
-          {upgrade.maxed ? 'Erledigt' : <><Coins size={15} /> {formatGold(upgrade.cost)}</>}
+      {(upgrade.available || upgrade.maxed) && (
+        <button
+          className="buy-button"
+          disabled={disabled}
+          onClick={() => onBuy(upgrade.id)}
+          aria-label={upgrade.maxed ? `${upgrade.name}: erledigt` : `${upgrade.name} für ${formatGold(upgrade.cost)} kaufen`}
+        >
+          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><Coins size={18} /><span>{formatGold(upgrade.cost)}</span><small>Kaufen</small></>}
         </button>
       )}
     </article>
@@ -209,10 +210,6 @@ function App() {
   const canStartTransport = !isTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
   const canStartExpress = state.courierUnlocked && !isExpressTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
   const canUseChest = state.courierUnlocked ? canStartExpress : canStartTransport
-  const tapReady = now >= state.tapReadyAt
-  const tapCooldownProgress = tapReady
-    ? 100
-    : percentage(TAP_COOLDOWN_MS - (state.tapReadyAt - now), TAP_COOLDOWN_MS)
 
   const launchCoin = (value: number) => {
     const scene = sceneRef.current?.getBoundingClientRect()
@@ -242,10 +239,9 @@ function App() {
   }
 
   const handleTap = () => {
-    const tappedAt = Date.now()
-    if (businessPaused || chestFull || tappedAt < state.tapReadyAt) return
+    if (businessPaused || chestFull) return
     const earned = Math.min(tapValue(state), Math.max(0, chestMax - state.chestGold))
-    setState((current) => tap(current, tappedAt))
+    setState((current) => tap(current))
     launchCoin(earned)
     playTone('coin', sound)
     haptic(8)
@@ -286,7 +282,6 @@ function App() {
       <header className="topbar">
         <div className="brand-mark" aria-label="Vault Run"><Landmark size={22} /></div>
         <div className="header-wealth">
-          <span>Vermögen im Tresor</span>
           <strong><Coins size={18} /> {formatGold(state.vaultGold)}</strong>
         </div>
         <div className="header-actions">
@@ -300,7 +295,54 @@ function App() {
       <main className="app-layout">
         <section className="game-stage" aria-label="Deine Goldlogistik">
           <div className="game-scene" ref={sceneRef}>
-            <div className="storage-row">
+            <div className="core-loop">
+              <article className="station vault-station">
+                <div className="station-heading">
+                  <strong>Tresor</strong>
+                  <span>Kapazität {formatGold(vaultMax)}</span>
+                </div>
+                <div
+                  className="station-visual station-visual--vault"
+                  style={{ '--fill': `${percentage(state.vaultGold, vaultMax)}%` } as CSSProperties}
+                  role="progressbar"
+                  aria-label={`Tresor zu ${Math.round(percentage(state.vaultGold, vaultMax))} Prozent gefüllt`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(percentage(state.vaultGold, vaultMax))}
+                >
+                  <Landmark size={49} strokeWidth={1.55} />
+                </div>
+                <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
+              </article>
+
+              <div className="transport-lane" aria-label="Transportstrecke">
+                <div className="road">
+                  <span className="road-line road-line--out" />
+                  <span className="road-line road-line--back" />
+                  <span className="direction direction--out">↑</span>
+                  <span className="direction direction--back">↓</span>
+                  {isTravelling && (
+                    <div
+                      className={`vehicle ${mainAtVault ? 'is-returning' : ''}`}
+                      style={{ '--vehicle-position': `${tripPosition}%` } as CSSProperties}
+                    >
+                      <TransportGlyph kind={currentTransport.icon} size={20} />
+                      {state.inTransitGold > 0 && <b className="vehicle__cargo">{formatGold(state.inTransitGold)}</b>}
+                      {convoySize(state) > 1 && <em>×{convoySize(state)}</em>}
+                    </div>
+                  )}
+                  {isExpressTravelling && (
+                    <div
+                      className={`vehicle vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
+                      style={{ '--vehicle-position': `${expressPosition}%` } as CSSProperties}
+                    >
+                      <Truck size={20} />
+                      {state.expressGold > 0 && <b className="vehicle__cargo">{formatGold(state.expressGold)}</b>}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <article className={`station chest-station ${chestFull ? 'is-full' : ''}`}>
                 <div className="amount-display">
                   <span>Truhe</span>
@@ -313,7 +355,7 @@ function App() {
                   style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}
                   onClick={handleTransport}
                   disabled={!canUseChest}
-                  aria-label={state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}
+                  aria-label={`${state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
                 >
                   <ChestGlyph closed={chestFull} />
                   {canUseChest && (
@@ -322,51 +364,7 @@ function App() {
                     </span>
                   )}
                 </button>
-                <Meter value={percentage(state.chestGold, chestMax)} />
                 <div className="threat-line"><ShieldCheck size={13} /> Aufmerksamkeit <b>{Math.floor(state.threat)}%</b></div>
-              </article>
-
-              <div className="transport-lane" aria-label="Transportstrecke">
-                <div className="lane-caption">
-                  <span>{transportName(state)}</span>
-                  <b>{Math.floor(cargoCapacity(state))} Ladung</b>
-                </div>
-                <div className="road">
-                  <span className="road-dashes" />
-                  <span className="direction direction--out">→</span>
-                  <span className="direction direction--back">←</span>
-                  {isTravelling && (
-                    <div
-                      className={`vehicle ${mainAtVault ? 'is-returning' : ''}`}
-                      style={{ '--vehicle-position': `${tripPosition}%` } as CSSProperties}
-                    >
-                      <TransportGlyph kind={currentTransport.icon} size={20} />
-                      {state.inTransitGold > 0 && <b>{formatGold(state.inTransitGold)}</b>}
-                      {convoySize(state) > 1 && <em>×{convoySize(state)}</em>}
-                    </div>
-                  )}
-                  {isExpressTravelling && (
-                    <div
-                      className={`vehicle vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
-                      style={{ '--vehicle-position': `${expressPosition}%` } as CSSProperties}
-                    >
-                      <Truck size={20} />
-                      {state.expressGold > 0 && <b>{formatGold(state.expressGold)}</b>}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <article className="station vault-station">
-                <div className="station-heading">
-                  <strong>Tresor</strong>
-                  <span>Kapazität {formatGold(vaultMax)}</span>
-                </div>
-                <div className="station-visual station-visual--vault" aria-hidden="true">
-                  <Landmark size={49} strokeWidth={1.55} />
-                </div>
-                <Meter value={percentage(state.vaultGold, vaultMax)} />
-                <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
               </article>
             </div>
 
@@ -392,26 +390,21 @@ function App() {
             ))}
 
             <div className="action-dock">
+              <button className={`dock-button ${panel === 'upgrades' ? 'is-active' : ''}`} onClick={() => openPanel('upgrades')}>
+                <SlidersHorizontal size={22} /><span>Upgrades</span>
+              </button>
               <button
                 ref={goldButtonRef}
-                className={`gold-button ${!tapReady && !businessPaused && !chestFull ? 'is-cooling' : ''}`}
-                disabled={businessPaused || chestFull || !tapReady}
+                className="gold-button"
+                disabled={businessPaused || chestFull}
                 onClick={handleTap}
-                aria-label={`Gold verdienen: ${formatGold(tapValue(state))}`}
+                aria-label={`Gold produzieren: ${formatGold(tapValue(state))}`}
               >
                 <span className="gold-button__icon"><Coins size={31} /></span>
                 <strong>{chestFull ? 'Truhe voll' : businessPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
-                <small>{chestFull ? 'Erst transportieren' : 'Gold verdienen'}</small>
-                <span
-                  className="gold-button__cooldown"
-                  role="progressbar"
-                  aria-label="Klickbereitschaft"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(tapCooldownProgress)}
-                >
-                  <i style={{ width: `${tapCooldownProgress}%` }} />
-                </span>
+              </button>
+              <button className={`dock-button ${panel === 'stats' ? 'is-active' : ''}`} onClick={() => openPanel('stats')}>
+                <ChartNoAxesCombined size={22} /><span>Statistik</span>
               </button>
             </div>
           </div>
@@ -451,11 +444,6 @@ function App() {
           )}
         </aside>
       </main>
-
-      <nav className="bottom-nav" aria-label="Spielmenü">
-        <button className={panel === 'upgrades' ? 'is-active' : ''} onClick={() => openPanel('upgrades')}><SlidersHorizontal size={20} /><span>Upgrades</span></button>
-        <button className={panel === 'stats' ? 'is-active' : ''} onClick={() => openPanel('stats')}><ChartNoAxesCombined size={20} /><span>Statistik</span></button>
-      </nav>
 
       {panel && <button className="sheet-backdrop" aria-label="Management schließen" onClick={() => setPanel(null)} />}
 

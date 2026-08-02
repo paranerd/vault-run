@@ -34,7 +34,6 @@ export interface GameState {
   lifetimeGold: number
   lostGold: number
   stolenGold: number
-  tapReadyAt: number
   tapLevel: number
   staffLevel: number
   chestLevel: number

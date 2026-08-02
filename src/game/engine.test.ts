@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { TAP_COOLDOWN_MS, cargoCapacity, chestCapacity, upgradeCost, vaultCapacity } from './config'
+import { cargoCapacity, chestCapacity, upgradeCost, vaultCapacity } from './config'
 import { advanceGame, buyUpgrade, createInitialState, startExpressTransport, startTransport, tap } from './engine'
 
 describe('Vault Run engine', () => {
   it('moves gold from the chest into the vault in a discrete trip', () => {
     let state = createInitialState(0)
-    for (let index = 0; index < 10; index += 1) state = tap(state, index * TAP_COOLDOWN_MS)
+    for (let index = 0; index < 10; index += 1) state = tap(state)
     state = startTransport(state, 0)
 
     expect(state.chestGold).toBe(0)
@@ -40,15 +40,12 @@ describe('Vault Run engine', () => {
     expect(tapped.lostGold).toBe(0)
   })
 
-  it('enforces the tap cooldown until the button is ready again', () => {
+  it('accepts consecutive taps without a cooldown', () => {
     let state = createInitialState(0)
-    state = tap(state, 0)
+    state = tap(state)
     expect(state.chestGold).toBe(1)
-    expect(tap(state, TAP_COOLDOWN_MS - 1)).toBe(state)
-
-    const ready = tap(state, TAP_COOLDOWN_MS)
-    expect(ready.chestGold).toBe(2)
-    expect(ready.tapReadyAt).toBe(TAP_COOLDOWN_MS * 2)
+    state = tap(state)
+    expect(state.chestGold).toBe(2)
   })
 
   it('allows an express round trip alongside the automated courier', () => {
