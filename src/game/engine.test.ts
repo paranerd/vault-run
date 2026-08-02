@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cargoCapacity, chestCapacity, upgradeCost, vaultCapacity } from './config'
+import { cargoCapacity, chestCapacity, getUpgrades, upgradeCost, vaultCapacity } from './config'
 import { advanceGame, buyUpgrade, createInitialState, startExpressTransport, startTransport, tap } from './engine'
 
 describe('Vault Run engine', () => {
@@ -99,5 +99,15 @@ describe('Vault Run engine', () => {
     expect(chestCapacity({ ...state, chestLevel: 1 })).toBeGreaterThan(chestCapacity(state))
     expect(cargoCapacity({ ...state, cargoLevel: 1 })).toBeGreaterThan(cargoCapacity(state))
     expect(vaultCapacity({ ...state, vaultLevel: 1 })).toBeGreaterThan(vaultCapacity(state))
+  })
+
+  it('describes the current and next effect of every upgrade', () => {
+    const upgrades = getUpgrades(createInitialState(0))
+    const tapUpgrade = upgrades.find((upgrade) => upgrade.id === 'tap')
+    const chestUpgrade = upgrades.find((upgrade) => upgrade.id === 'chest')
+
+    expect(upgrades.every((upgrade) => upgrade.currentEffect && upgrade.nextEffect)).toBe(true)
+    expect(tapUpgrade).toMatchObject({ currentEffect: '+1', nextEffect: '+2' })
+    expect(chestUpgrade).toMatchObject({ currentEffect: '50', nextEffect: '77' })
   })
 })

@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Truck,
+  Vault,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -40,6 +41,9 @@ import type { GameState, UpgradeCategory, UpgradeId, UpgradeView } from './game/
 
 type Panel = 'upgrades' | 'stats'
 type Filter = 'all' | UpgradeCategory
+
+const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels'
+const WIDE_LAYOUT_QUERY = '(min-width: 760px)'
 
 interface CoinFlight {
   id: number
@@ -98,6 +102,15 @@ function haptic(duration = 10) {
   navigator.vibrate?.(duration)
 }
 
+function loadSeenUpgradeLevels() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(UPGRADE_NOTICE_KEY) ?? '[]')
+    return new Set<string>(Array.isArray(stored) ? stored.filter((item): item is string => typeof item === 'string') : [])
+  } catch {
+    return new Set<string>()
+  }
+}
+
 function TransportGlyph({ kind, size = 24 }: { kind: string; size?: number }) {
   if (kind === 'footprints') return <Footprints size={size} />
   if (kind === 'bike') return <Bike size={size} />
@@ -136,6 +149,10 @@ function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: G
         </div>
         <h3>{upgrade.name}</h3>
         <p>{upgrade.description}</p>
+        <div className="upgrade-effects" aria-label="Upgrade-Effekt">
+          <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
+          <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
+        </div>
         {!upgrade.available && !upgrade.maxed && (
           <span className="locked-note"><LockKeyhole size={13} /> Erst den Boten einstellen</span>
         )}
@@ -160,11 +177,16 @@ function App() {
   const [filter, setFilter] = useState<Filter>('all')
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
   const [coinFlights, setCoinFlights] = useState<CoinFlight[]>([])
+  const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
+  const [upgradeButtonPulsing, setUpgradeButtonPulsing] = useState(false)
+  const [wideLayout, setWideLayout] = useState(() => window.matchMedia(WIDE_LAYOUT_QUERY).matches)
   const sceneRef = useRef<HTMLDivElement>(null)
   const chestRef = useRef<HTMLButtonElement>(null)
   const goldButtonRef = useRef<HTMLButtonElement>(null)
   const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
+  const previousAffordableLevels = useRef(new Set<string>())
+  const upgradePulseTimer = useRef<number | null>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => setState((current) => advanceGame(current, Date.now())), 100)
@@ -188,12 +210,25 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const query = window.matchMedia(WIDE_LAYOUT_QUERY)
+    const updateLayout = () => setWideLayout(query.matches)
+    query.addEventListener('change', updateLayout)
+    return () => query.removeEventListener('change', updateLayout)
+  }, [])
+
+  useEffect(() => {
     if (state.tripCount > lastTrips.current) playTone('trip', sound)
     lastTrips.current = state.tripCount
   }, [state.tripCount, sound])
 
   const upgrades = useMemo(() => getUpgrades(state), [state])
   const visibleUpgrades = filter === 'all' ? upgrades : upgrades.filter((upgrade) => upgrade.category === filter)
+  const affordableUpgrades = upgrades.filter((upgrade) => upgrade.available && !upgrade.maxed && state.vaultGold >= upgrade.cost)
+  const affordableLevelKeys = affordableUpgrades.map((upgrade) => `${upgrade.id}:${upgrade.cost}`)
+  const affordableLevelSignature = affordableLevelKeys.join('|')
+  const hasUnseenAffordableUpgrade = affordableLevelKeys.some((key) => !seenUpgradeLevels.has(key))
+  const upgradeNoticeCount = hasUnseenAffordableUpgrade ? affordableUpgrades.length : 0
+  const upgradesVisible = panel === 'upgrades' || (wideLayout && panel !== 'stats')
   const now = Date.now()
   const chestMax = chestCapacity(state)
   const vaultMax = vaultCapacity(state)
@@ -210,6 +245,36 @@ function App() {
   const canStartTransport = !isTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
   const canStartExpress = state.courierUnlocked && !isExpressTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
   const canUseChest = state.courierUnlocked ? canStartExpress : canStartTransport
+
+  const acknowledgeAffordableUpgrades = () => {
+    if (affordableLevelKeys.length === 0) return
+    setSeenUpgradeLevels((current) => {
+      const next = new Set(current)
+      affordableLevelKeys.forEach((key) => next.add(key))
+      localStorage.setItem(UPGRADE_NOTICE_KEY, JSON.stringify([...next]))
+      return next
+    })
+    setUpgradeButtonPulsing(false)
+    if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
+  }
+
+  useEffect(() => {
+    const currentLevels = new Set(affordableLevelKeys)
+    const hasNewLevel = affordableLevelKeys.some((key) => !previousAffordableLevels.current.has(key) && !seenUpgradeLevels.has(key))
+    previousAffordableLevels.current = currentLevels
+
+    if (!hasNewLevel || upgradesVisible) return
+    setUpgradeButtonPulsing(true)
+    if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
+    upgradePulseTimer.current = window.setTimeout(() => setUpgradeButtonPulsing(false), 2_800)
+    return () => {
+      if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
+    }
+  }, [affordableLevelSignature, seenUpgradeLevels, upgradesVisible])
+
+  useEffect(() => {
+    if (upgradesVisible) acknowledgeAffordableUpgrades()
+  }, [affordableLevelSignature, upgradesVisible])
 
   const launchCoin = (value: number) => {
     const scene = sceneRef.current?.getBoundingClientRect()
@@ -272,9 +337,16 @@ function App() {
     })
   }
 
-  const openPanel = (next: Panel) => setPanel((current) => current === next ? null : next)
+  const openPanel = (next: Panel) => {
+    if (next === 'upgrades') acknowledgeAffordableUpgrades()
+    setPanel((current) => current === next ? null : next)
+  }
   const confirmReset = () => {
-    if (window.confirm('Den lokalen Spielstand wirklich löschen?')) setState(resetGame())
+    if (window.confirm('Den lokalen Spielstand wirklich löschen?')) {
+      localStorage.removeItem(UPGRADE_NOTICE_KEY)
+      setSeenUpgradeLevels(new Set())
+      setState(resetGame())
+    }
   }
 
   return (
@@ -310,7 +382,7 @@ function App() {
                   aria-valuemax={100}
                   aria-valuenow={Math.round(percentage(state.vaultGold, vaultMax))}
                 >
-                  <Landmark size={49} strokeWidth={1.55} />
+                  <Vault size={49} strokeWidth={1.55} />
                 </div>
                 <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
               </article>
@@ -390,8 +462,12 @@ function App() {
             ))}
 
             <div className="action-dock">
-              <button className={`dock-button ${panel === 'upgrades' ? 'is-active' : ''}`} onClick={() => openPanel('upgrades')}>
+              <button
+                className={`dock-button dock-button--upgrades ${panel === 'upgrades' ? 'is-active' : ''} ${upgradeButtonPulsing ? 'is-notifying' : ''}`}
+                onClick={() => openPanel('upgrades')}
+              >
                 <SlidersHorizontal size={22} /><span>Upgrades</span>
+                {upgradeNoticeCount > 0 && <b className="dock-button__badge" aria-label={`${upgradeNoticeCount} kaufbare Upgrades`}>{upgradeNoticeCount}</b>}
               </button>
               <button
                 ref={goldButtonRef}
