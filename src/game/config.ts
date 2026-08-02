@@ -62,7 +62,7 @@ const SLOT_ACCENT: Record<SlotGroup, UpgradeView['accent']> = {
 }
 
 const SLOT_SPRITE: Record<SlotGroup, UpgradeView['spriteFamily']> = {
-  miners: 'pickaxe',
+  miners: 'miner',
   transporters: 'transport',
   guards: 'security',
 }
@@ -91,7 +91,6 @@ export const transportDuration = (state: GameState) => {
   return Math.max(3, 12 / (1 + (active - 1) * 0.18 + experience * 0.12))
 }
 export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
-export const transportVisualLevel = (state: GameState) => visualStage(Math.max(...state.transporterLevels))
 
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
 export const securityLoss = (state: GameState) => Math.max(0.06, 0.3 * 0.86 ** guardStrength(state))

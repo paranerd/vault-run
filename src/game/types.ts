@@ -65,7 +65,7 @@ export interface UpgradeView {
   available: boolean
   maxed?: boolean
   accent: 'business' | 'logistics' | 'vault'
-  spriteFamily: 'pickaxe' | 'bag' | 'chest' | 'transport' | 'security'
+  spriteFamily: 'pickaxe' | 'bag' | 'chest' | 'miner' | 'transport' | 'security'
   spriteLevel: number
   equipmentId?: EquipmentUpgradeId
   slot?: SlotUpgradeTarget

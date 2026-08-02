@@ -68,6 +68,7 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
 
 export function tap(state: GameState): GameState {
   if (state.transportEndsAt !== null && !hasAutomaticTransport(state)) return state
+  if (state.expressEndsAt !== null) return state
   if (state.chestGold >= chestCapacity(state)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))

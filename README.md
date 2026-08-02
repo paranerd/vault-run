@@ -2,7 +2,7 @@
 
 Vault Run ist ein mobile-first Fantasy-Idle-Game in Pixel-Art. Mit einer rostigen Pickhacke beginnt der Spieler Gold zu schürfen, sammelt es zunächst in einem kleinen Beutel und bringt es anschließend in eine sichere Schatztruhe.
 
-Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Unter dem Header teilen sich Mine, Beutel und Truhe den verfügbaren Platz zu exakt gleichen Teilen. Jeder Abschnitt bündelt seine Aktion, vier Stats-Plätze, den Ausrüstungs-Ausbau und vier einzeln levelbare Spezialisten-Slots.
+Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Unter dem Header teilen sich Truhe, Beutel und Mine von oben nach unten den verfügbaren Platz zu exakt gleichen Teilen. Jeder Abschnitt bündelt seine Aktion, vier Stats-Plätze, den Ausrüstungs-Ausbau und vier einzeln levelbare Spezialisten-Slots.
 
 ## Kernloop
 

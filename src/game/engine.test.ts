@@ -82,6 +82,16 @@ describe('Vault Run engine', () => {
     expect(state.tripCount).toBe(2)
   })
 
+  it('blocks manual mining while the player runs an express transport', () => {
+    let state = createInitialState(0)
+    state.transporterLevels = [1, 0, 0, 0]
+    state.chestGold = 20
+    state = startExpressTransport(state, 0)
+
+    const tapped = tap(state)
+    expect(tapped).toBe(state)
+  })
+
   it('lets transporters keep mining active and start follow-up trips automatically', () => {
     let state = createInitialState(0)
     state.minerLevels = [1, 0, 0, 0]
