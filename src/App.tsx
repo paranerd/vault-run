@@ -3,7 +3,6 @@ import {
   Check,
   ChartNoAxesCombined,
   Clock3,
-  Coins,
   Eye,
   LockKeyhole,
   RotateCcw,
@@ -115,6 +114,19 @@ function PixelSprite({ family, level, className = '' }: { family: 'pickaxe' | 'b
   return <img className={`pixel-sprite ${className}`} src={`${SPRITE_ROOT}/${family}-${spriteStage(level, maximum)}.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
+function PixelCoin({ className = '' }: { className?: string }) {
+  return (
+    <svg className={`pixel-coin ${className}`} viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+      <path fill="#4b2a0e" d="M5 1h6v1h2v2h1v2h1v4h-1v2h-1v2h-2v1H5v-1H3v-2H2v-2H1V6h1V4h1V2h2z" />
+      <path fill="#c97917" d="M5 2h6v1h2v2h1v6h-1v2h-2v1H5v-1H3v-2H2V6h1V4h2z" />
+      <path fill="#f7c64d" d="M6 3h5v1h2v2h1v4h-1v2h-2v1H5v-1H4v-2H3V6h1V5h2z" />
+      <path fill="#ffe894" d="M6 4h4v1h2v2h1v2h-1v1h-2v1H6v-1H5V6h1z" />
+      <path fill="#a85b12" d="M9 5h2v1h1v4h-2V8H8v3H6V6h1V5z" />
+      <path fill="#fff4b8" d="M6 4h3v1H6z" />
+    </svg>
+  )
+}
+
 function UpgradeSprite({ upgrade, state }: { upgrade: UpgradeView; state: GameState }) {
   if (upgrade.id === 'tap') return <PixelSprite family="pickaxe" level={state.tapLevel} />
   if (upgrade.id === 'staff') return <PixelSprite family="transport" level={0} />
@@ -151,24 +163,22 @@ function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: G
   return (
     <article className={`upgrade-card upgrade-card--${upgrade.category} ${!upgrade.available ? 'is-locked' : ''}`}>
       <div className="upgrade-card__content">
-        <div className="upgrade-card__intro">
-          <span className="upgrade-card__sprite"><UpgradeSprite upgrade={upgrade} state={state} /></span>
-          <div>
-            <div className="upgrade-card__top">
-              <span>{upgrade.level}</span>
-              {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
-            </div>
-            <h3>{upgrade.name}</h3>
-            <p>{upgrade.description}</p>
+        <span className="upgrade-card__sprite"><UpgradeSprite upgrade={upgrade} state={state} /></span>
+        <div className="upgrade-card__details">
+          <div className="upgrade-card__top">
+            <span>{upgrade.level}</span>
+            {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
           </div>
+          <h3>{upgrade.name}</h3>
+          <p>{upgrade.description}</p>
+          <div className="upgrade-effects" aria-label="Upgrade-Effekt">
+            <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
+            <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
+          </div>
+          {!upgrade.available && !upgrade.maxed && (
+            <span className="locked-note"><LockKeyhole size={13} /> Erst den Fuhrknecht anheuern</span>
+          )}
         </div>
-        <div className="upgrade-effects" aria-label="Upgrade-Effekt">
-          <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
-          <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
-        </div>
-        {!upgrade.available && !upgrade.maxed && (
-          <span className="locked-note"><LockKeyhole size={13} /> Erst den Fuhrknecht anheuern</span>
-        )}
       </div>
       {(upgrade.available || upgrade.maxed) && (
         <button
@@ -177,7 +187,7 @@ function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: G
           onClick={() => onBuy(upgrade.id)}
           aria-label={upgrade.maxed ? `${upgrade.name}: erledigt` : `${upgrade.name} für ${formatGold(upgrade.cost)} kaufen`}
         >
-          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><Coins size={18} /><span>{formatGold(upgrade.cost)}</span><small>Kaufen</small></>}
+          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
         </button>
       )}
     </article>
@@ -281,7 +291,7 @@ function App() {
     if (!hasNewLevel || upgradesVisible) return
     setUpgradeButtonPulsing(true)
     if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
-    upgradePulseTimer.current = window.setTimeout(() => setUpgradeButtonPulsing(false), 2_800)
+    upgradePulseTimer.current = window.setTimeout(() => setUpgradeButtonPulsing(false), 950)
     return () => {
       if (upgradePulseTimer.current !== null) window.clearTimeout(upgradePulseTimer.current)
     }
@@ -369,8 +379,7 @@ function App() {
       <header className="topbar">
         <div className="brand-mark" aria-label="Vault Run"><PixelSprite family="pickaxe" level={3} /></div>
         <div className="header-wealth">
-          <strong><Coins size={18} /> {formatGold(state.vaultGold)}</strong>
-          <span>SICHERES GOLD</span>
+          <strong><PixelCoin /> {formatGold(state.vaultGold)}</strong>
         </div>
         <div className="header-actions">
           <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
@@ -469,7 +478,7 @@ function App() {
                 } as CSSProperties}
                 onAnimationEnd={() => setCoinFlights((current) => current.filter((item) => item.id !== flight.id))}
               >
-                <Coins size={13} /><span>+{formatGold(flight.value)}</span>
+                <PixelCoin /><span>+{formatGold(flight.value)}</span>
               </i>
             ))}
 
@@ -490,7 +499,6 @@ function App() {
               >
                 <span className="gold-button__icon"><PixelSprite family="pickaxe" level={state.tapLevel} /></span>
                 <strong>{chestFull ? 'Beutel voll' : businessPaused ? 'Auf Reisen' : `+${formatGold(tapValue(state))}`}</strong>
-                {!chestFull && !businessPaused && <small>SCHÜRFEN</small>}
                 {businessPaused && (
                   <span
                     className="gold-button__progress"
