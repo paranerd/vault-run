@@ -9,7 +9,6 @@ import {
   Footprints,
   Landmark,
   LockKeyhole,
-  PackageOpen,
   RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
@@ -19,15 +18,14 @@ import {
 } from 'lucide-react'
 import {
   SECURITY,
+  TAP_COOLDOWN_MS,
   TRANSPORTS,
   cargoCapacity,
   chestCapacity,
   convoySize,
-  expressDuration,
   getUpgrades,
   passiveRate,
   tapValue,
-  transportDuration,
   transportName,
   vaultCapacity,
 } from './game/config'
@@ -45,6 +43,19 @@ import type { GameState, UpgradeCategory, UpgradeId, UpgradeView } from './game/
 
 type Panel = 'upgrades' | 'stats'
 type Filter = 'all' | UpgradeCategory
+
+interface CoinFlight {
+  id: number
+  value: number
+  left: number
+  top: number
+  midX: number
+  midY: number
+  endX: number
+  endY: number
+  rotation: number
+  duration: number
+}
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'Alle' },
@@ -101,6 +112,25 @@ function TransportGlyph({ kind, size = 24 }: { kind: string; size?: number }) {
   return <Truck size={size} />
 }
 
+function ChestGlyph({ closed }: { closed: boolean }) {
+  return (
+    <svg className={`chest-glyph ${closed ? 'is-closed' : 'is-open'}`} viewBox="0 0 64 64" aria-hidden="true">
+      {!closed && (
+        <>
+          <path className="chest-glyph__lid" d="M11 23 17 11h30l6 12-5 4H16Z" />
+          <circle cx="24" cy="25" r="4" />
+          <circle cx="34" cy="23" r="4" />
+          <circle cx="42" cy="26" r="4" />
+        </>
+      )}
+      {closed && <path className="chest-glyph__lid" d="M11 25v-6a8 8 0 0 1 8-8h26a8 8 0 0 1 8 8v6Z" />}
+      <path className="chest-glyph__body" d="M9 25h46v26a4 4 0 0 1-4 4H13a4 4 0 0 1-4-4Z" />
+      <path className="chest-glyph__band" d="M18 26v28M46 26v28" />
+      <rect className="chest-glyph__lock" x="28" y="30" width="8" height="12" rx="2" />
+    </svg>
+  )
+}
+
 function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: GameState; onBuy: (id: UpgradeId) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
@@ -128,7 +158,11 @@ function App() {
   const [panel, setPanel] = useState<Panel | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
-  const [tapPulse, setTapPulse] = useState(0)
+  const [coinFlights, setCoinFlights] = useState<CoinFlight[]>([])
+  const sceneRef = useRef<HTMLDivElement>(null)
+  const chestRef = useRef<HTMLButtonElement>(null)
+  const goldButtonRef = useRef<HTMLButtonElement>(null)
+  const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
 
   useEffect(() => {
@@ -168,18 +202,51 @@ function App() {
   const businessPaused = isTravelling && !state.courierUnlocked
   const tripPosition = roundTripPosition(state.transportStartedAt, state.transportEndsAt, now)
   const expressPosition = roundTripPosition(state.expressStartedAt, state.expressEndsAt, now)
-  const secondsLeft = isTravelling ? Math.max(0, (state.transportEndsAt! - now) / 1000) : transportDuration(state)
   const currentTransport = TRANSPORTS[state.transportLevel]
   const mainAtVault = state.transportDeliveredAt !== null && now >= state.transportDeliveredAt
   const expressAtVault = state.expressDeliveredAt !== null && now >= state.expressDeliveredAt
   const vaultReserved = state.inTransitGold + state.expressGold
   const canStartTransport = !isTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
   const canStartExpress = state.courierUnlocked && !isExpressTravelling && state.chestGold > 0 && state.vaultGold + vaultReserved < vaultMax
+  const canUseChest = state.courierUnlocked ? canStartExpress : canStartTransport
+  const tapReady = now >= state.tapReadyAt
+  const tapCooldownProgress = tapReady
+    ? 100
+    : percentage(TAP_COOLDOWN_MS - (state.tapReadyAt - now), TAP_COOLDOWN_MS)
+
+  const launchCoin = (value: number) => {
+    const scene = sceneRef.current?.getBoundingClientRect()
+    const source = goldButtonRef.current?.getBoundingClientRect()
+    const target = chestRef.current?.getBoundingClientRect()
+    if (!scene || !source || !target) return
+
+    const left = source.left + source.width / 2 - scene.left
+    const top = source.top + source.height * 0.28 - scene.top
+    const endX = target.left + target.width / 2 - scene.left - left
+    const endY = target.top + target.height / 2 - scene.top - top
+    const sway = (Math.random() - 0.5) * Math.min(92, Math.abs(endX) * 0.55 + 32)
+    const arc = 24 + Math.random() * 38
+
+    setCoinFlights((current) => [...current.slice(-5), {
+      id: ++flightSequence.current,
+      value,
+      left,
+      top,
+      midX: endX * (0.38 + Math.random() * 0.18) + sway,
+      midY: endY * 0.42 - arc,
+      endX: endX + (Math.random() - 0.5) * 8,
+      endY: endY + (Math.random() - 0.5) * 6,
+      rotation: (Math.random() - 0.5) * 70,
+      duration: 1_050 + Math.random() * 300,
+    }])
+  }
 
   const handleTap = () => {
-    if (businessPaused || chestFull) return
-    setState((current) => tap(current))
-    setTapPulse((value) => value + 1)
+    const tappedAt = Date.now()
+    if (businessPaused || chestFull || tappedAt < state.tapReadyAt) return
+    const earned = Math.min(tapValue(state), Math.max(0, chestMax - state.chestGold))
+    setState((current) => tap(current, tappedAt))
+    launchCoin(earned)
     playTone('coin', sound)
     haptic(8)
   }
@@ -232,11 +299,7 @@ function App() {
 
       <main className="app-layout">
         <section className="game-stage" aria-label="Deine Goldlogistik">
-          <div className="scene-status">
-            <span><i /> {businessPaused ? `Zurück in ${Math.ceil(secondsLeft)} Sek.` : 'Betriebsbereit'}</span>
-          </div>
-
-          <div className="game-scene">
+          <div className="game-scene" ref={sceneRef}>
             <div className="storage-row">
               <article className={`station chest-station ${chestFull ? 'is-full' : ''}`}>
                 <div className="amount-display">
@@ -244,9 +307,21 @@ function App() {
                   <strong>{formatGold(state.chestGold)}</strong>
                   <small>von {formatGold(chestMax)}</small>
                 </div>
-                <div className="station-visual station-visual--chest" aria-hidden="true" style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}>
-                  <PackageOpen size={49} strokeWidth={1.55} />
-                </div>
+                <button
+                  ref={chestRef}
+                  className={`station-visual station-visual--chest ${chestFull ? 'is-closed' : ''}`}
+                  style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}
+                  onClick={handleTransport}
+                  disabled={!canUseChest}
+                  aria-label={state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}
+                >
+                  <ChestGlyph closed={chestFull} />
+                  {canUseChest && (
+                    <span className="chest-action-badge" aria-hidden="true">
+                      <TransportGlyph kind={state.courierUnlocked ? 'truck' : currentTransport.icon} size={13} />
+                    </span>
+                  )}
+                </button>
                 <Meter value={percentage(state.chestGold, chestMax)} />
                 <div className="threat-line"><ShieldCheck size={13} /> Aufmerksamkeit <b>{Math.floor(state.threat)}%</b></div>
               </article>
@@ -280,12 +355,6 @@ function App() {
                     </div>
                   )}
                 </div>
-                <div className="trip-status">
-                  <Clock3 size={13} />
-                  {isTravelling
-                    ? `${mainAtVault ? 'Rückweg' : 'Hinweg'} · ${Math.ceil(secondsLeft)} Sek.`
-                    : state.courierUnlocked ? 'Bote wartet auf Gold' : `${transportDuration(state)} Sek. Rundfahrt`}
-                </div>
               </div>
 
               <article className="station vault-station">
@@ -296,29 +365,52 @@ function App() {
                 <div className="station-visual station-visual--vault" aria-hidden="true">
                   <Landmark size={49} strokeWidth={1.55} />
                 </div>
-                <Meter value={percentage(state.vaultGold, vaultMax)} tone="safe" />
+                <Meter value={percentage(state.vaultGold, vaultMax)} />
                 <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
               </article>
             </div>
 
-            {tapPulse > 0 && <i key={tapPulse} className="flying-coin">+{formatGold(tapValue(state))}</i>}
+            {coinFlights.map((flight) => (
+              <i
+                key={flight.id}
+                className="flying-coin"
+                style={{
+                  left: flight.left,
+                  top: flight.top,
+                  '--coin-mid-x': `${flight.midX}px`,
+                  '--coin-mid-y': `${flight.midY}px`,
+                  '--coin-end-x': `${flight.endX}px`,
+                  '--coin-end-y': `${flight.endY}px`,
+                  '--coin-rotation': `${flight.rotation}deg`,
+                  '--coin-end-rotation': `${flight.rotation * 1.7}deg`,
+                  '--coin-duration': `${flight.duration}ms`,
+                } as CSSProperties}
+                onAnimationEnd={() => setCoinFlights((current) => current.filter((item) => item.id !== flight.id))}
+              >
+                <Coins size={13} /><span>+{formatGold(flight.value)}</span>
+              </i>
+            ))}
 
             <div className="action-dock">
-              <button className="gold-button" disabled={businessPaused || chestFull} onClick={handleTap} aria-label={`Gold verdienen: ${formatGold(tapValue(state))}`}>
+              <button
+                ref={goldButtonRef}
+                className={`gold-button ${!tapReady && !businessPaused && !chestFull ? 'is-cooling' : ''}`}
+                disabled={businessPaused || chestFull || !tapReady}
+                onClick={handleTap}
+                aria-label={`Gold verdienen: ${formatGold(tapValue(state))}`}
+              >
                 <span className="gold-button__icon"><Coins size={31} /></span>
                 <strong>{chestFull ? 'Truhe voll' : businessPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
                 <small>{chestFull ? 'Erst transportieren' : 'Gold verdienen'}</small>
-              </button>
-
-              <button
-                className="transport-button"
-                onClick={handleTransport}
-                disabled={state.courierUnlocked ? !canStartExpress : !canStartTransport}
-              >
-                <span className="transport-icon" aria-hidden="true"><TransportGlyph kind={currentTransport.icon} size={23} /></span>
-                <span>
-                  <strong>{state.courierUnlocked ? (isExpressTravelling ? 'Express läuft' : 'Expressfahrt') : (isTravelling ? 'Du bist unterwegs' : 'Gold transportieren')}</strong>
-                  <small>{state.courierUnlocked ? `${expressDuration(state).toLocaleString('de-DE')} Sek. Rundfahrt` : `${transportDuration(state)} Sek. hin & zurück`}</small>
+                <span
+                  className="gold-button__cooldown"
+                  role="progressbar"
+                  aria-label="Klickbereitschaft"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(tapCooldownProgress)}
+                >
+                  <i style={{ width: `${tapCooldownProgress}%` }} />
                 </span>
               </button>
             </div>

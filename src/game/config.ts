@@ -1,6 +1,7 @@
 import type { GameState, UpgradeId, UpgradeView } from './types'
 
 export const MAX_OFFLINE_SECONDS = 8 * 60 * 60
+export const TAP_COOLDOWN_MS = 600
 
 export const TRANSPORTS = [
   { name: 'Zu Fuß', upgrade: 'Bessere Schuhe', duration: 12, capacity: 20, icon: 'footprints' },

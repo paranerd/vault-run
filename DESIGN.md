@@ -24,7 +24,7 @@ Sie verkürzen die Fahrt und erhöhen die Ladung, beseitigen aber nicht den Ziel
 
 ## Aktiv und idle
 
-- Ein Tap auf „Geschäft abschließen“ erzeugt sofort Gold in der Truhe.
+- Ein Tap auf „Geschäft abschließen“ erzeugt nach einem kurzen, sichtbaren Cooldown Gold in der Truhe.
 - Upgrades erhöhen den Wert eines Abschlusses.
 - Mitarbeiter erzeugen passives Gold.
 - Taps bleiben dauerhaft lohnend, werden aber relativ zur automatisierten Produktion weniger wichtig.
@@ -42,11 +42,11 @@ Sie verkürzen die Fahrt und erhöhen die Ladung, beseitigen aber nicht den Ziel
 
 Transport bleibt immer diskret. Die angegebene Transportzeit bezeichnet eine vollständige Rundfahrt: Hin- und Rückweg dauern jeweils die Hälfte. Zu Fahrtbeginn wird eine feste Ladung aus der Truhe genommen und ist bis zur Ankunft als `inTransitGold` gebunden. Nach der halben Zeit wird sie im Tresor abgeladen; erst nach der gleich langen Rückfahrt ist der Spieler beziehungsweise das Fahrzeug wieder verfügbar. Neue Produktion bleibt in der Truhe. Der Transport nimmt nie mehr mit, als noch in den Tresor passt.
 
-Nach Einstellung des Boten bleibt der Transportbutton als aktive Expressfahrt erhalten. Sie kann parallel zur automatischen Fuhre gestartet werden und wird als zweites Fahrzeug auf der Strecke dargestellt.
+Ein Tap auf die Truhe startet den Transport. Nach Einstellung des Boten löst derselbe Tap eine aktive Expressfahrt aus. Sie kann parallel zur automatischen Fuhre gestartet werden und wird als zweites Fahrzeug auf der Strecke dargestellt.
 
 ## Oberfläche
 
-Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Goldmünze, Truhe, Transportstrecke, manueller Transport beziehungsweise Expressfahrt und Tresor bleiben dauerhaft sichtbar. Truhen- und Tresorbetrag sind die prominentesten Zahlen. Ist die Truhe voll, wird die Goldmünze deaktiviert und ein Tap erzeugt weder Gold noch Überfüllungsverlust.
+Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Goldaktion, Truhe, Transportstrecke und Tresor bleiben dauerhaft sichtbar. Truhen- und Tresorbetrag sind die prominentesten Zahlen. Die Truhe selbst startet den manuellen Transport beziehungsweise die Expressfahrt und wechselt bei voller Kapazität zu einer geschlossenen Darstellung. Ist die Truhe voll, wird die Goldaktion deaktiviert und ein Tap erzeugt weder Gold noch Überfüllungsverlust. Ein Fortschrittsbalken im Gold-Button zeigt den kurzen Klick-Cooldown. Erzeugtes Gold fliegt langsam und auf leicht variierenden Bahnen zur Truhe.
 
 Der Stil ist hell, modern und offen, mit weichen Flächen und warmen Goldakzenten. Ein kompakter Header zeigt nur das App-Icon, das Tresorvermögen und die wichtigsten Statusaktionen. Upgrades und Statistik öffnen mobil in einem intern scrollbaren Bottom Sheet. Upgrades lassen sich nach Alle, Produktion, Lagerung, Transport und Sicherheit filtern.
 
