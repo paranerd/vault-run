@@ -6,14 +6,22 @@ const SAVE_KEY = 'vault-run-save-v1'
 function migrateGame(value: unknown): GameState | null {
   if (!value || typeof value !== 'object') return null
   const parsed = value as Record<string, unknown>
-  if (parsed.schemaVersion === 2) return parsed as unknown as GameState
+  if (parsed.schemaVersion === 3) return parsed as unknown as GameState
+  if (parsed.schemaVersion === 2) {
+    return {
+      ...(parsed as unknown as Omit<GameState, 'schemaVersion' | 'tapReadyAt'>),
+      schemaVersion: 3,
+      tapReadyAt: 0,
+    }
+  }
   if (parsed.schemaVersion !== 1) return null
 
   const startedAt = typeof parsed.transportStartedAt === 'number' ? parsed.transportStartedAt : null
   const endsAt = typeof parsed.transportEndsAt === 'number' ? parsed.transportEndsAt : null
   return {
-    ...(parsed as unknown as Omit<GameState, 'schemaVersion' | 'transportDeliveredAt' | 'expressGold' | 'expressStartedAt' | 'expressDeliveredAt' | 'expressEndsAt'>),
-    schemaVersion: 2,
+    ...(parsed as unknown as Omit<GameState, 'schemaVersion' | 'tapReadyAt' | 'transportDeliveredAt' | 'expressGold' | 'expressStartedAt' | 'expressDeliveredAt' | 'expressEndsAt'>),
+    schemaVersion: 3,
+    tapReadyAt: 0,
     transportDeliveredAt: startedAt !== null && endsAt !== null ? startedAt + (endsAt - startedAt) / 2 : null,
     expressGold: 0,
     expressStartedAt: null,

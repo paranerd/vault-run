@@ -25,7 +25,7 @@ export interface OfflineReport {
 }
 
 export interface GameState {
-  schemaVersion: 2
+  schemaVersion: 3
   savedAt: number
   lastTick: number
   chestGold: number
@@ -34,6 +34,7 @@ export interface GameState {
   lifetimeGold: number
   lostGold: number
   stolenGold: number
+  tapReadyAt: number
   tapLevel: number
   staffLevel: number
   chestLevel: number

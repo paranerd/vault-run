@@ -1,6 +1,7 @@
 import {
   MAX_OFFLINE_SECONDS,
   SECURITY,
+  TAP_COOLDOWN_MS,
   cargoCapacity,
   chestCapacity,
   expressDuration,
@@ -16,7 +17,7 @@ const STEP_MS = 500
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     savedAt: now,
     lastTick: now,
     chestGold: 0,
@@ -25,6 +26,7 @@ export function createInitialState(now = Date.now()): GameState {
     lifetimeGold: 0,
     lostGold: 0,
     stolenGold: 0,
+    tapReadyAt: 0,
     tapLevel: 0,
     staffLevel: 0,
     chestLevel: 0,
@@ -65,11 +67,13 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
   return stored
 }
 
-export function tap(state: GameState): GameState {
+export function tap(state: GameState, now = Date.now()): GameState {
   if (state.transportEndsAt !== null && !state.courierUnlocked) return state
   if (state.chestGold >= chestCapacity(state)) return state
+  if (now < state.tapReadyAt) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
+  next.tapReadyAt = now + TAP_COOLDOWN_MS
   return next
 }
 
