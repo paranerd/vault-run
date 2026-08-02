@@ -158,6 +158,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-center { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
 .section-action {
   position: relative;
+  overflow: hidden;
   width: min(100%, 104px);
   height: 83px;
   padding: 2px 4px 4px;
@@ -172,10 +173,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: 3px 4px 0 #2a160d, inset 3px 3px rgba(255,244,176,.35), inset -3px -3px rgba(107,51,12,.16);
   cursor: pointer;
 }
-.section-action img { width: 58px; height: 58px; margin: -6px 0 -4px; object-fit: contain; image-rendering: pixelated; }
-.section-action strong { position: relative; z-index: 2; max-width: 100%; overflow: hidden; font-family: var(--pixel-font); font-size: 11px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; text-shadow: 1px 1px rgba(255,236,159,.75); }
+.section-action img { position: relative; z-index: 2; width: 58px; height: 58px; object-fit: contain; image-rendering: pixelated; }
+.section-action__progress { position: absolute; z-index: 1; top: 0; bottom: 0; left: 0; background: linear-gradient(#f8d96e,#df962d); box-shadow: inset 3px 3px rgba(255,246,186,.3),inset -3px -3px rgba(107,51,12,.12); transition: width .1s steps(12,end); }
+.section-action.is-progressing { background: #6a4b32; }
 .section-action:active:not(:disabled) { transform: translateY(3px); box-shadow: 2px 1px 0 #2a160d; }
 .section-action:disabled { cursor: not-allowed; filter: grayscale(.45) brightness(.76); }
+.section-action.is-progressing:disabled { filter: none; }
 
 .equipment-button {
   position: relative;
@@ -195,7 +198,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   font-weight: 700;
   cursor: pointer;
 }
-.equipment-button svg { width: 14px; height: 14px; }
+.equipment-button__icon { width: 19px; height: 19px; object-fit: contain; image-rendering: pixelated; }
 .equipment-button.is-notifying,.slot-grid.is-notifying { animation: full-alert .9s steps(2,end) 1; }
 
 .section-progress { width: 100%; min-width: 0; text-align: center; }
@@ -319,8 +322,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .stat-tile { padding: 1px; }.stat-tile strong { font-size: 9px; }.stat-tile > span:not(.stat-tile__icon) { margin-top: 1px; font-size: 5.5px; }.stat-tile__icon { display: none; }
   .section-center { gap: 2px; }
   .section-action { width: 75px; height: 54px; border-width: 2px; box-shadow: 2px 2px 0 #2a160d; }
-  .section-action img { width: 42px; height: 42px; margin: -5px 0 -4px; }.section-action strong { font-size: 8px; }
-  .equipment-button { width: 73px; height: 21px; border-width: 1px; font-size: 7px; box-shadow: 1px 1px 0 rgba(34,17,9,.65); }.equipment-button svg { width: 11px; height: 11px; }
+  .section-action img { width: 42px; height: 42px; }
+  .equipment-button { width: 73px; height: 21px; border-width: 1px; font-size: 7px; box-shadow: 1px 1px 0 rgba(34,17,9,.65); }.equipment-button__icon { width: 15px; height: 15px; }
   .section-progress__bar { height: 6px; border-width: 1px; }.section-progress__amount { margin-top: 1px; font-size: 6px; }
   .slot-grid img { width: 38px; height: 38px; }.slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
 }

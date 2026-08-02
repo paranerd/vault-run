@@ -5,7 +5,6 @@ import {
   Eye,
   RotateCcw,
   ShieldCheck,
-  SlidersHorizontal,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -23,7 +22,6 @@ import {
   tapValue,
   threatReductionPerClick,
   transportDuration,
-  transportVisualLevel,
   vaultCapacity,
 } from './game/config'
 import {
@@ -125,6 +123,10 @@ function PixelCoin({ className = '' }: { className?: string }) {
       <path fill="#fff4b8" d="M6 4h3v1H6z" />
     </svg>
   )
+}
+
+function UpgradeIcon() {
+  return <img className="equipment-button__icon" src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
 function StatTile({ label, value, icon }: { label?: string; value?: string; icon?: ReactNode }) {
@@ -309,9 +311,11 @@ function App() {
   const automatic = hasAutomaticTransport(state)
   const mainTravelling = state.transportEndsAt !== null
   const expressTravelling = state.expressEndsAt !== null
-  const miningPaused = mainTravelling && !automatic
-  const mineReadyProgress = miningPaused
-    ? percentage(now - (state.transportStartedAt ?? now), (state.transportEndsAt ?? now) - (state.transportStartedAt ?? now))
+  const playerTravelling = automatic ? expressTravelling : mainTravelling
+  const playerTransportStartedAt = automatic ? state.expressStartedAt : state.transportStartedAt
+  const playerTransportEndsAt = automatic ? state.expressEndsAt : state.transportEndsAt
+  const playerTransportProgress = playerTravelling
+    ? percentage(now - (playerTransportStartedAt ?? now), (playerTransportEndsAt ?? now) - (playerTransportStartedAt ?? now))
     : 100
   const reservedGold = state.inTransitGold + state.expressGold
   const canStartMain = !mainTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
@@ -325,7 +329,7 @@ function App() {
   }
 
   const handleTap = () => {
-    if (miningPaused || bagFull) return
+    if (playerTravelling || bagFull) return
     const earned = Math.min(tapValue(state), Math.max(0, bagMax - state.chestGold))
     setState((current) => tap(current))
     launchCoin(earned)
@@ -387,25 +391,24 @@ function App() {
 
       <main className="game-stage" aria-label="Dein Goldreich">
         <div className="game-sections" ref={sceneRef}>
-          <article className="game-section game-section--mine">
-            <h2 className="section-divider"><span>Mine</span></h2>
+          <article className="game-section game-section--chest">
+            <h2 className="section-divider"><span>Truhe</span></h2>
             <div className="section-layout">
-              <div className="stats-grid" aria-label="Minenwerte">
-                <StatTile label="Auto / Sek." value={formatGold(passiveRate(state))} />
-                <StatTile label="Gold / Klick" value={`+${formatGold(tapValue(state))}`} />
+              <div className="stats-grid" aria-label="Truhenwerte">
+                <StatTile label="Sicherheitsniveau" value={`${securityRating(state)}%`} icon={<ShieldCheck aria-hidden="true" />} />
+                <StatTile label="Risiko / Klick" value={`−${formatGold(threatReductionPerClick(state))}`} />
                 <StatTile /><StatTile />
               </div>
               <div className="section-center">
-                <button ref={mineButtonRef} className="section-action" disabled={miningPaused || bagFull} onClick={handleTap} aria-label={`Gold schürfen: ${formatGold(tapValue(state))}`}>
-                  <PixelSprite family="pickaxe" level={state.tapLevel} />
-                  <strong>{bagFull ? 'Voll' : miningPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
+                <button className="section-action" disabled={state.threat <= 0} onClick={handleSecure} aria-label={`Aufmerksamkeit um ${threatReductionPerClick(state)} senken`}>
+                  <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
-                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('mine', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('mine', 'equipment')} aria-label="Pickhacke ausbauen">
-                  <SlidersHorizontal aria-hidden="true" /><span>Ausbau</span>
+                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('chest', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('chest', 'equipment')} aria-label="Schatztruhe ausbauen">
+                  <UpgradeIcon /><span>Ausbau</span>
                 </button>
-                <SectionProgress fill={mineReadyProgress} label={miningPaused ? 'Zeit bis wieder manuell geschürft werden kann' : 'Manuelles Schürfen bereit'} amount={miningPaused ? 'Wird frei' : 'Bereit'} muted={!miningPaused} />
+                <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
               </div>
-              <SlotGrid section="mine" levels={state.minerLevels} family="pickaxe" notifying={upgradeNoticePulsing && unseenFor('mine', 'slots').length > 0} noticeCount={unseenFor('mine', 'slots').length} onOpen={(index) => openPanel('mine', 'slots', index)} />
+              <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('chest', 'slots').length > 0} noticeCount={unseenFor('chest', 'slots').length} onOpen={(index) => openPanel('chest', 'slots', index)} />
             </div>
           </article>
 
@@ -419,12 +422,12 @@ function App() {
                 <StatTile />
               </div>
               <div className="section-center">
-                <button ref={bagButtonRef} className="section-action" disabled={!canTransport} onClick={handleTransport} aria-label="Gold zur Schatztruhe transportieren">
-                  <PixelSprite family="transport" level={transportVisualLevel(state)} />
-                  <strong>{expressTravelling || (!automatic && mainTravelling) ? 'Unterwegs' : 'Transport'}</strong>
+                <button ref={bagButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={!canTransport} onClick={handleTransport} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : 'Gold zur Schatztruhe transportieren'}>
+                  {playerTravelling && <i className="section-action__progress" style={{ width: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                  <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
                 <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('bag', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('bag', 'equipment')} aria-label="Beutel ausbauen">
-                  <SlidersHorizontal aria-hidden="true" /><span>Ausbau</span>
+                  <UpgradeIcon /><span>Ausbau</span>
                 </button>
                 <SectionProgress fill={percentage(state.chestGold, bagMax)} label="Füllstand des Goldbeutels" amount={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} />
               </div>
@@ -432,24 +435,24 @@ function App() {
             </div>
           </article>
 
-          <article className="game-section game-section--chest">
-            <h2 className="section-divider"><span>Truhe</span></h2>
+          <article className="game-section game-section--mine">
+            <h2 className="section-divider"><span>Mine</span></h2>
             <div className="section-layout">
-              <div className="stats-grid" aria-label="Truhenwerte">
-                <StatTile label="Sicherheitsniveau" value={`${securityRating(state)}%`} icon={<ShieldCheck aria-hidden="true" />} />
-                <StatTile /><StatTile /><StatTile />
+              <div className="stats-grid" aria-label="Minenwerte">
+                <StatTile label="Auto / Sek." value={formatGold(passiveRate(state))} />
+                <StatTile label="Gold / Klick" value={`+${formatGold(tapValue(state))}`} />
+                <StatTile /><StatTile />
               </div>
               <div className="section-center">
-                <button className="section-action" disabled={state.threat <= 0} onClick={handleSecure} aria-label={`Aufmerksamkeit um ${threatReductionPerClick(state)} senken`}>
-                  <PixelSprite family="chest" level={state.vaultLevel} />
-                  <strong>{state.threat > 0 ? `Risiko −${formatGold(threatReductionPerClick(state))}` : 'Sicher'}</strong>
+                <button ref={mineButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={playerTravelling || bagFull} onClick={handleTap} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : `Gold schürfen: ${formatGold(tapValue(state))}`}>
+                  {playerTravelling && <i className="section-action__progress" style={{ width: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                  <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
-                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('chest', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('chest', 'equipment')} aria-label="Schatztruhe ausbauen">
-                  <SlidersHorizontal aria-hidden="true" /><span>Ausbau</span>
+                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('mine', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('mine', 'equipment')} aria-label="Pickhacke ausbauen">
+                  <UpgradeIcon /><span>Ausbau</span>
                 </button>
-                <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
               </div>
-              <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('chest', 'slots').length > 0} noticeCount={unseenFor('chest', 'slots').length} onOpen={(index) => openPanel('chest', 'slots', index)} />
+              <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('mine', 'slots').length > 0} noticeCount={unseenFor('mine', 'slots').length} onOpen={(index) => openPanel('mine', 'slots', index)} />
             </div>
           </article>
 
