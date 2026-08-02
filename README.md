@@ -1,17 +1,24 @@
 # Vault Run
 
-Vault Run ist ein mobile-first Idle-Game über ein wachsendes Goldgeschäft. Verdientes Gold ist erst ausgebbar, nachdem es von der Geschäftstruhe in den Tresor transportiert wurde.
+Vault Run ist ein mobile-first Fantasy-Idle-Game in Pixel-Art. Mit einer rostigen Pickhacke beginnt der Spieler Gold zu schürfen, sammelt es zunächst in einem kleinen Beutel und bringt es anschließend in eine sichere Schatztruhe.
 
-Die helle, moderne Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Produktionsaktion, anklickbare Truhe, Hin- und Rückfahrt und Tresor bleiben jederzeit erreichbar; Upgrades liegen in einem gefilterten Bottom Sheet.
+Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Pickhacke, Goldbeutel, Transport und Schatztruhe bleiben jederzeit erreichbar; Upgrades liegen in einem gefilterten Ausbau-Panel.
 
 ## Kernloop
 
-1. Geschäfte abschließen und Gold verdienen.
-2. Ungesichertes Gold in der Geschäftstruhe sammeln.
-3. Die Truhe antippen und das Gold zunächst selbst zum Tresor transportieren.
-4. Mit Schuhen, Fahrrad und Auto die eigene Ausfallzeit verkürzen.
-5. Einen Boten einstellen und den Transport automatisieren.
-6. Transporter, Konvoi, Tresor und Sicherheit ausbauen.
+1. Mit der Pickhacke Gold aus dem Fels schlagen.
+2. Frisch geschürftes Gold im Beutel sammeln.
+3. Den Beutel antippen und das Gold zunächst selbst zur Schatztruhe bringen.
+4. Über Packpferd und Schatzkarren bis zur königlichen Kutsche aufsteigen.
+5. Einen Fuhrknecht anheuern und den Transport automatisieren.
+6. Pickhacke, Bergleute, Goldsack, Gespanne, Schatztruhe und Schutz ausbauen.
+
+## Gestaltung
+
+- konsistente 32-Bit-Fantasy-Sprites für alle sichtbaren Upgrade-Stufen
+- `Pixelify Sans` als lokal gebündelte, gut lesbare Pixel-Schrift
+- warme Pergament-, Holz-, Stein- und Goldpalette
+- harte Pixel-Schatten, gerasterte Fortschrittsbalken und PWA-App-Icon im selben Stil
 
 ## Entwicklung
 
@@ -27,6 +34,6 @@ npm test
 npm run build
 ```
 
-Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Das lokale Savegame wird versioniert im Browser gespeichert; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
+Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Das lokale Savegame bleibt kompatibel; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
 
 Die vollständigen Produktregeln und Architekturentscheidungen stehen in [DESIGN.md](./DESIGN.md).

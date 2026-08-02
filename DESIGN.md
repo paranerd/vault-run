@@ -2,96 +2,95 @@
 
 ## Vision
 
-Der Spieler ist ein Geschäftsmann, der Gold verdient und daraus Schritt für Schritt einen hochautomatisierten, gesicherten Logistikbetrieb aufbaut. Er ist kein Räuber. Der Name „Vault Run“ bezeichnet die regelmäßige Fahrt zum Tresor.
+Der Spieler beginnt als einzelner Goldsucher mit einer rostigen Pickhacke. Aus der kleinen Mine entsteht schrittweise ein sagenhaftes Schatzreich mit Bergleuten, Lasttieren, Kutschen und einer immer prächtigeren Schatztruhe. Der Name „Vault Run“ bezeichnet die regelmäßige Reise mit dem frisch geschürften Gold zum sicheren Schatzlager.
 
 Die erste Version ist ein optisch polierter Vertical Slice für Browser und PWA. Smartphone-Hochformat ist die primäre Oberfläche; Desktop erhält eine eigene vollwertige Anordnung. Die Architektur soll eine spätere Capacitor-App ermöglichen. Sprache ist zunächst Deutsch, das bevorzugte Monetarisierungsmodell wäre ein Einmalkauf.
 
-## Kernloop ab dem ersten Tap
+## Kernloop ab dem ersten Schlag
 
 ```text
-Geschäft → Geschäftstruhe → Transport → Tresor → Investition
+Mine → Goldbeutel → Reise → Schatztruhe → Ausbau
 ```
 
-Alle vier Stationen sind von Anfang an sichtbar. Nur Gold im Tresor ist ausgebbar.
+Alle vier Stationen sind von Anfang an sichtbar. Nur Gold in der Schatztruhe ist ausgebbar.
 
-Zu Beginn übernimmt der Spieler den Transport selbst. Während er unterwegs ist, kann er keine weiteren Geschäfte abschließen und auch seine Mitarbeiter pausieren. Die ersten Transport-Upgrades sind deshalb:
+Zu Beginn übernimmt der Spieler den Transport selbst. Während er unterwegs ist, kann er nicht schürfen und auch seine Bergleute pausieren. Die Transport-Progression lautet:
 
-1. Bessere Schuhe
-2. Fahrrad
-3. Auto
+1. Zu Fuß
+2. Packpferd
+3. Schatzkarren
+4. Königliche Kutsche
 
-Sie verkürzen die Fahrt und erhöhen die Ladung, beseitigen aber nicht den Zielkonflikt. Der erste große Automatisierungssprung ist ein Bote: Fahrten starten danach automatisch und das Geschäft produziert während des Transports weiter. Anschließend skalieren Ladekapazität und Anzahl der gemeinsam fahrenden Fahrzeuge als Konvoi.
+Sie verkürzt die Reise und erhöht die Ladung, beseitigt aber nicht den Zielkonflikt. Der erste große Automatisierungssprung ist ein Fuhrknecht: Reisen starten danach automatisch und die Mine produziert währenddessen weiter. Anschließend skalieren Laderaum und Anzahl der Gespanne.
 
 ## Aktiv und idle
 
-- Ein Tap auf „Geschäft abschließen“ erzeugt nach einem kurzen, sichtbaren Cooldown Gold in der Truhe.
-- Upgrades erhöhen den Wert eines Abschlusses.
-- Mitarbeiter erzeugen passives Gold.
-- Taps bleiben dauerhaft lohnend, werden aber relativ zur automatisierten Produktion weniger wichtig.
-- Der Spieler soll in kurzen aktiven Phasen investieren und optimieren können, danach aber sinnvoll idle fortschreiten.
+- Ein Schlag auf „Schürfen“ erzeugt Gold im Beutel.
+- Pickhacken-Upgrades erhöhen den Wert eines Schlages.
+- Bergleute fördern passiv Gold.
+- Aktives Schürfen bleibt dauerhaft lohnend, wird aber relativ zum automatisierten Abbau weniger wichtig.
+- Der Spieler soll in kurzen aktiven Phasen ausbauen und optimieren können, danach aber sinnvoll idle fortschreiten.
 - Ein Run soll mehrere Tage tragen. Prestige ist noch nicht Teil des Vertical Slice; das Savegame ist dafür versioniert vorbereitet.
 
 ## Kette und Engpässe
 
 | Station | Funktion | Typische Upgrades |
 |---|---|---|
-| Geschäft | Aktive und passive Produktion | bessere Abschlüsse, Mitarbeiter |
-| Truhe | Ungesicherter Puffer | Kapazität |
-| Transport | Diskrete Lieferung | Schuhe, Fahrrad, Auto, Bote, Transporter, Konvoi |
-| Tresor | Geschütztes und ausgebbares Vermögen | Kapazität, Sicherheit |
+| Mine | Aktiver und passiver Abbau | Pickhacke, Bergleute |
+| Goldbeutel | Ungesicherter Puffer | Lederbeutel bis königlicher Goldsack |
+| Reise | Diskrete Lieferung | Packpferd, Karren, Kutsche, Fuhrknecht, Gespanne |
+| Schatztruhe | Geschütztes und ausgebbares Vermögen | Holzkiste bis Juwelentruhe, Schutz |
 
-Transport bleibt immer diskret. Die angegebene Transportzeit bezeichnet eine vollständige Rundfahrt: Hin- und Rückweg dauern jeweils die Hälfte. Zu Fahrtbeginn wird eine feste Ladung aus der Truhe genommen und ist bis zur Ankunft als `inTransitGold` gebunden. Nach der halben Zeit wird sie im Tresor abgeladen; erst nach der gleich langen Rückfahrt ist der Spieler beziehungsweise das Fahrzeug wieder verfügbar. Neue Produktion bleibt in der Truhe. Der Transport nimmt nie mehr mit, als noch in den Tresor passt.
+Der Transport bleibt immer diskret. Die angegebene Reisezeit bezeichnet Hin- und Rückweg zusammen. Zu Reisebeginn wird eine feste Ladung aus dem Beutel genommen und ist bis zur Ankunft als `inTransitGold` gebunden. Nach der halben Zeit wird sie in der Schatztruhe abgelegt; erst nach der gleich langen Rückreise ist der Spieler beziehungsweise das Gespann wieder verfügbar. Neues Gold bleibt im Beutel. Eine Reise nimmt nie mehr mit, als noch in die Schatztruhe passt.
 
-Ein Tap auf die Truhe startet den Transport. Nach Einstellung des Boten löst derselbe Tap eine aktive Expressfahrt aus. Sie kann parallel zur automatischen Fuhre gestartet werden und wird als zweites Fahrzeug auf der Strecke dargestellt.
+Ein Tap auf den Beutel startet die Reise. Nach Anheuern des Fuhrknechts löst derselbe Tap eine aktive Eilreise aus. Sie kann parallel zur automatischen Fuhre laufen und wird als zweites Gespann dargestellt.
 
-## Oberfläche
+## Oberfläche und Art Direction
 
-Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Goldaktion, Truhe, Transportstrecke und Tresor bleiben dauerhaft sichtbar. Truhen- und Tresorbetrag sind die prominentesten Zahlen. Die Truhe selbst startet den manuellen Transport beziehungsweise die Expressfahrt und wechselt bei voller Kapazität zu einer geschlossenen Darstellung. Ist die Truhe voll, wird die Goldaktion deaktiviert und ein Tap erzeugt weder Gold noch Überfüllungsverlust. Ein Fortschrittsbalken im Gold-Button zeigt den kurzen Klick-Cooldown. Erzeugtes Gold fliegt langsam und auf leicht variierenden Bahnen zur Truhe.
+Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Schürfaktion, Goldbeutel, Reise und Schatztruhe bleiben dauerhaft sichtbar. Beutel- und Truhenbetrag sind die prominentesten Zahlen. Der Beutel selbst startet die manuelle Reise beziehungsweise die Eilreise. Ist er voll, wird die Schürfaktion deaktiviert und ein Schlag erzeugt weder Gold noch Überfüllungsverlust. Ein Fortschrittsbalken im Schürf-Button zeigt die eigene Reise, während der Spieler nicht abbauen kann. Erzeugtes Gold fliegt langsam und auf leicht variierenden Bahnen zum Beutel.
 
-Der Stil ist hell, modern und offen, mit weichen Flächen und warmen Goldakzenten. Ein kompakter Header zeigt nur das App-Icon, das Tresorvermögen und die wichtigsten Statusaktionen. Upgrades und Statistik öffnen mobil in einem intern scrollbaren Bottom Sheet. Upgrades lassen sich nach Alle, Produktion, Lagerung, Transport und Sicherheit filtern.
+Der Stil ist Fantasy-Pixel-Art mit warmem Pergament, dunklem Holz, Stein, Kupfer und Gold. Harte Rahmen, blockige Schatten und segmentierte Balken ersetzen die vorherigen weichen, modernen Flächen. `Pixelify Sans` ist lokal gebündelt und verbindet Pixel-Charakter mit guter Lesbarkeit auf kleinen Displays.
 
-## Diebstahl und Sicherheit
+Die Haupt- und Upgrade-Icons zeigen sichtbare Progression:
 
-Diebstahl findet aktiv und offline statt, greift aber nur ungesichertes Gold in der Truhe an. Tresorgold und bereits transportierte Ladung sind sicher.
+- Pickhacke: rostig → Eisen → Stahl → Gold
+- Beutel: alter Lederbeutel → verstärkter Beutel → Bergmannssack → königlicher Goldsack
+- Schatztruhe: Holzkiste → Eisentruhe → Prunktruhe → Juwelentruhe
+- Reise: Läufer → Packpferd → Schatzkarren → königliche Kutsche
+- Schutz: Eisenschloss → Wachhund → Wachturm → Königsgarde → Schatzfestung
 
-Statt einer unsichtbaren Zufallswahrscheinlichkeit nutzt das Spiel eine sichtbare Aufmerksamkeitsanzeige:
+Ein kompakter Header zeigt nur das App-Icon, das sichere Gold und die wichtigsten Statusaktionen. Upgrades und Statistik öffnen mobil in einem intern scrollbaren Ausbau-Panel. Die Kategorien heißen Alle, Abbau, Schätze, Transport und Schutz.
 
-- Sie steigt, solange Gold in der Truhe liegt.
-- Eine vollere Truhe erhöht sie schneller.
-- Bei 100 % wird ein prozentualer Anteil des Truheninhalts gestohlen.
-- Danach fällt die Anzeige auf einen kleinen Restwert zurück.
-- Sicherheitsstufen verlangsamen den Anstieg und senken den Verlust.
+## Diebstahl und Schutz
 
-Sicherheitsstufen: Einfaches Schloss, Wachhund, Kameras, Wachdienst und Sicherheitszentrale. Sie werden im Tresorbereich ausgebaut und sind integraler Teil seiner Progression. Es gibt bewusst kein reales Nachtfenster; dadurch werden unterschiedliche Spielzeiten nicht benachteiligt und Manipulation über die Gerätezeit vermieden.
+Diebstahl findet aktiv und offline statt, greift aber nur ungesichertes Gold im Beutel an. Gold in der Schatztruhe und bereits transportierte Ladung sind sicher.
+
+Die sichtbare Diebesgefahr steigt, solange Gold im Beutel liegt. Ein voller Beutel erhöht sie schneller. Bei 100 % wird ein prozentualer Anteil gestohlen; danach fällt die Anzeige auf einen kleinen Restwert zurück. Schutz-Upgrades verlangsamen den Anstieg und senken den Verlust.
 
 ## Offline-Fortschritt
 
 Beim Öffnen oder Zurückkehren in den Tab rekonstruiert dieselbe Engine maximal acht Stunden:
 
-- passive Produktion,
-- Produktionspausen beim eigenen Transport,
-- diskrete Fahrten,
-- automatisierte Folgefahrten,
+- passiven Abbau,
+- Abbaupausen bei der eigenen Reise,
+- diskrete Reisen,
+- automatisierte Folgereisen,
 - Überfüllungsverluste,
-- Aufmerksamkeit und Einbrüche,
-- Tresorgrenzen.
+- Diebesgefahr und Diebeszüge,
+- Grenzen der Schatztruhe.
 
-Ein Rückkehrdialog fasst verdientes, gesichertes und gestohlenes Gold zusammen. Die Simulationslogik ist zeitbasiert und unabhängig von der Bildrate.
+Ein Rückkehrdialog fasst geschürftes, gesichertes und gestohlenes Gold zusammen. Die Simulationslogik ist zeitbasiert und unabhängig von der Bildrate.
 
-## Savegame
+## Savegame, Audio und Technik
 
-Der Spielstand liegt zunächst lokal im Browser und enthält eine `schemaVersion`, Timestamps, Upgrades, Bestände, Lebenszeitstatistiken und Ereigniszähler. Autosave erfolgt regelmäßig und beim Verlassen des Tabs. Die PWA funktioniert nach dem ersten Laden auch ohne Netz.
+Der Spielstand liegt lokal im Browser und enthält eine `schemaVersion`, Timestamps, Upgrades, Bestände, Lebenszeitstatistiken und Ereigniszähler. Das Fantasy-Retheme ändert keine gespeicherten Felder und bleibt daher mit bestehenden Spielständen kompatibel. Autosave erfolgt regelmäßig und beim Verlassen des Tabs.
 
-## Audio und Haptik
-
-Taps, Käufe und abgeschlossene Fahrten besitzen kurze synthetisierte Soundeffekte. Unterstützte Browser erhalten zusätzlich dezente Vibrationen. Eine spätere native App kann dieselben Ereignisse über Capacitor mit nativer Haptik verbinden. Reduzierte Bewegungseinstellungen des Betriebssystems werden respektiert.
-
-## Technische Architektur
+Schläge, Käufe und abgeschlossene Reisen besitzen kurze synthetisierte Soundeffekte. Unterstützte Browser erhalten dezente Vibrationen. Reduzierte Bewegungseinstellungen des Betriebssystems werden respektiert.
 
 - React, TypeScript und Vite
 - UI-unabhängige TypeScript-Spielengine
 - Vitest für Engine- und Offline-Regeln
-- SVG/CSS-basierte Darstellung ohne Game-Engine
+- generierte PNG-Pixel-Sprites mit transparentem Hintergrund
 - `vite-plugin-pwa` für Manifest und Service Worker
 - GitHub Actions für Tests, Build und Pages-Deployment
 - Local Storage mit versioniertem Savegame

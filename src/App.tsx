@@ -1,26 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
-  Bike,
-  CarFront,
   Check,
   ChartNoAxesCombined,
   Clock3,
   Coins,
   Eye,
-  Footprints,
-  Landmark,
   LockKeyhole,
   RotateCcw,
   SlidersHorizontal,
-  Truck,
   UsersRound,
-  Vault,
   Volume2,
   VolumeX,
 } from 'lucide-react'
 import {
   SECURITY,
-  TRANSPORTS,
   chestCapacity,
   convoySize,
   getUpgrades,
@@ -45,6 +38,7 @@ type Filter = 'all' | UpgradeCategory
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels'
 const WIDE_LAYOUT_QUERY = '(min-width: 760px)'
+const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
 
 interface CoinFlight {
   id: number
@@ -61,8 +55,8 @@ interface CoinFlight {
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'Alle' },
-  { id: 'production', label: 'Produktion' },
-  { id: 'storage', label: 'Lagerung' },
+  { id: 'production', label: 'Abbau' },
+  { id: 'storage', label: 'Schätze' },
   { id: 'transport', label: 'Transport' },
   { id: 'security', label: 'Sicherheit' },
 ]
@@ -112,30 +106,22 @@ function loadSeenUpgradeLevels() {
   }
 }
 
-function TransportGlyph({ kind, size = 24 }: { kind: string; size?: number }) {
-  if (kind === 'footprints') return <Footprints size={size} />
-  if (kind === 'bike') return <Bike size={size} />
-  if (kind === 'car') return <CarFront size={size} />
-  return <Truck size={size} />
+function spriteStage(level: number, maximum = 3) {
+  return Math.min(maximum, Math.max(0, level))
 }
 
-function ChestGlyph({ closed }: { closed: boolean }) {
-  return (
-    <svg className={`chest-glyph ${closed ? 'is-closed' : 'is-open'}`} viewBox="0 0 64 64" aria-hidden="true">
-      {!closed && (
-        <>
-          <path className="chest-glyph__lid" d="M11 23 17 11h30l6 12-5 4H16Z" />
-          <circle cx="24" cy="25" r="4" />
-          <circle cx="34" cy="23" r="4" />
-          <circle cx="42" cy="26" r="4" />
-        </>
-      )}
-      {closed && <path className="chest-glyph__lid" d="M11 25v-6a8 8 0 0 1 8-8h26a8 8 0 0 1 8 8v6Z" />}
-      <path className="chest-glyph__body" d="M9 25h46v26a4 4 0 0 1-4 4H13a4 4 0 0 1-4-4Z" />
-      <path className="chest-glyph__band" d="M18 26v28M46 26v28" />
-      <rect className="chest-glyph__lock" x="28" y="30" width="8" height="12" rx="2" />
-    </svg>
-  )
+function PixelSprite({ family, level, className = '' }: { family: 'pickaxe' | 'bag' | 'chest' | 'transport' | 'security'; level: number; className?: string }) {
+  const maximum = family === 'security' ? 4 : 3
+  return <img className={`pixel-sprite ${className}`} src={`${SPRITE_ROOT}/${family}-${spriteStage(level, maximum)}.png`} alt="" aria-hidden="true" draggable={false} />
+}
+
+function UpgradeSprite({ upgrade, state }: { upgrade: UpgradeView; state: GameState }) {
+  if (upgrade.id === 'tap') return <PixelSprite family="pickaxe" level={state.tapLevel} />
+  if (upgrade.id === 'staff') return <PixelSprite family="transport" level={0} />
+  if (upgrade.id === 'chest') return <PixelSprite family="bag" level={state.chestLevel} />
+  if (upgrade.id === 'vault') return <PixelSprite family="chest" level={state.vaultLevel} />
+  if (upgrade.id === 'security') return <PixelSprite family="security" level={state.securityLevel} />
+  return <PixelSprite family="transport" level={state.transportLevel} />
 }
 
 function StorageMeter({ value, capacity, label }: { value: number; capacity: number; label: string }) {
@@ -165,18 +151,23 @@ function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: G
   return (
     <article className={`upgrade-card upgrade-card--${upgrade.category} ${!upgrade.available ? 'is-locked' : ''}`}>
       <div className="upgrade-card__content">
-        <div className="upgrade-card__top">
-          <span>{upgrade.level}</span>
-          {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
+        <div className="upgrade-card__intro">
+          <span className="upgrade-card__sprite"><UpgradeSprite upgrade={upgrade} state={state} /></span>
+          <div>
+            <div className="upgrade-card__top">
+              <span>{upgrade.level}</span>
+              {upgrade.maxed && <b><Check size={13} /> Aktiv</b>}
+            </div>
+            <h3>{upgrade.name}</h3>
+            <p>{upgrade.description}</p>
+          </div>
         </div>
-        <h3>{upgrade.name}</h3>
-        <p>{upgrade.description}</p>
         <div className="upgrade-effects" aria-label="Upgrade-Effekt">
           <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
           <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
         </div>
         {!upgrade.available && !upgrade.maxed && (
-          <span className="locked-note"><LockKeyhole size={13} /> Erst den Boten einstellen</span>
+          <span className="locked-note"><LockKeyhole size={13} /> Erst den Fuhrknecht anheuern</span>
         )}
       </div>
       {(upgrade.available || upgrade.maxed) && (
@@ -263,7 +254,6 @@ function App() {
     : 100
   const tripPosition = roundTripPosition(state.transportStartedAt, state.transportEndsAt, now)
   const expressPosition = roundTripPosition(state.expressStartedAt, state.expressEndsAt, now)
-  const currentTransport = TRANSPORTS[state.transportLevel]
   const mainAtVault = state.transportDeliveredAt !== null && now >= state.transportDeliveredAt
   const expressAtVault = state.expressDeliveredAt !== null && now >= state.expressDeliveredAt
   const vaultReserved = state.inTransitGold + state.expressGold
@@ -377,9 +367,10 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand-mark" aria-label="Vault Run"><Landmark size={22} /></div>
+        <div className="brand-mark" aria-label="Vault Run"><PixelSprite family="pickaxe" level={3} /></div>
         <div className="header-wealth">
           <strong><Coins size={18} /> {formatGold(state.vaultGold)}</strong>
+          <span>SICHERES GOLD</span>
         </div>
         <div className="header-actions">
           <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
@@ -389,28 +380,28 @@ function App() {
       </header>
 
       <main className="app-layout">
-        <section className="game-stage" aria-label="Deine Goldlogistik">
+        <section className="game-stage" aria-label="Deine Goldmine">
           <div className="game-scene" ref={sceneRef}>
             <div className="core-loop">
               <article className="station vault-station">
                 <div className="station-heading">
-                  <strong>Tresor</strong>
+                  <strong>Schatztruhe</strong>
                 </div>
-                <div className="station-visual station-visual--vault">
-                  <Vault size={49} strokeWidth={1.55} />
+                <div className="station-visual station-visual--vault" aria-label="Deine sichere Schatztruhe">
+                  <PixelSprite family="chest" level={state.vaultLevel} />
                 </div>
-                <StorageMeter value={state.vaultGold} capacity={vaultMax} label="Tresor" />
-                <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
+                <StorageMeter value={state.vaultGold} capacity={vaultMax} label="Schatztruhe" />
+                <div className="security-line"><PixelSprite family="security" level={state.securityLevel} /> {SECURITY[state.securityLevel].name}</div>
               </article>
 
-              <div className="transport-lane" aria-label="Transportstrecke">
+              <div className="transport-lane" aria-label="Reise zur Schatztruhe">
                 <div className="road">
                   {isTravelling && (
                     <div
                       className={`vehicle ${mainAtVault ? 'is-returning' : ''}`}
                       style={{ '--vehicle-position': `${tripPosition}%` } as CSSProperties}
                     >
-                      <TransportGlyph kind={currentTransport.icon} size={20} />
+                      <PixelSprite family="transport" level={state.transportLevel} />
                       {state.inTransitGold > 0 && <b className="vehicle__cargo">{formatGold(state.inTransitGold)}</b>}
                       {convoySize(state) > 1 && <em>×{convoySize(state)}</em>}
                     </div>
@@ -420,7 +411,7 @@ function App() {
                       className={`vehicle vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
                       style={{ '--vehicle-position': `${expressPosition}%` } as CSSProperties}
                     >
-                      <Truck size={20} />
+                      <PixelSprite family="transport" level={state.transportLevel} />
                       {state.expressGold > 0 && <b className="vehicle__cargo">{formatGold(state.expressGold)}</b>}
                     </div>
                   )}
@@ -429,7 +420,7 @@ function App() {
 
               <article className={`station chest-station ${chestFull ? 'is-full' : ''}`}>
                 <div className="station-heading">
-                  <strong>Truhe</strong>
+                  <strong>Goldbeutel</strong>
                 </div>
                 <div className="chest-visual-row">
                   <button
@@ -437,27 +428,27 @@ function App() {
                     className={`station-visual station-visual--chest ${chestFull ? 'is-closed' : ''}`}
                     onClick={handleTransport}
                     disabled={!canUseChest}
-                    aria-label={`${state.courierUnlocked ? 'Expressfahrt aus der Truhe starten' : 'Gold aus der Truhe transportieren'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
+                    aria-label={`${state.courierUnlocked ? 'Eilreise mit Gold starten' : 'Goldbeutel zur Schatztruhe bringen'}, ${Math.round(percentage(state.chestGold, chestMax))} Prozent gefüllt`}
                   >
-                    <ChestGlyph closed={chestFull} />
+                    <PixelSprite family="bag" level={state.chestLevel} />
                     {canUseChest && (
                       <span className="chest-action-badge" aria-hidden="true">
-                        <TransportGlyph kind={state.courierUnlocked ? 'truck' : currentTransport.icon} size={13} />
+                        <PixelSprite family="transport" level={state.transportLevel} />
                       </span>
                     )}
                   </button>
-                  <div className="chest-indicators" aria-label="Geschäftsstatus">
-                    <div className="chest-indicator chest-indicator--production" aria-label={`Passive Produktion: ${formatGold(passiveRate(state))} Gold pro Sekunde`}>
+                  <div className="chest-indicators" aria-label="Minenstatus">
+                    <div className="chest-indicator chest-indicator--production" aria-label={`Passiver Abbau: ${formatGold(passiveRate(state))} Gold pro Sekunde`}>
                       <UsersRound size={16} aria-hidden="true" />
                       <strong>{formatGold(passiveRate(state))}/s</strong>
                     </div>
-                    <div className="chest-indicator chest-indicator--attention" aria-label={`Aufmerksamkeit: ${Math.floor(state.threat)} Prozent`}>
+                    <div className="chest-indicator chest-indicator--attention" aria-label={`Diebesgefahr: ${Math.floor(state.threat)} Prozent`}>
                       <Eye size={16} aria-hidden="true" />
                       <strong>{Math.floor(state.threat)}%</strong>
                     </div>
                   </div>
                 </div>
-                <StorageMeter value={state.chestGold} capacity={chestMax} label="Truhe" />
+                <StorageMeter value={state.chestGold} capacity={chestMax} label="Goldbeutel" />
               </article>
             </div>
 
@@ -495,15 +486,16 @@ function App() {
                 className="gold-button"
                 disabled={businessPaused || chestFull}
                 onClick={handleTap}
-                aria-label={`Gold produzieren: ${formatGold(tapValue(state))}`}
+                aria-label={`Gold schürfen: ${formatGold(tapValue(state))}`}
               >
-                <span className="gold-button__icon"><Coins size={31} /></span>
-                <strong>{chestFull ? 'Truhe voll' : businessPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
+                <span className="gold-button__icon"><PixelSprite family="pickaxe" level={state.tapLevel} /></span>
+                <strong>{chestFull ? 'Beutel voll' : businessPaused ? 'Auf Reisen' : `+${formatGold(tapValue(state))}`}</strong>
+                {!chestFull && !businessPaused && <small>SCHÜRFEN</small>}
                 {businessPaused && (
                   <span
                     className="gold-button__progress"
                     role="progressbar"
-                    aria-label="Eigener Transport"
+                    aria-label="Eigene Reise"
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={Math.round(manualTransportProgress)}
@@ -519,8 +511,8 @@ function App() {
           </div>
         </section>
 
-        <aside className={`management-sheet ${panel ? 'is-open' : ''}`} aria-label="Management">
-          <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Management schließen">×</button>
+        <aside className={`management-sheet ${panel ? 'is-open' : ''}`} aria-label="Reich ausbauen">
+          <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Ausbau schließen">×</button>
           <div className="sheet-tabs">
             <button className={(panel ?? 'upgrades') === 'upgrades' ? 'is-active' : ''} onClick={() => setPanel('upgrades')}>Upgrades</button>
             <button className={panel === 'stats' ? 'is-active' : ''} onClick={() => setPanel('stats')}>Statistik</button>
@@ -528,7 +520,7 @@ function App() {
 
           {(panel ?? 'upgrades') === 'upgrades' ? (
             <div className="sheet-content">
-              <div className="sheet-heading"><span>INVESTIEREN</span><h2>Betrieb ausbauen</h2><p>Bezahlt wird mit Gold aus dem Tresor.</p></div>
+              <div className="sheet-heading"><span>SCHMIEDE &amp; HANDEL</span><h2>Reich ausbauen</h2><p>Bezahlt wird mit sicherem Gold aus der Schatztruhe.</p></div>
               <div className="filter-row" aria-label="Upgrade-Kategorien">
                 {FILTERS.map((item) => (
                   <button key={item.id} className={filter === item.id ? 'is-active' : ''} onClick={() => setFilter(item.id)}>{item.label}</button>
@@ -540,13 +532,13 @@ function App() {
             </div>
           ) : (
             <div className="sheet-content log-panel">
-              <div className="sheet-heading"><span>BETRIEBSDATEN</span><h2>Statistik</h2></div>
+              <div className="sheet-heading"><span>CHRONIK</span><h2>Deine Legende</h2></div>
               <dl className="ledger">
-                <div><dt>Gold insgesamt</dt><dd>{formatGold(state.lifetimeGold)}</dd></div>
-                <div><dt>Fahrten</dt><dd>{state.tripCount}</dd></div>
-                <div><dt>Einbrüche</dt><dd>{state.theftCount}</dd></div>
+                <div><dt>Gold geschürft</dt><dd>{formatGold(state.lifetimeGold)}</dd></div>
+                <div><dt>Reisen</dt><dd>{state.tripCount}</dd></div>
+                <div><dt>Diebeszüge</dt><dd>{state.theftCount}</dd></div>
                 <div><dt>Gestohlen</dt><dd>{formatGold(state.stolenGold)}</dd></div>
-                <div><dt>Überfüllung</dt><dd>{formatGold(state.lostGold)}</dd></div>
+                <div><dt>Nicht eingelagert</dt><dd>{formatGold(state.lostGold)}</dd></div>
               </dl>
               <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Spielstand löschen</button>
             </div>
@@ -554,21 +546,21 @@ function App() {
         </aside>
       </main>
 
-      {panel && <button className="sheet-backdrop" aria-label="Management schließen" onClick={() => setPanel(null)} />}
+      {panel && <button className="sheet-backdrop" aria-label="Ausbau schließen" onClick={() => setPanel(null)} />}
 
       {state.lastOfflineReport && (
         <div className="modal-backdrop" role="presentation">
           <section className="offline-modal" role="dialog" aria-modal="true" aria-labelledby="offline-title">
             <div className="offline-icon"><Clock3 size={27} /></div>
             <span className="modal-kicker">WILLKOMMEN ZURÜCK</span>
-            <h2 id="offline-title">Dein Betrieb war aktiv</h2>
+            <h2 id="offline-title">Deine Mine war aktiv</h2>
             <p>{formatDuration(state.lastOfflineReport.seconds)} wurden nachberechnet.</p>
             <div className="offline-grid">
               <div><span>Verdient</span><strong>+{formatGold(state.lastOfflineReport.earned)}</strong></div>
               <div><span>Gesichert</span><strong>+{formatGold(state.lastOfflineReport.delivered)}</strong></div>
               <div className={state.lastOfflineReport.stolen ? 'has-loss' : ''}><span>Gestohlen</span><strong>–{formatGold(state.lastOfflineReport.stolen)}</strong></div>
             </div>
-            <button onClick={() => setState((current) => dismissOfflineReport(current))}>Weiterarbeiten</button>
+            <button onClick={() => setState((current) => dismissOfflineReport(current))}>Zurück in die Mine</button>
           </section>
         </div>
       )}

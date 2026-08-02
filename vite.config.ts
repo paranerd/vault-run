@@ -8,18 +8,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['vault-mark.svg'],
+      includeAssets: ['vault-mark.png', 'sprites/*.png', 'fonts/*.woff2'],
       manifest: {
         name: 'Vault Run',
         short_name: 'Vault Run',
-        description: 'Baue dein Goldgeschäft zur sicheren Logistikmaschine aus.',
-        theme_color: '#ffffff',
-        background_color: '#f7f8fb',
+        description: 'Schürfe Gold und errichte ein sagenhaftes Schatzreich.',
+        theme_color: '#4a291b',
+        background_color: '#17120f',
         display: 'standalone',
         orientation: 'portrait-primary',
         start_url: '/vault-run/',
         icons: [
-          { src: 'vault-mark.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }
+          { src: 'vault-mark.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
         ]
       }
     })
