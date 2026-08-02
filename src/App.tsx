@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useRegisterSW } from 'virtual:pwa-register/react'
 import {
   BarChart3,
   Check,
   Clock3,
+  Download,
   Eye,
   RotateCcw,
   Settings,
@@ -50,6 +52,7 @@ interface PanelState {
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
+const UPDATE_CHECK_INTERVAL = 60 * 60 * 1_000
 
 interface GoldFlight {
   id: number
@@ -226,6 +229,17 @@ function App() {
   const [goldFlights, setGoldFlights] = useState<GoldFlight[]>([])
   const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
   const [upgradeNoticePulsing, setUpgradeNoticePulsing] = useState(false)
+  const [updateInstalling, setUpdateInstalling] = useState(false)
+  const serviceWorkerRegistration = useRef<ServiceWorkerRegistration | null>(null)
+  const {
+    needRefresh: [updateAvailable, setUpdateAvailable],
+    updateServiceWorker,
+  } = useRegisterSW({
+    immediate: true,
+    onRegisteredSW: (_scriptUrl, registration) => {
+      serviceWorkerRegistration.current = registration ?? null
+    },
+  })
   const sceneRef = useRef<HTMLDivElement>(null)
   const bagButtonRef = useRef<HTMLButtonElement>(null)
   const chestButtonRef = useRef<HTMLButtonElement>(null)
@@ -236,6 +250,22 @@ function App() {
   const lastExpressTransportStart = useRef(state.expressStartedAt)
   const previousAffordable = useRef(new Set<string>())
   const pulseTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    const checkForUpdate = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        void serviceWorkerRegistration.current?.update()
+      }
+    }
+    const interval = window.setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL)
+    window.addEventListener('focus', checkForUpdate)
+    document.addEventListener('visibilitychange', checkForUpdate)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', checkForUpdate)
+      document.removeEventListener('visibilitychange', checkForUpdate)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = window.setInterval(() => setState((current) => advanceGame(current, Date.now())), 100)
@@ -421,6 +451,17 @@ function App() {
     setResetArmed(false)
   }
 
+  const installUpdate = async () => {
+    if (updateInstalling) return
+    setUpdateInstalling(true)
+    saveGame(state)
+    try {
+      await updateServiceWorker(true)
+    } catch {
+      setUpdateInstalling(false)
+    }
+  }
+
   const panelUpgrades = panel
     ? panel.kind === 'equipment' ? [getEquipmentUpgrade(state, panel.section)] : getSlotUpgrades(state, panel.section)
     : []
@@ -585,6 +626,23 @@ function App() {
             <button onClick={() => setState((current) => dismissOfflineReport(current))}>Zurück in die Mine</button>
           </section>
         </div>
+      )}
+
+      {updateAvailable && (
+        <aside className="update-notice" role="dialog" aria-modal="false" aria-live="polite" aria-labelledby="update-notice-title" aria-describedby="update-notice-description">
+          <span className="update-notice__icon" aria-hidden="true"><Download size={23} /></span>
+          <div className="update-notice__copy">
+            <span>NEUE VERSION</span>
+            <strong id="update-notice-title">Update bereit</strong>
+            <p id="update-notice-description">Installiere die neue Version und spiele direkt weiter.</p>
+          </div>
+          <div className="update-notice__actions">
+            <button className="update-notice__install" disabled={updateInstalling} onClick={() => void installUpdate()}>
+              {updateInstalling ? 'Wird installiert …' : 'Jetzt installieren'}
+            </button>
+            <button className="update-notice__later" disabled={updateInstalling} onClick={() => setUpdateAvailable(false)}>Später</button>
+          </div>
+        </aside>
       )}
     </div>
   )

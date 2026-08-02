@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['vault-mark.png', 'sprites/*.png', 'fonts/*.woff2'],
       manifest: {
         name: 'Vault Run',
