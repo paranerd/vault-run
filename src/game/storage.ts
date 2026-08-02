@@ -1,31 +1,57 @@
 import { advanceGame, createInitialState } from './engine'
-import type { GameState } from './types'
+import type { GameState, SlotLevels } from './types'
 
 const SAVE_KEY = 'vault-run-save-v1'
 
-function migrateGame(value: unknown): GameState | null {
+function distributeLevels(total: number): SlotLevels {
+  const levels: SlotLevels = [0, 0, 0, 0]
+  for (let index = 0; index < Math.max(0, Math.floor(total)); index += 1) levels[index % 4] += 1
+  return levels
+}
+
+function normalizeLevels(value: unknown): SlotLevels {
+  if (!Array.isArray(value)) return [0, 0, 0, 0]
+  return [0, 1, 2, 3].map((index) => Math.max(0, Math.floor(Number(value[index]) || 0))) as SlotLevels
+}
+
+export function migrateGame(value: unknown): GameState | null {
   if (!value || typeof value !== 'object') return null
   const parsed = value as Record<string, unknown>
   const { tapReadyAt: _legacyTapReadyAt, ...withoutCooldown } = parsed
-  if (parsed.schemaVersion === 3) return withoutCooldown as unknown as GameState
-  if (parsed.schemaVersion === 2) {
+  if (parsed.schemaVersion === 4) {
     return {
       ...withoutCooldown,
-      schemaVersion: 3,
+      schemaVersion: 4,
+      minerLevels: normalizeLevels(parsed.minerLevels),
+      transporterLevels: normalizeLevels(parsed.transporterLevels),
+      guardLevels: normalizeLevels(parsed.guardLevels),
     } as unknown as GameState
   }
-  if (parsed.schemaVersion !== 1) return null
+
+  if (![1, 2, 3].includes(Number(parsed.schemaVersion))) return null
 
   const startedAt = typeof parsed.transportStartedAt === 'number' ? parsed.transportStartedAt : null
   const endsAt = typeof parsed.transportEndsAt === 'number' ? parsed.transportEndsAt : null
+  const staffLevel = Number(parsed.staffLevel) || 0
+  const transportProgress = (parsed.courierUnlocked ? 1 : 0)
+    + (Number(parsed.transportLevel) || 0)
+    + (Number(parsed.cargoLevel) || 0)
+    + (Number(parsed.convoyLevel) || 0)
+  const securityLevel = Number(parsed.securityLevel) || 0
+
   return {
     ...withoutCooldown,
-    schemaVersion: 3,
-    transportDeliveredAt: startedAt !== null && endsAt !== null ? startedAt + (endsAt - startedAt) / 2 : null,
-    expressGold: 0,
-    expressStartedAt: null,
-    expressDeliveredAt: null,
-    expressEndsAt: null,
+    schemaVersion: 4,
+    minerLevels: distributeLevels(staffLevel),
+    transporterLevels: distributeLevels(transportProgress),
+    guardLevels: distributeLevels(securityLevel),
+    transportDeliveredAt: typeof parsed.transportDeliveredAt === 'number'
+      ? parsed.transportDeliveredAt
+      : startedAt !== null && endsAt !== null ? startedAt + (endsAt - startedAt) / 2 : null,
+    expressGold: Number(parsed.expressGold) || 0,
+    expressStartedAt: typeof parsed.expressStartedAt === 'number' ? parsed.expressStartedAt : null,
+    expressDeliveredAt: typeof parsed.expressDeliveredAt === 'number' ? parsed.expressDeliveredAt : null,
+    expressEndsAt: typeof parsed.expressEndsAt === 'number' ? parsed.expressEndsAt : null,
   } as unknown as GameState
 }
 
