@@ -79,9 +79,7 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   white-space: nowrap;
 }
 .header-wealth svg { flex: 0 0 auto; color: var(--gold-deep); }
-.header-actions { display: flex; align-items: center; gap: 7px; }
-.live-status { display: flex; gap: 5px; align-items: center; color: var(--muted); font-size: 10px; font-weight: 750; white-space: nowrap; }
-.live-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+.header-actions { display: flex; align-items: center; }
 .sound-button {
   width: 38px;
   height: 38px;
@@ -132,6 +130,7 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
 }
 .core-loop::after { content: ''; width: 1px; height: 100%; }
 .station { min-width: 148px; padding: 5px; text-align: center; }
+.chest-station { width: min(340px, 100%); }
 .station.is-full .station-visual { animation: full-alert .9s ease-in-out infinite; }
 .amount-display span,.station-heading strong { display: block; color: var(--muted); font-size: 11px; font-weight: 800; }
 .amount-display strong {
@@ -206,10 +205,35 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   background: var(--blue);
   box-shadow: 0 5px 11px rgba(52,81,209,.24);
 }
+.chest-visual-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: center;
+}
+.chest-visual-row .station-visual { grid-column: 2; }
+.chest-indicators {
+  grid-column: 3;
+  justify-self: start;
+  min-width: 62px;
+  margin-left: 10px;
+  display: grid;
+  gap: 7px;
+}
+.chest-indicator {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.chest-indicator svg { flex: 0 0 auto; }
+.chest-indicator strong { color: var(--ink); font-size: 10px; line-height: 1; }
+.chest-indicator--production svg { color: var(--green); }
+.chest-indicator--attention svg { color: var(--red); }
 .station-visual--vault { color: #3451d1; background: linear-gradient(145deg, #eef1ff, #dbe3ff); }
 .station-visual--vault::before { background: linear-gradient(180deg, rgba(113,139,232,.34), rgba(52,81,209,.68)); }
-.threat-line,.security-line { margin-top: 7px; display: flex; gap: 4px; align-items: center; color: var(--muted); font-size: 8px; font-weight: 700; white-space: nowrap; }
-.threat-line b { margin-left: auto; color: var(--red); }
+.security-line { margin-top: 7px; display: flex; gap: 4px; align-items: center; color: var(--muted); font-size: 8px; font-weight: 700; white-space: nowrap; }
 .security-line { justify-content: center; overflow: hidden; color: var(--green); text-overflow: ellipsis; }
 
 .transport-lane { width: min(184px, 58vw); min-height: 54px; height: 100%; }
@@ -417,7 +441,6 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
 }
 
 @media (max-width: 380px) {
-  .live-status { display: none; }
   .action-dock { gap: 5px; }
   .dock-button { max-width: 60px; }
 }
@@ -430,7 +453,8 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   .station-visual svg { width: 41px; height: 41px; }
   .amount-display strong { font-size: 21px; }
   .station-heading { min-height: 29px; }
-  .threat-line,.security-line { margin-top: 3px; }
+  .security-line { margin-top: 3px; }
+  .chest-indicators { gap: 5px; }
   .action-dock { min-height: 93px; }
   .gold-button { width: 108px; height: 80px; border-radius: 25px; }
   .gold-button__icon { height: 28px; }.gold-button__icon svg { width: 26px; height: 26px; }
@@ -447,9 +471,12 @@ button:focus-visible { outline: 3px solid rgba(52,81,209,.45); outline-offset: 3
   .game-scene { padding-top: 0; }
   .core-loop { grid-template-rows: auto minmax(48px,1fr) auto minmax(0,1fr); }
   .station { min-width: 230px; padding: 10px 14px; }
+  .chest-station { width: min(440px,100%); }
   .amount-display strong { font-size: clamp(32px,4vw,44px); }
   .station-heading strong { font-size: 14px; }.station-heading span { font-size: 11px; }
   .station-visual { width: 102px; height: 102px; border-radius: 30px; margin: 8px auto; }.station-visual svg { width: 64px; height: 64px; }
+  .chest-indicators { min-width: 78px; margin-left: 16px; gap: 10px; }
+  .chest-indicator { gap: 8px; }.chest-indicator svg { width: 19px; height: 19px; }.chest-indicator strong { font-size: 12px; }
   .transport-lane { width: 250px; min-height: 82px; }
   .vehicle { width: 38px; height: 38px; }
   .action-dock { width: 470px; min-height: 134px; gap: 14px; }
