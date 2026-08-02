@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
+  Bike,
+  CarFront,
   Check,
+  ChartNoAxesCombined,
   Clock3,
   Coins,
+  Footprints,
+  Landmark,
   LockKeyhole,
+  PackageOpen,
   RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
+  Truck,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -37,7 +43,7 @@ import { formatDuration, formatGold } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
 import type { GameState, UpgradeCategory, UpgradeId, UpgradeView } from './game/types'
 
-type Panel = 'upgrades' | 'log'
+type Panel = 'upgrades' | 'stats'
 type Filter = 'all' | UpgradeCategory
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -86,6 +92,13 @@ function haptic(duration = 10) {
 
 function Meter({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'danger' | 'safe' }) {
   return <div className={`meter meter--${tone}`} aria-hidden="true"><span style={{ width: `${value}%` }} /></div>
+}
+
+function TransportGlyph({ kind, size = 24 }: { kind: string; size?: number }) {
+  if (kind === 'footprints') return <Footprints size={size} />
+  if (kind === 'bike') return <Bike size={size} />
+  if (kind === 'car') return <CarFront size={size} />
+  return <Truck size={size} />
 }
 
 function UpgradeCard({ upgrade, state, onBuy }: { upgrade: UpgradeView; state: GameState; onBuy: (id: UpgradeId) => void }) {
@@ -204,33 +217,35 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand-mark" aria-hidden="true"><span>V</span></div>
-        <div className="brand-copy"><span>Gold & Logistik</span><strong>Vault Run</strong></div>
-        <div className="live-status"><i /> {formatGold(passiveRate(state))}/s</div>
-        <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
-          {sound ? <Volume2 size={20} /> : <VolumeX size={20} />}
-        </button>
+        <div className="brand-mark" aria-label="Vault Run"><Landmark size={22} /></div>
+        <div className="header-wealth">
+          <span>Vermögen im Tresor</span>
+          <strong><Coins size={18} /> {formatGold(state.vaultGold)}</strong>
+        </div>
+        <div className="header-actions">
+          <div className="live-status"><i /> {formatGold(passiveRate(state))}/s</div>
+          <button className="sound-button" onClick={toggleSound} aria-label={sound ? 'Ton ausschalten' : 'Ton einschalten'}>
+            {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
+          </button>
+        </div>
       </header>
 
       <main className="app-layout">
         <section className="game-stage" aria-label="Deine Goldlogistik">
-          <div className="scene-labels">
-            <span>DEIN BETRIEB</span>
-            <strong>{businessPaused ? `Zurück in ${Math.ceil(secondsLeft)} Sek.` : 'Betriebsbereit'}</strong>
+          <div className="scene-status">
+            <span><i /> {businessPaused ? `Zurück in ${Math.ceil(secondsLeft)} Sek.` : 'Betriebsbereit'}</span>
           </div>
 
-          <div className="pixel-scene">
-            <div className="skyline" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+          <div className="game-scene">
             <div className="storage-row">
-              <article className={`pixel-station chest-station ${chestFull ? 'is-full' : ''}`}>
+              <article className={`station chest-station ${chestFull ? 'is-full' : ''}`}>
                 <div className="amount-display">
-                  <span>TRUHE</span>
+                  <span>Truhe</span>
                   <strong>{formatGold(state.chestGold)}</strong>
                   <small>von {formatGold(chestMax)}</small>
                 </div>
-                <div className="pixel-chest" aria-hidden="true">
-                  <i className="chest-gold" style={{ height: `${percentage(state.chestGold, chestMax)}%` }} />
-                  <span className="chest-lock" />
+                <div className="station-visual station-visual--chest" aria-hidden="true" style={{ '--fill': `${percentage(state.chestGold, chestMax)}%` } as CSSProperties}>
+                  <PackageOpen size={49} strokeWidth={1.55} />
                 </div>
                 <Meter value={percentage(state.chestGold, chestMax)} />
                 <div className="threat-line"><ShieldCheck size={13} /> Aufmerksamkeit <b>{Math.floor(state.threat)}%</b></div>
@@ -247,18 +262,20 @@ function App() {
                   <span className="direction direction--back">←</span>
                   {isTravelling && (
                     <div
-                      className={`pixel-vehicle vehicle--${currentTransport.icon} ${mainAtVault ? 'is-returning' : ''}`}
+                      className={`vehicle ${mainAtVault ? 'is-returning' : ''}`}
                       style={{ '--vehicle-position': `${tripPosition}%` } as CSSProperties}
                     >
+                      <TransportGlyph kind={currentTransport.icon} size={20} />
                       {state.inTransitGold > 0 && <b>{formatGold(state.inTransitGold)}</b>}
                       {convoySize(state) > 1 && <em>×{convoySize(state)}</em>}
                     </div>
                   )}
                   {isExpressTravelling && (
                     <div
-                      className={`pixel-vehicle pixel-vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
+                      className={`vehicle vehicle--express ${expressAtVault ? 'is-returning' : ''}`}
                       style={{ '--vehicle-position': `${expressPosition}%` } as CSSProperties}
                     >
+                      <Truck size={20} />
                       {state.expressGold > 0 && <b>{formatGold(state.expressGold)}</b>}
                     </div>
                   )}
@@ -271,30 +288,26 @@ function App() {
                 </div>
               </div>
 
-              <article className="pixel-station vault-station">
-                <div className="amount-display amount-display--vault">
-                  <span>TRESOR</span>
-                  <strong>{formatGold(state.vaultGold)}</strong>
-                  <small>von {formatGold(vaultMax)}</small>
+              <article className="station vault-station">
+                <div className="station-heading">
+                  <strong>Tresor</strong>
+                  <span>Kapazität {formatGold(vaultMax)}</span>
                 </div>
-                <div className="pixel-vault" aria-hidden="true">
-                  <span className="vault-door"><i /><i /><i /></span>
-                  <span className="vault-shine" />
+                <div className="station-visual station-visual--vault" aria-hidden="true">
+                  <Landmark size={49} strokeWidth={1.55} />
                 </div>
                 <Meter value={percentage(state.vaultGold, vaultMax)} tone="safe" />
                 <div className="security-line"><LockKeyhole size={13} /> {SECURITY[state.securityLevel].name}</div>
               </article>
             </div>
 
-            <div className="coin-stream" aria-hidden="true"><span /><span /><span /></div>
             {tapPulse > 0 && <i key={tapPulse} className="flying-coin">+{formatGold(tapValue(state))}</i>}
 
             <div className="action-dock">
               <button className="gold-button" disabled={businessPaused || chestFull} onClick={handleTap} aria-label={`Gold verdienen: ${formatGold(tapValue(state))}`}>
-                <span className="pixel-coin"><i>V</i></span>
-                <strong>{chestFull ? 'TRUHE VOLL' : businessPaused ? 'UNTERWEGS' : `+${formatGold(tapValue(state))}`}</strong>
+                <span className="gold-button__icon"><Coins size={31} /></span>
+                <strong>{chestFull ? 'Truhe voll' : businessPaused ? 'Unterwegs' : `+${formatGold(tapValue(state))}`}</strong>
                 <small>{chestFull ? 'Erst transportieren' : 'Gold verdienen'}</small>
-                <Sparkles className="coin-spark" size={18} />
               </button>
 
               <button
@@ -302,7 +315,7 @@ function App() {
                 onClick={handleTransport}
                 disabled={state.courierUnlocked ? !canStartExpress : !canStartTransport}
               >
-                <span className={`transport-pixel-icon transport-pixel-icon--${currentTransport.icon}`} aria-hidden="true" />
+                <span className="transport-icon" aria-hidden="true"><TransportGlyph kind={currentTransport.icon} size={23} /></span>
                 <span>
                   <strong>{state.courierUnlocked ? (isExpressTravelling ? 'Express läuft' : 'Expressfahrt') : (isTravelling ? 'Du bist unterwegs' : 'Gold transportieren')}</strong>
                   <small>{state.courierUnlocked ? `${expressDuration(state).toLocaleString('de-DE')} Sek. Rundfahrt` : `${transportDuration(state)} Sek. hin & zurück`}</small>
@@ -316,7 +329,7 @@ function App() {
           <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Management schließen">×</button>
           <div className="sheet-tabs">
             <button className={(panel ?? 'upgrades') === 'upgrades' ? 'is-active' : ''} onClick={() => setPanel('upgrades')}>Upgrades</button>
-            <button className={panel === 'log' ? 'is-active' : ''} onClick={() => setPanel('log')}>Logbuch</button>
+            <button className={panel === 'stats' ? 'is-active' : ''} onClick={() => setPanel('stats')}>Statistik</button>
           </div>
 
           {(panel ?? 'upgrades') === 'upgrades' ? (
@@ -333,7 +346,7 @@ function App() {
             </div>
           ) : (
             <div className="sheet-content log-panel">
-              <div className="sheet-heading"><span>BETRIEBSDATEN</span><h2>Logbuch</h2></div>
+              <div className="sheet-heading"><span>BETRIEBSDATEN</span><h2>Statistik</h2></div>
               <dl className="ledger">
                 <div><dt>Gold insgesamt</dt><dd>{formatGold(state.lifetimeGold)}</dd></div>
                 <div><dt>Fahrten</dt><dd>{state.tripCount}</dd></div>
@@ -341,12 +354,6 @@ function App() {
                 <div><dt>Gestohlen</dt><dd>{formatGold(state.stolenGold)}</dd></div>
                 <div><dt>Überfüllung</dt><dd>{formatGold(state.lostGold)}</dd></div>
               </dl>
-              <h3 className="event-title">Letzte Ereignisse</h3>
-              <div className="event-list">
-                {state.events.length ? state.events.map((event) => (
-                  <div key={event.id} className={`event event--${event.kind}`}><span />{event.message}</div>
-                )) : <p className="empty-log">Noch ist es ruhig. Zeit für das erste Geschäft.</p>}
-              </div>
               <button className="reset-button" onClick={confirmReset}><RotateCcw size={15} /> Spielstand löschen</button>
             </div>
           )}
@@ -355,8 +362,7 @@ function App() {
 
       <nav className="bottom-nav" aria-label="Spielmenü">
         <button className={panel === 'upgrades' ? 'is-active' : ''} onClick={() => openPanel('upgrades')}><SlidersHorizontal size={20} /><span>Upgrades</span></button>
-        <div className="nav-wealth"><span>TRESOR</span><strong><Coins size={15} /> {formatGold(state.vaultGold)}</strong></div>
-        <button className={panel === 'log' ? 'is-active' : ''} onClick={() => openPanel('log')}><Clock3 size={20} /><span>Logbuch</span></button>
+        <button className={panel === 'stats' ? 'is-active' : ''} onClick={() => openPanel('stats')}><ChartNoAxesCombined size={20} /><span>Statistik</span></button>
       </nav>
 
       {panel && <button className="sheet-backdrop" aria-label="Management schließen" onClick={() => setPanel(null)} />}
@@ -365,7 +371,7 @@ function App() {
         <div className="modal-backdrop" role="presentation">
           <section className="offline-modal" role="dialog" aria-modal="true" aria-labelledby="offline-title">
             <div className="offline-icon"><Clock3 size={27} /></div>
-            <span className="pixel-kicker">WILLKOMMEN ZURÜCK</span>
+            <span className="modal-kicker">WILLKOMMEN ZURÜCK</span>
             <h2 id="offline-title">Dein Betrieb war aktiv</h2>
             <p>{formatDuration(state.lastOfflineReport.seconds)} wurden nachberechnet.</p>
             <div className="offline-grid">

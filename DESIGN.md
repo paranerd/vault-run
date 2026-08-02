@@ -48,7 +48,7 @@ Nach Einstellung des Boten bleibt der Transportbutton als aktive Expressfahrt er
 
 Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht. Goldmünze, Truhe, Transportstrecke, manueller Transport beziehungsweise Expressfahrt und Tresor bleiben dauerhaft sichtbar. Truhen- und Tresorbetrag sind die prominentesten Zahlen. Ist die Truhe voll, wird die Goldmünze deaktiviert und ein Tap erzeugt weder Gold noch Überfüllungsverlust.
 
-Der Stil ist helle, moderne Pixel-Art mit klaren Flächen und warmen Goldakzenten. Upgrades und Logbuch öffnen mobil in einem intern scrollbaren Bottom Sheet. Upgrades lassen sich nach Alle, Produktion, Lagerung, Transport und Sicherheit filtern.
+Der Stil ist hell, modern und offen, mit weichen Flächen und warmen Goldakzenten. Ein kompakter Header zeigt nur das App-Icon, das Tresorvermögen und die wichtigsten Statusaktionen. Upgrades und Statistik öffnen mobil in einem intern scrollbaren Bottom Sheet. Upgrades lassen sich nach Alle, Produktion, Lagerung, Transport und Sicherheit filtern.
 
 ## Diebstahl und Sicherheit
 

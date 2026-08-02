@@ -1,7 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#fffdf8"/>
-  <rect x="92" y="76" width="328" height="360" rx="20" fill="#8795a3" stroke="#1f2d43" stroke-width="24"/>
-  <circle cx="256" cy="256" r="92" fill="#f3bd3f" stroke="#1f2d43" stroke-width="20"/>
-  <path d="M256 174v164M174 256h164M198 198l116 116M314 198 198 314" stroke="#1f2d43" stroke-width="18" stroke-linecap="square"/>
-  <circle cx="256" cy="256" r="22" fill="#fffdf8"/>
+  <defs>
+    <linearGradient id="background" x1="80" y1="70" x2="432" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4865df"/>
+      <stop offset="1" stop-color="#243b93"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="180" y1="154" x2="340" y2="366" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe9a5"/>
+      <stop offset="1" stop-color="#f4b942"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="132" fill="url(#background)"/>
+  <path d="M144 222h224v146a36 36 0 0 1-36 36H180a36 36 0 0 1-36-36V222Z" fill="#fff" fill-opacity=".96"/>
+  <path d="m116 216 140-108 140 108H116Z" fill="url(#gold)"/>
+  <path d="M198 246v116M256 246v116M314 246v116" stroke="#3451d1" stroke-width="25" stroke-linecap="round"/>
+  <path d="M116 216h280M126 404h260" stroke="#fff" stroke-width="24" stroke-linecap="round"/>
 </svg>
