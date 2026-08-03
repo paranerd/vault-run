@@ -239,23 +239,30 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .slot-grid b { position: absolute; right: 2px; bottom: 2px; min-width: 15px; height: 15px; display: grid; place-items: center; border: 1px solid #432718; border-radius: 2px; color: #fff0bc; background: #6d4328; font-family: var(--pixel-font); font-size: 8px; line-height: 1; }
 .slot-grid__badge { position: absolute; z-index: 3; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 4px; display: grid; place-items: center; border: 2px solid #301a10; border-radius: 3px; color: #fff2c8; background: var(--red); box-shadow: 2px 2px 0 rgba(25,11,7,.55); font-family: var(--pixel-font); font-size: 8px; font-style: normal; }
 
-.sheet-backdrop { position: fixed; z-index: 30; top: 0; right: 0; bottom: var(--dock-total); left: 0; border: 0; background: rgba(17,10,7,.66); backdrop-filter: blur(2px); }
+/* Das Upgrade-Sheet legt sich über die Dock-Leiste und fährt von unten ein und wieder aus.
+   `visibility` schaltet erst nach der Animation um, damit es geschlossen nicht mehr greifbar ist. */
+.sheet-backdrop { position: fixed; z-index: 64; inset: 0; border: 0; background: rgba(17,10,7,.66); backdrop-filter: blur(2px); opacity: 0; visibility: hidden; transition: opacity .24s ease, visibility 0s linear .24s; }
+.sheet-backdrop.is-open { opacity: 1; visibility: visible; transition: opacity .24s ease, visibility 0s; }
 .management-sheet {
   position: fixed;
-  z-index: 40;
+  z-index: 66;
   top: max(64px,8dvh);
   right: 0;
-  bottom: var(--dock-total);
+  bottom: 0;
   left: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform .3s cubic-bezier(.3,.72,.28,1), visibility 0s linear .3s;
   padding: 14px 14px 0;
   border-top: 4px solid #3a2115;
   border-radius: 8px 8px 0 0;
   background: linear-gradient(rgba(99,56,26,.035) 1px,transparent 1px) 0 0/100% 7px,#ecd19b;
   box-shadow: 0 -6px 0 rgba(25,12,7,.45);
 }
+.management-sheet.is-open { transform: translateY(0); visibility: visible; transition: transform .3s cubic-bezier(.3,.72,.28,1), visibility 0s; }
 /* Fixer Kopf: Titel mit Schließen-X, darunter die Filter. Nur `.sheet-content` scrollt. */
 .sheet-header { flex: 0 0 auto; display: grid; gap: 10px; padding-bottom: 11px; border-bottom: 3px solid rgba(112,70,41,.34); }
 .sheet-header__top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
@@ -270,7 +277,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
    Laufweite wieder auf, sodass ein Chip mit Punkt exakt so breit ist wie einer ohne. */
 .sheet-filters button b { display: inline-block; width: 6px; height: 6px; margin: 0 -9px 0 3px; border-radius: 50%; vertical-align: .5em; background: var(--red); }
 .sheet-filters button.is-active b { background: #ff8a6d; }
-.sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 13px 2px 26px; overscroll-behavior: contain; }
+.sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 13px 2px calc(26px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
 .sheet-hint { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.1; }
 .upgrade-group + .upgrade-group { margin-top: 15px; }
 .upgrade-group__title { margin: 0 0 8px; display: flex; gap: 9px; align-items: center; color: #7a4c28; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; letter-spacing: .06em; }
@@ -433,11 +440,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-action { width: 128px; height: 126px; }.section-action img { width: 86px; height: 86px; }.section-action strong { font-size: 13px; }
   .section-progress { width: 130px; }.section-progress__amount { font-size: 9px; }
   .slot-grid img { width: 64px; height: 64px; }
-  .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); }
+  .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); transform: translateX(100%); }
+  .management-sheet.is-open { transform: translateX(0); }
   .dock { padding-right: 22px; padding-left: 22px; }
   .dock-button { font-size: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
 }

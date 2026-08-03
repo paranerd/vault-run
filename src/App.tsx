@@ -49,7 +49,12 @@ import type { GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from
 interface UpgradePanelState {
   filter: UpgradeFilter
   focusKey?: string
+  open: boolean
 }
+
+/** Das Sheet bleibt dauerhaft montiert, damit es beim ersten Öffnen einen Startzustand
+    zum Herüberblenden hat und beim Schließen nach unten ausfahren kann. */
+const CLOSED_PANEL: UpgradePanelState = { filter: 'all', open: false }
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
@@ -232,7 +237,7 @@ function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView;
 
 function App() {
   const [state, setState] = useState<GameState>(() => loadGame())
-  const [panel, setPanel] = useState<UpgradePanelState | null>(null)
+  const [panel, setPanel] = useState<UpgradePanelState>(CLOSED_PANEL)
   const [dockPanel, setDockPanel] = useState<'settings' | 'stats' | null>(null)
   const [resetArmed, setResetArmed] = useState(false)
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
@@ -251,6 +256,7 @@ function App() {
     },
   })
   const sceneRef = useRef<HTMLDivElement>(null)
+  const sheetContentRef = useRef<HTMLDivElement>(null)
   const bagButtonRef = useRef<HTMLButtonElement>(null)
   const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
@@ -314,14 +320,14 @@ function App() {
     const current = new Set(affordableKeys)
     const hasNew = affordableKeys.some((key) => !previousAffordable.current.has(key) && !seenUpgradeLevels.has(key))
     previousAffordable.current = current
-    if (!hasNew || panel) return
+    if (!hasNew || panel.open) return
     setUpgradeNoticePulsing(true)
     if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current)
     pulseTimer.current = window.setTimeout(() => setUpgradeNoticePulsing(false), 950)
     return () => {
       if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current)
     }
-  }, [affordableSignature, panel, seenUpgradeLevels])
+  }, [affordableSignature, panel.open, seenUpgradeLevels])
 
   const acknowledge = (filter: UpgradeFilter) => {
     const prefix = UPGRADE_FILTER_PREFIX[filter]
@@ -339,8 +345,12 @@ function App() {
   const openUpgrades = (filter: UpgradeFilter, focusKey?: string) => {
     acknowledge(filter)
     setDockPanel(null)
-    setPanel({ filter, focusKey })
+    setPanel({ filter, focusKey, open: true })
+    // Das Sheet bleibt montiert und behielte sonst die Scrollposition des letzten Filters.
+    if (!focusKey) sheetContentRef.current?.scrollTo({ top: 0 })
   }
+
+  const closeUpgrades = () => setPanel((current) => ({ ...current, open: false }))
 
   const openSlotUpgrades = (section: SectionId, index: SlotIndex) => {
     const group = SECTION_SLOT_GROUP[section]
@@ -348,7 +358,7 @@ function App() {
   }
 
   const openDockPanel = (kind: 'settings' | 'stats') => {
-    setPanel(null)
+    closeUpgrades()
     setResetArmed(false)
     setDockPanel((current) => (current === kind ? null : kind))
   }
@@ -477,7 +487,7 @@ function App() {
     localStorage.removeItem(UPGRADE_NOTICE_KEY)
     setSeenUpgradeLevels(new Set())
     setState(resetGame())
-    setPanel(null)
+    setPanel(CLOSED_PANEL)
     setDockPanel(null)
     setResetArmed(false)
   }
@@ -498,7 +508,7 @@ function App() {
     }
   }
 
-  const upgradeGroups = panel ? getUpgradeGroups(state, panel.filter) : []
+  const upgradeGroups = getUpgradeGroups(state, panel.filter)
   const dockNoticeCount = unseenFor('all').length
 
   return (
@@ -589,9 +599,9 @@ function App() {
       <nav className="dock" aria-label="Hauptmenü">
         <div className="dock__inner">
           <button
-            className={`dock-button ${panel ? 'is-active' : ''} ${upgradeNoticePulsing && dockNoticeCount > 0 ? 'is-notifying' : ''}`}
-            onClick={() => (panel ? setPanel(null) : openUpgrades('all'))}
-            aria-expanded={Boolean(panel)}
+            className={`dock-button ${panel.open ? 'is-active' : ''} ${upgradeNoticePulsing && dockNoticeCount > 0 ? 'is-notifying' : ''}`}
+            onClick={() => (panel.open ? closeUpgrades() : openUpgrades('all'))}
+            aria-expanded={panel.open}
             aria-label={dockNoticeCount > 0 ? `Ausbau öffnen, ${dockNoticeCount} kaufbare Upgrades` : 'Ausbau öffnen'}
           >
             <UpgradeIcon /><span>Ausbau</span>
@@ -606,48 +616,44 @@ function App() {
         </div>
       </nav>
 
-      {panel && (
-        <>
-          <button className="sheet-backdrop" aria-label="Ausbau schließen" onClick={() => setPanel(null)} />
-          <aside className="management-sheet is-open" aria-labelledby="upgrade-sheet-title">
-            <header className="sheet-header">
-              <div className="sheet-header__top">
-                <h2 id="upgrade-sheet-title">Upgrades</h2>
-                <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Upgrades schließen">×</button>
+      <button className={`sheet-backdrop ${panel.open ? 'is-open' : ''}`} aria-label="Upgrades schließen" onClick={closeUpgrades} />
+      <aside className={`management-sheet ${panel.open ? 'is-open' : ''}`} aria-labelledby="upgrade-sheet-title">
+        <header className="sheet-header">
+          <div className="sheet-header__top">
+            <h2 id="upgrade-sheet-title">Upgrades</h2>
+            <button className="sheet-close" onClick={closeUpgrades} aria-label="Upgrades schließen">×</button>
+          </div>
+          <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
+            {UPGRADE_FILTERS.map((filter) => {
+              const buyable = affordableIn(filter).length
+              return (
+                <button
+                  key={filter}
+                  role="tab"
+                  aria-selected={panel.filter === filter}
+                  aria-label={buyable > 0 ? `${UPGRADE_FILTER_LABEL[filter]}, ${buyable} bezahlbar` : UPGRADE_FILTER_LABEL[filter]}
+                  className={panel.filter === filter ? 'is-active' : ''}
+                  onClick={() => openUpgrades(filter)}
+                >
+                  {UPGRADE_FILTER_LABEL[filter]}
+                  {buyable > 0 && <b aria-hidden="true" />}
+                </button>
+              )
+            })}
+          </div>
+        </header>
+        <div className="sheet-content" ref={sheetContentRef}>
+          <p className="sheet-hint">Bezahlt wird mit Gold aus der Schatztruhe.</p>
+          {upgradeGroups.map((group) => (
+            <section key={group.category} className="upgrade-group">
+              {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}
+              <div className="upgrade-list">
+                {group.upgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focusKey === upgrade.key} onBuy={handleBuy} />)}
               </div>
-              <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
-                {UPGRADE_FILTERS.map((filter) => {
-                  const buyable = affordableIn(filter).length
-                  return (
-                    <button
-                      key={filter}
-                      role="tab"
-                      aria-selected={panel.filter === filter}
-                      aria-label={buyable > 0 ? `${UPGRADE_FILTER_LABEL[filter]}, ${buyable} bezahlbar` : UPGRADE_FILTER_LABEL[filter]}
-                      className={panel.filter === filter ? 'is-active' : ''}
-                      onClick={() => openUpgrades(filter)}
-                    >
-                      {UPGRADE_FILTER_LABEL[filter]}
-                      {buyable > 0 && <b aria-hidden="true" />}
-                    </button>
-                  )
-                })}
-              </div>
-            </header>
-            <div className="sheet-content">
-              <p className="sheet-hint">Bezahlt wird mit Gold aus der Schatztruhe.</p>
-              {upgradeGroups.map((group) => (
-                <section key={group.category} className="upgrade-group">
-                  {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}
-                  <div className="upgrade-list">
-                    {group.upgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focusKey === upgrade.key} onBuy={handleBuy} />)}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </aside>
-        </>
-      )}
+            </section>
+          ))}
+        </div>
+      </aside>
 
       {dockPanel && (
         <div className="header-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeDockPanel()}>
