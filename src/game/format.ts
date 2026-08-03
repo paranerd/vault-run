@@ -4,12 +4,9 @@
     pro Sekunde. Deshalb existiert jeder Formatter hier genau einmal. */
 const INTEGER = new Intl.NumberFormat('de-DE')
 const ONE_DECIMAL = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
-/** Feste Nachkommastelle: Die Wachen-Raten stehen direkt untereinander und dürfen nicht springen. */
-const FIXED_ONE_DECIMAL = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 export const formatInteger = (value: number): string => INTEGER.format(value)
 export const formatDecimal = (value: number): string => ONE_DECIMAL.format(value)
-export const formatFixedDecimal = (value: number): string => FIXED_ONE_DECIMAL.format(value)
 
 const GOLD_UNITS = [
   { value: 1e12, suffix: ' Bio.' },

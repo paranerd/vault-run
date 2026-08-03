@@ -1,37 +1,43 @@
 import {
   GOLD_FLIGHT_DURATION_MS,
+  MANUAL_CARGO,
+  MANUAL_SECURE_AMOUNT,
+  MANUAL_TRIP_SECONDS,
   MAX_OFFLINE_SECONDS,
   OFFLINE_THEFT_SHARE,
-  cargoCapacity,
+  SECURE_COOLDOWN_MS,
   chestCapacity,
   equipmentUpgradeCost,
-  MANUAL_SECURE_AMOUNT,
-  SECURE_COOLDOWN_MS,
-  expressDuration,
+  guardInterval,
+  guardPower,
   hasAutomaticSecurity,
   hasAutomaticTransport,
+  minerInterval,
+  minerYield,
   passiveRate,
   riskGrowth,
-  securingInterval,
-  securingPower,
   securityLoss,
   slotUpgradeCost,
   tapValue,
-  transportDuration,
+  transporterCapacity,
+  transporterTripSeconds,
   vaultCapacity,
 } from './config'
-import type { EquipmentUpgradeId, GameEvent, GameState, OfflineReport, SlotGroup, SlotIndex } from './types'
+import type { EquipmentUpgradeId, GameEvent, GameState, OfflineReport, SlotBeats, SlotGroup, SlotIndex, SlotTrips, Trip } from './types'
 
 const STEP_MS = 500
+const SLOTS = [0, 1, 2, 3] as const
+
+export const emptyBeats = (): SlotBeats => [null, null, null, null]
+export const emptyTrips = (): SlotTrips => [null, null, null, null]
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     savedAt: now,
     lastTick: now,
     chestGold: 0,
     vaultGold: 0,
-    inTransitGold: 0,
     lifetimeGold: 0,
     lostGold: 0,
     stolenGold: 0,
@@ -44,14 +50,10 @@ export function createInitialState(now = Date.now()): GameState {
     threat: 0,
     secureStartedAt: null,
     secureEndsAt: null,
-    lastAutoSecureAt: null,
-    transportStartedAt: null,
-    transportDeliveredAt: null,
-    transportEndsAt: null,
-    expressGold: 0,
-    expressStartedAt: null,
-    expressDeliveredAt: null,
-    expressEndsAt: null,
+    minerBeats: emptyBeats(),
+    guardBeats: emptyBeats(),
+    transporterTrips: emptyTrips(),
+    playerTrip: null,
     tripCount: 0,
     theftCount: 0,
     eventSequence: 0,
@@ -80,10 +82,20 @@ export function isSecuringManually(state: GameState): boolean {
   return state.secureEndsAt !== null && !hasAutomaticSecurity(state)
 }
 
+/** Gold, das bereits unterwegs ist und die Truhe darum schon beansprucht — die eigene Fuhre und
+    alle Fuhrknechte zusammen. Ohne diese Reservierung packten mehrere gleichzeitig fahrende
+    Fuhren zusammen mehr ein, als am Ziel noch hineinpasst. */
+export function goldInTransit(state: GameState): number {
+  const carried = state.transporterTrips.reduce((total, trip) => total + (trip?.gold ?? 0), 0)
+  return carried + (state.playerTrip?.gold ?? 0)
+}
+
+/** Der Spieler ist selbst unterwegs und kann deshalb nicht schürfen. Seine Bergleute arbeiten
+    weiter, sobald ihm ein Fuhrknecht die Strecke abnimmt — vorher ruht mit ihm das ganze Reich. */
+export const isPlayerTravelling = (state: GameState): boolean => state.playerTrip !== null
+
 export function tap(state: GameState): GameState {
-  if (isSecuringManually(state)) return state
-  if (state.transportEndsAt !== null && !hasAutomaticTransport(state)) return state
-  if (state.expressEndsAt !== null) return state
+  if (isSecuringManually(state) || isPlayerTravelling(state)) return state
   if (state.chestGold >= chestCapacity(state)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
@@ -91,64 +103,136 @@ export function tap(state: GameState): GameState {
 }
 
 function availableVaultSpace(state: GameState): number {
-  return Math.max(0, vaultCapacity(state) - state.vaultGold - state.inTransitGold - state.expressGold)
+  return Math.max(0, vaultCapacity(state) - state.vaultGold - goldInTransit(state))
 }
 
+function loadTrip(state: GameState, capacity: number, seconds: number, now: number): Trip | null {
+  const gold = Math.min(state.chestGold, capacity, availableVaultSpace(state))
+  if (gold <= 0) return null
+  state.chestGold -= gold
+  return { gold, startedAt: now, deliveredAt: now + GOLD_FLIGHT_DURATION_MS, endsAt: now + seconds * 1000 }
+}
+
+/** Die eigene Fuhre. Sie trägt die eigene Tragkraft und braucht die eigene Zeit — beides
+    unabhängig davon, wie viele Fuhrknechte gerade unterwegs sind. */
 export function startTransport(state: GameState, now = Date.now()): GameState {
-  if (isSecuringManually(state) || state.transportEndsAt !== null || state.chestGold <= 0) return state
-  const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
-  if (payload <= 0) {
+  if (isSecuringManually(state) || isPlayerTravelling(state) || state.chestGold <= 0) return state
+  const next = structuredClone(state)
+  const trip = loadTrip(next, MANUAL_CARGO, MANUAL_TRIP_SECONDS, now)
+  if (!trip) {
     const blocked = structuredClone(state)
     addEvent(blocked, 'warning', 'Die Schatztruhe ist voll.')
     return blocked
   }
-  const next = structuredClone(state)
-  next.chestGold -= payload
-  next.inTransitGold = payload
-  next.transportStartedAt = now
-  const duration = transportDuration(next) * 1000
-  next.transportDeliveredAt = now + GOLD_FLIGHT_DURATION_MS
-  next.transportEndsAt = now + duration
+  next.playerTrip = trip
   return next
 }
 
-export function startExpressTransport(state: GameState, now = Date.now()): GameState {
-  if (isSecuringManually(state) || !hasAutomaticTransport(state) || state.expressEndsAt !== null || state.chestGold <= 0) return state
-  const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
-  if (payload <= 0) return state
-  const next = structuredClone(state)
-  next.chestGold -= payload
-  next.expressGold = payload
-  next.expressStartedAt = now
-  const duration = expressDuration(next) * 1000
-  next.expressDeliveredAt = now + GOLD_FLIGHT_DURATION_MS
-  next.expressEndsAt = now + duration
-  return next
+/** Historischer Name der eigenen Fuhre, solange schon Fuhrknechte fahren. Sie ist dieselbe Fuhre —
+    die Automatik nimmt dem Spieler die Strecke ab, ersetzt seine eigene Ladung aber nicht. */
+export const startExpressTransport = startTransport
+
+/** Schickt jeden Fuhrknecht los, der gerade nicht unterwegs ist und etwas zu laden findet. */
+function dispatchTransporters(state: GameState, now: number): void {
+  for (const index of SLOTS) {
+    const level = state.transporterLevels[index]
+    if (level === 0 || state.transporterTrips[index] !== null) continue
+    if (state.chestGold <= 0) return
+    const trip = loadTrip(state, transporterCapacity(level), transporterTripSeconds(level), now)
+    if (!trip) return
+    state.transporterTrips[index] = trip
+  }
 }
 
-function deliverTransport(state: GameState, express: boolean, report?: OfflineReport): void {
-  const delivered = express ? state.expressGold : state.inTransitGold
-  state.vaultGold = Math.min(vaultCapacity(state), state.vaultGold + delivered)
-  if (express) state.expressGold = 0
-  else state.inTransitGold = 0
-  if (report) report.delivered += delivered
-  if (delivered > 0) addEvent(state, 'success', `${Math.floor(delivered)} Gold sicher in der Schatztruhe.`)
+function deliver(state: GameState, gold: number, report?: OfflineReport): void {
+  state.vaultGold = Math.min(vaultCapacity(state), state.vaultGold + gold)
+  if (report) report.delivered += gold
+  if (gold > 0) addEvent(state, 'success', `${Math.floor(gold)} Gold sicher in der Schatztruhe.`)
 }
 
-function completeTransport(state: GameState): void {
-  state.inTransitGold = 0
-  state.transportStartedAt = null
-  state.transportDeliveredAt = null
-  state.transportEndsAt = null
-  state.tripCount += 1
+/** Legt an `cursor` fällige Ladungen in der Truhe ab und meldet zurückgekehrte Träger frei. */
+function settleTrips(state: GameState, cursor: number, report?: OfflineReport): void {
+  const arrive = (trip: Trip): Trip => {
+    if (trip.gold > 0 && cursor >= trip.deliveredAt) {
+      deliver(state, trip.gold, report)
+      return { ...trip, gold: 0 }
+    }
+    return trip
+  }
+  if (state.playerTrip) {
+    state.playerTrip = arrive(state.playerTrip)
+    if (cursor >= state.playerTrip.endsAt) {
+      state.playerTrip = null
+      state.tripCount += 1
+    }
+  }
+  for (const index of SLOTS) {
+    const trip = state.transporterTrips[index]
+    if (!trip) continue
+    const arrived = arrive(trip)
+    if (cursor >= arrived.endsAt) {
+      state.transporterTrips[index] = null
+      state.tripCount += 1
+    } else {
+      state.transporterTrips[index] = arrived
+    }
+  }
 }
 
-function completeExpressTransport(state: GameState): void {
-  state.expressGold = 0
-  state.expressStartedAt = null
-  state.expressDeliveredAt = null
-  state.expressEndsAt = null
-  state.tripCount += 1
+/** Jeder Bergmann fördert in seinem eigenen Takt. Nachgeholt wird in ganzen Takten, damit eine
+    lange Abwesenheit exakt dieselbe Menge ergibt wie durchgehendes Zusehen. */
+function runMiners(state: GameState, cursor: number, report?: OfflineReport): void {
+  for (const index of SLOTS) {
+    const level = state.minerLevels[index]
+    if (level === 0) continue
+    const interval = minerInterval(level) * 1_000
+    if (state.minerBeats[index] === null) state.minerBeats[index] = cursor
+    while (cursor >= (state.minerBeats[index] as number) + interval) {
+      state.minerBeats[index] = (state.minerBeats[index] as number) + interval
+      storeGold(state, minerYield(level), report)
+    }
+  }
+}
+
+/** Dasselbe für die Wachen — jede trägt ihre eigenen Punkte in ihrem eigenen Takt ab. */
+function runGuards(state: GameState, cursor: number): void {
+  for (const index of SLOTS) {
+    const level = state.guardLevels[index]
+    if (level === 0) continue
+    const interval = guardInterval(level) * 1_000
+    if (state.guardBeats[index] === null) state.guardBeats[index] = cursor
+    while (cursor >= (state.guardBeats[index] as number) + interval) {
+      state.guardBeats[index] = (state.guardBeats[index] as number) + interval
+      state.threat = Math.max(0, state.threat - guardPower(level))
+    }
+  }
+}
+
+/** Frühester Zeitpunkt, an dem als Nächstes irgendetwas passiert. Ohne ihn liefen Förderungen,
+    Sicherungen und Ankünfte nur im 500-ms-Raster — die Mengen stimmten, die Ankünfte flackerten
+    aber sichtbar gegen ihren eigenen Takt. */
+function nextBeat(state: GameState): number {
+  let earliest = Number.POSITIVE_INFINITY
+  const consider = (at: number) => { if (at < earliest) earliest = at }
+  for (const index of SLOTS) {
+    const minerLevel = state.minerLevels[index]
+    const minerBeat = state.minerBeats[index]
+    if (minerLevel > 0 && minerBeat !== null) consider(minerBeat + minerInterval(minerLevel) * 1_000)
+    const guardLevel = state.guardLevels[index]
+    const guardBeat = state.guardBeats[index]
+    if (guardLevel > 0 && guardBeat !== null) consider(guardBeat + guardInterval(guardLevel) * 1_000)
+    const trip = state.transporterTrips[index]
+    if (trip) {
+      if (trip.gold > 0) consider(trip.deliveredAt)
+      consider(trip.endsAt)
+    }
+  }
+  if (state.playerTrip) {
+    if (state.playerTrip.gold > 0) consider(state.playerTrip.deliveredAt)
+    consider(state.playerTrip.endsAt)
+  }
+  if (state.secureEndsAt !== null) consider(state.secureEndsAt)
+  return earliest
 }
 
 /** Diebeszug auf die Schatztruhe. `budget` deckelt die Beute (Offline-Strecke); ist es
@@ -179,11 +263,9 @@ export function lowerThreat(state: GameState, now = Date.now()): GameState {
     der Truhe, das Risiko erzeugen könnte. Das ist das frühe Spiel zwischen zwei Klicks. */
 function isDormant(state: GameState): boolean {
   return passiveRate(state) === 0
-    && state.transportEndsAt === null
-    && state.expressEndsAt === null
+    && state.playerTrip === null
+    && state.transporterTrips.every((trip) => trip === null)
     && state.secureEndsAt === null
-    && state.inTransitGold === 0
-    && state.expressGold === 0
     && state.threat <= 0
     && state.vaultGold <= 0
     && !(hasAutomaticTransport(state) && state.chestGold > 0)
@@ -219,31 +301,17 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
 
   let cursor = state.lastTick
   while (cursor < target) {
-    if (hasAutomaticTransport(state) && state.transportEndsAt === null && state.chestGold > 0 && state.vaultGold < vaultCapacity(state)) {
-      Object.assign(state, startTransport(state, cursor))
+    // Solange der Spieler selbst und ohne Fuhrknecht unterwegs ist, ruht das ganze Reich —
+    // dann steht auch die Mine still. Sobald einer die Strecke übernimmt, fördert sie weiter.
+    const paused = isSecuringManually(state) || (isPlayerTravelling(state) && !hasAutomaticTransport(state))
+    if (!paused) {
+      runMiners(state, cursor, report)
+      dispatchTransporters(state, cursor)
     }
+    runGuards(state, cursor)
 
-    const nextEvent = Math.min(
-      state.inTransitGold > 0 ? state.transportDeliveredAt ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY,
-      state.transportEndsAt ?? Number.POSITIVE_INFINITY,
-      state.expressGold > 0 ? state.expressDeliveredAt ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY,
-      state.expressEndsAt ?? Number.POSITIVE_INFINITY,
-      state.secureEndsAt ?? Number.POSITIVE_INFINITY,
-    )
-    const nextCursor = Math.min(target, cursor + STEP_MS, nextEvent)
+    const nextCursor = Math.min(target, cursor + STEP_MS, nextBeat(state))
     const dt = Math.max(0, nextCursor - cursor) / 1000
-    const miningPaused = isSecuringManually(state) || (state.transportEndsAt !== null && !hasAutomaticTransport(state))
-    if (!miningPaused) storeGold(state, passiveRate(state) * dt, report)
-
-    // Wachen sichern im festen Takt — auch offline, sonst wäre jede Nacht ein garantierter Diebstahl.
-    if (hasAutomaticSecurity(state)) {
-      const interval = securingInterval(state) * 1_000
-      if (state.lastAutoSecureAt === null) state.lastAutoSecureAt = cursor
-      while (nextCursor >= state.lastAutoSecureAt + interval) {
-        state.lastAutoSecureAt += interval
-        state.threat = Math.max(0, state.threat - securingPower(state))
-      }
-    }
 
     state.threat += dt * riskGrowth(state)
     if (state.vaultGold > 0 && state.threat >= 100) stolenOffline += runTheft(state, remainingTheftBudget(), report)
@@ -253,15 +321,15 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
       state.secureStartedAt = null
       state.secureEndsAt = null
     }
-    if (state.inTransitGold > 0 && state.transportDeliveredAt !== null && cursor >= state.transportDeliveredAt) {
-      deliverTransport(state, false, report)
-    }
-    if (state.expressGold > 0 && state.expressDeliveredAt !== null && cursor >= state.expressDeliveredAt) {
-      deliverTransport(state, true, report)
-    }
-    if (state.transportEndsAt !== null && cursor >= state.transportEndsAt) completeTransport(state)
-    if (state.expressEndsAt !== null && cursor >= state.expressEndsAt) completeExpressTransport(state)
+    settleTrips(state, cursor, report)
   }
+  // Ein letzter Durchlauf auf dem Zielzeitpunkt: Was genau jetzt fällig ist, soll auch jetzt
+  // gutgeschrieben werden und nicht erst beim nächsten Tick.
+  if (!isSecuringManually(state) && !(isPlayerTravelling(state) && !hasAutomaticTransport(state))) {
+    runMiners(state, target, report)
+    dispatchTransporters(state, target)
+  }
+  runGuards(state, target)
 
   state.lastTick = now
   state.savedAt = now

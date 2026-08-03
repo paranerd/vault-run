@@ -300,32 +300,56 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .upgrade-group + .upgrade-group { margin-top: 15px; }
 .upgrade-group__title { margin: 0 0 8px; display: flex; gap: 9px; align-items: center; color: #7a4c28; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; letter-spacing: .06em; }
 .upgrade-group__title::after { content: ''; flex: 1; height: 4px; background: repeating-linear-gradient(90deg,#b0844e 0 6px,transparent 6px 10px); }
+/* Kurzes Aufleuchten, sobald eine Wache Punkte abgetragen hat — die Sicherung ist ein Ereignis
+   wie eine Ankunft und soll auch eines sein. */
+.section-action--chest.is-secured { animation: guard-secured .36s ease-out; }
+@keyframes guard-secured {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.35) drop-shadow(0 0 6px rgba(120,220,140,.75)); }
+  100% { filter: brightness(1); }
+}
+.upgrade-group__hint { margin: -3px 2px 9px; color: var(--muted); font-size: 12.5px; font-weight: 400; line-height: 1.2; }
 .modal-kicker { color: #865027; font-family: var(--pixel-font); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
 .upgrade-list { display: grid; gap: 10px; }
-.upgrade-card { position: relative; padding: 11px 10px 12px 13px; border: 2px solid #74492c; border-radius: 5px; background: #f8e2b3; box-shadow: 3px 3px 0 rgba(69,37,18,.24),inset 2px 2px rgba(255,251,220,.4); }
+.upgrade-card {
+  position: relative;
+  display: grid;
+  /* Bild links über beide Kopfzeilen, daneben Name über Attributtabelle, Preis rechts.
+     Der Hinweis läuft darunter über die volle Breite. */
+  grid-template-columns: 52px minmax(0,1fr) 72px;
+  grid-template-areas: 'sprite name price' 'sprite facts price' 'hint hint hint';
+  gap: 4px 9px;
+  align-items: center;
+  padding: 11px 10px 12px 13px; border: 2px solid #74492c; border-radius: 5px; background: #f8e2b3; box-shadow: 3px 3px 0 rgba(69,37,18,.24),inset 2px 2px rgba(255,251,220,.4); }
 .upgrade-card::before { content: ''; position: absolute; top: 9px; bottom: 9px; left: 0; width: 5px; background: var(--gold-deep); }
 .upgrade-card--logistics::before { background: var(--blue); }
 .upgrade-card--vault::before { background: var(--green); }
 .upgrade-card.is-focused { outline: 3px solid #e0a63d; outline-offset: 2px; }
 .upgrade-card.is-unowned { border-color: #827667; background: #d9ccb4; }
 .upgrade-card.is-unowned::before { filter: grayscale(1); opacity: .52; }
-.upgrade-card.is-unowned .upgrade-card__sprite,.upgrade-card.is-unowned .upgrade-card__facts,.upgrade-card.is-unowned .upgrade-card__description { filter: grayscale(1); opacity: .52; }
-/* Bild links (vertikal zentriert), daneben Name über Stufentabelle, Kauf-Button oben rechts. */
-.upgrade-card__head { min-width: 0; display: grid; grid-template-columns: 52px minmax(0,1fr) 72px; gap: 9px; align-items: start; }
-.upgrade-card__facts { min-width: 0; }
-.upgrade-card__sprite { align-self: center; width: 52px; height: 52px; display: grid; place-items: center; border: 2px solid #7d5030; border-radius: 3px; background: #d3ad70; box-shadow: inset 2px 2px rgba(255,239,188,.3); }
+.upgrade-card.is-unowned .upgrade-card__sprite,.upgrade-card.is-unowned h3,.upgrade-card.is-unowned .upgrade-facts,.upgrade-card.is-unowned .upgrade-card__hint { filter: grayscale(1); opacity: .52; }
+.upgrade-card__sprite { grid-area: sprite; align-self: center; width: 52px; height: 52px; display: grid; place-items: center; border: 2px solid #7d5030; border-radius: 3px; background: #d3ad70; box-shadow: inset 2px 2px rgba(255,239,188,.3); }
 .upgrade-card__sprite img { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
-.upgrade-card h3 { display: flex; gap: 7px; align-items: baseline; margin: 0 0 6px; min-width: 0; color: #3e2516; font-family: var(--pixel-font); font-size: 17px; font-weight: 400; line-height: 1; }
+.upgrade-card h3 { grid-area: name; align-self: end; display: flex; gap: 7px; align-items: baseline; margin: 0 0 4px; min-width: 0; color: #3e2516; font-family: var(--pixel-font); font-size: 17px; font-weight: 400; line-height: 1; }
 .upgrade-card h3 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upgrade-card h3 em { flex: 0 0 auto; color: var(--muted); font-size: 11px; font-style: normal; }
-.upgrade-card__description { margin: 11px 0 0; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 1.05; }
-.upgrade-effects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border-top: 1px solid rgba(112,70,41,.35); }
-.upgrade-effects div { min-width: 0; padding: 5px 6px 0; }
-.upgrade-effects div + div { border-left: 1px solid rgba(112,70,41,.35); }
-.upgrade-effects span,.upgrade-effects strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.upgrade-effects span { color: var(--muted); font-size: 10px; font-weight: 400; }
-.upgrade-effects strong { margin-top: 1px; color: var(--ink); font-family: var(--pixel-font); font-size: 13px; }
-.buy-button { align-self: start; width: 72px; min-height: 58px; padding: 7px 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; border: 2px solid #352017; border-radius: 4px; color: #fff0c8; background: #714325; box-shadow: 2px 3px 0 rgba(48,24,12,.4),inset 2px 2px rgba(255,235,178,.14); font-size: 14px; font-weight: 400; cursor: pointer; }
+.upgrade-card__hint { grid-area: hint; margin: 6px 0 0; padding: 7px 0 0; border-top: 1px solid rgba(112,70,41,.35); color: var(--muted); font-size: 12.5px; font-weight: 400; line-height: 1.15; }
+/* Attributtabelle: Vorher-Wert, Pfeil, Nachher-Wert, Name. Die drei ersten Spalten sind
+   inhaltsbreit und über alle Zeilen geteilt, damit Pfeile und Nachher-Werte exakt fluchten; die
+   Namensspalte nimmt den Rest und kürzt notfalls. `dd` steht vor `dt`, weil die Zahl gelesen
+   wird, bevor man wissen muss, wie sie heißt. */
+.upgrade-facts { grid-area: facts; align-self: start; display: grid; grid-template-columns: auto auto auto minmax(0,1fr); gap: 1px 5px; margin: 4px 0 0; align-items: baseline; }
+.upgrade-facts > div { display: contents; }
+.upgrade-facts dd { margin: 0; white-space: nowrap; }
+.upgrade-facts__from { color: var(--muted); font-family: var(--pixel-font); font-size: 13px; text-align: right; }
+.upgrade-facts__to { color: var(--ink); font-family: var(--pixel-font); font-size: 14px; }
+.upgrade-facts i { color: #a97a45; font-size: 11px; font-style: normal; }
+.upgrade-facts dt { min-width: 0; overflow: hidden; color: var(--muted); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+/* Die Stufenzeile führt die Karte an und trägt den neuen Rang — sie bekommt die Akzentfarbe. */
+.upgrade-facts > div:first-child dt { color: #7a4c28; }
+.upgrade-card--logistics .upgrade-facts > div:first-child dt { color: #245b7a; }
+.upgrade-card--vault .upgrade-facts > div:first-child dt { color: #3d6b32; }
+.buy-button { grid-area: price; align-self: center; width: 72px; min-height: 58px; padding: 7px 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; border: 2px solid #352017; border-radius: 4px; color: #fff0c8; background: #714325; box-shadow: 2px 3px 0 rgba(48,24,12,.4),inset 2px 2px rgba(255,235,178,.14); font-size: 14px; font-weight: 400; cursor: pointer; }
 .buy-button .pixel-coin { width: 20px; height: 20px; }
 .buy-button:disabled { color: #8b7760; background: #c8aa7c; box-shadow: none; cursor: default; }
 
@@ -459,10 +483,15 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .sheet-filters { gap: 2px; }
   .sheet-filters button { padding: 0 6px; font-size: 12px; }
   .sheet-filters button b { width: 5px; height: 5px; margin: 0 -7px 0 2px; }
-  .upgrade-card__head { grid-template-columns: 46px minmax(0,1fr) 66px; gap: 8px; }
+  .upgrade-card { grid-template-columns: 46px minmax(0,1fr) 66px; grid-template-areas: 'sprite name price' 'facts facts facts' 'hint hint hint'; gap: 6px 8px; }
+  .upgrade-card h3 { align-self: center; }
   .upgrade-card__sprite { width: 46px; height: 46px; }
   .upgrade-card__sprite img { width: 50px; height: 50px; }
   .upgrade-card h3 { font-size: 15px; }
+  .upgrade-facts { gap: 1px 4px; }
+  .upgrade-facts__from { font-size: 12px; }
+  .upgrade-facts__to { font-size: 13px; }
+  .upgrade-facts dt { font-size: 10.5px; }
   .buy-button { width: 66px; }
 }
 

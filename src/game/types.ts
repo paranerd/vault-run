@@ -24,13 +24,29 @@ export interface OfflineReport {
   stolen: number
 }
 
+/** Eine Fuhre, die gerade unterwegs ist — die eines Fuhrknechts oder die des Spielers selbst.
+    `deliveredAt` ist der Moment, in dem das Gold in der Truhe landet (Ende der Flug-Animation),
+    `endsAt` der Moment, in dem der Träger zurück und wieder abfahrbereit ist. */
+export interface Trip {
+  gold: number
+  startedAt: number
+  deliveredAt: number
+  endsAt: number
+}
+
+/** Je Slot eine laufende Fuhre oder `null`. */
+export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
+/** Je Slot der Zeitpunkt der letzten eigenen Lieferung bzw. Sicherung; `null`, solange der Slot
+    noch nicht getaktet hat. Daraus ergibt sich der nächste Takt, und die Anzeige erkennt daran
+    eine frische Lieferung. */
+export type SlotBeats = [number | null, number | null, number | null, number | null]
+
 export interface GameState {
-  schemaVersion: 5
+  schemaVersion: 6
   savedAt: number
   lastTick: number
   chestGold: number
   vaultGold: number
-  inTransitGold: number
   lifetimeGold: number
   lostGold: number
   stolenGold: number
@@ -44,15 +60,13 @@ export interface GameState {
   /** Laufende manuelle Sicherung; blockiert bis `secureEndsAt` alle Aktionen, solange keine Wache automatisiert. */
   secureStartedAt: number | null
   secureEndsAt: number | null
-  /** Zeitpunkt der letzten automatischen Sicherung; `null`, solange keine Wache angestellt ist. */
-  lastAutoSecureAt: number | null
-  transportStartedAt: number | null
-  transportDeliveredAt: number | null
-  transportEndsAt: number | null
-  expressGold: number
-  expressStartedAt: number | null
-  expressDeliveredAt: number | null
-  expressEndsAt: number | null
+  /** Letzte Förderung je Bergmann und letzte Sicherung je Wache. */
+  minerBeats: SlotBeats
+  guardBeats: SlotBeats
+  /** Die vier Fuhren der Fuhrknechte, jede für sich unterwegs. */
+  transporterTrips: SlotTrips
+  /** Die Fuhre, die der Spieler selbst trägt — unabhängig von allen Fuhrknechten. */
+  playerTrip: Trip | null
   tripCount: number
   theftCount: number
   eventSequence: number
@@ -60,16 +74,31 @@ export interface GameState {
   lastOfflineReport?: OfflineReport
 }
 
+/** Eine Zeile der Attributtabelle einer Upgrade-Karte: derselbe Wert vor und nach dem Kauf,
+    dahinter sein Name. Die erste Zeile ist immer die Stufe; ihr Name ist der Rang, den die
+    Einheit danach trägt. */
+export interface UpgradeFact {
+  from: string
+  to: string
+  /** Steht am Zeilenende. Leer, wenn die Zeile für sich spricht — etwa die Stufenzeile einer
+      Einheit, die ihren Rangnamen behält. */
+  label: string
+}
+
 export interface UpgradeView {
   key: string
   section: SectionId
   /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. */
   name: string
-  description: string
+  /** Name nach dem Kauf; nur gesetzt, wenn der Aufstieg ihn tatsächlich ändert. */
+  nextName?: string
+  /** Kurzer Hinweis auf einen Effekt, der sich aus keiner Zahl ablesen lässt. Slots tragen ihn
+      nicht — dort steht der gemeinsame Hinweis einmal über der Gruppe statt viermal je Karte. */
+  hint?: string
   /** Spielerseitige Stufennummer; die nächste Stufe ist immer `stage + 1`. */
   stage: number
-  currentEffect: string
-  nextEffect: string
+  /** Alle Attribute der Einheit, jeweils vorher und nachher. Erste Zeile ist die Stufe. */
+  facts: UpgradeFact[]
   cost: number
   available: boolean
   maxed?: boolean
