@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   GOLD_FLIGHT_DURATION_MS,
   MANUAL_SECURE_AMOUNT,
+  OFFLINE_THEFT_SHARE,
   SECURE_COOLDOWN_MS,
   automaticTransportAmount,
   cargoCapacity,
@@ -9,9 +10,10 @@ import {
   getEquipmentUpgrade,
   getSlotUpgrades,
   passiveRate,
+  riskGrowth,
   securingInterval,
   securingPower,
-  securityRating,
+  securityLoss,
   slotVisualLevel,
   slotUpgradeCost,
   tapValue,
@@ -221,26 +223,70 @@ describe('Vault Run engine', () => {
     expect(ticked.threat).toBeCloseTo(60 - securingPower(guarded), 5)
   })
 
-  it('keeps a guarded vault safe across a long offline stretch', () => {
+  it('keeps a guarded treasury safe across a long offline stretch', () => {
     const levels = [3, 3, 3, 3] as [number, number, number, number]
-    const state = { ...createInitialState(0), chestGold: 40, chestLevel: 2, guardLevels: levels, minerLevels: levels }
+    const state = { ...createInitialState(0), vaultGold: 400, chestGold: 40, chestLevel: 2, guardLevels: levels, minerLevels: levels }
     const returned = advanceGame(state, 6 * 60 * 60 * 1_000, true)
     expect(returned.theftCount).toBe(0)
+    expect(returned.vaultGold).toBe(400)
     expect(returned.threat).toBeLessThan(100)
   })
 
-  it('robs an unguarded bag once the risk runs full', () => {
-    const state = { ...createInitialState(0), chestGold: 40, threat: 95 }
+  it('robs the treasury once the risk runs full', () => {
+    const state = { ...createInitialState(0), vaultGold: 400, threat: 95 }
     const robbed = advanceGame(state, 30_000)
     expect(robbed.theftCount).toBe(1)
-    expect(robbed.chestGold).toBeLessThan(40)
+    expect(robbed.vaultGold).toBeCloseTo(400 * (1 - securityLoss(state)), 5)
     expect(robbed.threat).toBeLessThan(100)
   })
 
-  it('improves the security rating through independently levelled guards', () => {
+  it('leaves the bag and the shipment on the road untouched by a raid', () => {
+    const state = { ...createInitialState(0), vaultGold: 400, chestGold: 40, inTransitGold: 25, threat: 95 }
+    const robbed = advanceGame(state, 30_000)
+    expect(robbed.theftCount).toBe(1)
+    expect(robbed.chestGold).toBe(40)
+    expect(robbed.inTransitGold).toBe(25)
+  })
+
+  it('builds no risk at all before the first delivery reaches the treasury', () => {
+    const state = { ...createInitialState(0), chestGold: 40, minerLevels: [2, 2, 0, 0] as [number, number, number, number] }
+    expect(riskGrowth(state)).toBe(0)
+    const returned = advanceGame(state, 10 * 60 * 1_000)
+    expect(returned.threat).toBe(0)
+    expect(returned.theftCount).toBe(0)
+  })
+
+  it('grows the risk faster the fuller the treasury sits', () => {
+    const base = createInitialState(0)
+    const light = { ...base, vaultGold: vaultCapacity(base) * 0.1 }
+    const full = { ...base, vaultGold: vaultCapacity(base) }
+    expect(riskGrowth(full)).toBeGreaterThan(riskGrowth(light))
+  })
+
+  it('caps how much a single offline stretch can steal from the treasury', () => {
+    const state = { ...createInitialState(0), vaultGold: 400, threat: 95 }
+    const returned = advanceGame(state, 8 * 60 * 60 * 1_000, true)
+    expect(returned.theftCount).toBeGreaterThan(1)
+    expect(returned.vaultGold).toBeCloseTo(400 * (1 - OFFLINE_THEFT_SHARE), 5)
+    expect(returned.lastOfflineReport?.stolen).toBeCloseTo(400 * OFFLINE_THEFT_SHARE, 5)
+  })
+
+  it('still robs a treasury that only fills up while the player is away', () => {
+    const levels = [3, 3, 3, 3] as [number, number, number, number]
+    const state = { ...createInitialState(0), vaultGold: 0, chestLevel: 4, vaultLevel: 4, minerLevels: levels, transporterLevels: levels }
+    const returned = advanceGame(state, 8 * 60 * 60 * 1_000, true)
+    const delivered = returned.lastOfflineReport?.delivered ?? 0
+
+    expect(delivered).toBeGreaterThan(0)
+    expect(returned.theftCount).toBeGreaterThan(0)
+    expect(returned.lastOfflineReport?.stolen ?? 0).toBeLessThanOrEqual(delivered * OFFLINE_THEFT_SHARE + 0.001)
+  })
+
+  it('shrinks the raid loss through independently levelled guards', () => {
     const state = createInitialState(0)
     const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
-    expect(securityRating(guarded)).toBeGreaterThan(securityRating(state))
+    expect(securityLoss(guarded)).toBeLessThan(securityLoss(state))
+    expect(getSlotUpgrades(guarded, 'chest')[0].currentEffect).toBe('5,9 % Verlust')
   })
 
   it('migrates schema-3 progress into the new four-slot model', () => {
