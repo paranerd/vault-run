@@ -12,7 +12,7 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen 
 4. Bis zu vier Fuhrknechte einzeln anheuern und aufleveln; der erste automatisiert die Fahrten.
 5. Vier Bergleute und vier Wachen unabhängig voneinander verbessern.
 6. Pickhacke, Goldbeutel und Schatztruhe im Ausbau-Popup unter „Ausrüstung“ aufwerten.
-7. Die Truhe aktiv sichern, um Aufmerksamkeit und Diebstahlrisiko zu senken.
+7. Die Truhe von Hand sichern, um das Diebstahlrisiko zu senken — anfangs ruht dabei das ganze Reich. Wachen übernehmen das später selbstständig.
 
 ## Gestaltung
 
@@ -39,6 +39,6 @@ npm test
 npm run build
 ```
 
-Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Savegames aus Schema 1–3 werden auf die neuen vier Slot-Reihen migriert; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
+Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Savegames aus Schema 1–4 werden auf Schema 5 migriert; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
 
 Die vollständigen Produktregeln und Architekturentscheidungen stehen in [DESIGN.md](./DESIGN.md).

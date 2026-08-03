@@ -31,7 +31,7 @@ Zu Beginn übernimmt der Spieler den Transport selbst. Während er unterwegs ist
 |---|---|---|---|
 | Mine | Gold schürfen | Pickhacke | vier Bergleute |
 | Beutel | Transport starten | Beutel | vier Fuhrknechte/Gespanne |
-| Truhe | Aufmerksamkeit senken | Schatztruhe | vier Wachen |
+| Truhe | Risiko senken (anfangs blockierend) | Schatztruhe | vier Wachen |
 
 Der Transport bleibt immer diskret. Die angegebene Reisezeit bezeichnet Hin- und Rückweg zusammen. Zu Reisebeginn wird eine feste Ladung aus dem Beutel genommen und ist bis zur sichtbaren Ankunft des Goldhaufens als `inTransitGold` gebunden. Nach der 0,9-sekündigen Ankunftsanimation wird sie in der Schatztruhe abgelegt; der bestehende Reise-Cooldown läuft davon unabhängig bis zu seinem unveränderten Ende weiter. Neues Gold bleibt im Beutel. Eine Reise nimmt nie mehr mit, als noch in die Schatztruhe passt.
 
@@ -59,7 +59,17 @@ Alle Käufe laufen über ein einziges Ausbau-Popup. Sein Kopfbereich scrollt nic
 
 Diebstahl findet aktiv und offline statt, greift aber nur ungesichertes Gold im Beutel an. Gold in der Schatztruhe und bereits transportierte Ladung sind sicher.
 
-Die sichtbare Aufmerksamkeit steigt, solange Gold im Beutel liegt. Ein voller Beutel erhöht sie schneller. Bei 100 % wird ein prozentualer Anteil gestohlen; danach fällt die Anzeige auf einen kleinen Restwert zurück. Vier separat levelbare Wachen verlangsamen den Anstieg und senken den Verlust. Zusätzlich senkt jeder aktive Klick auf die Truhe die Aufmerksamkeit sofort.
+Die sichtbare Aufmerksamkeit steigt, solange Gold im Beutel liegt; ein voller Beutel treibt sie schneller. Bei 100 % wird ein Anteil des Beutels gestohlen, danach fällt die Anzeige auf einen kleinen Restwert zurück. Wie hoch dieser Anteil ausfällt, hängt weiterhin an der Wachstärke — sie ist die Schadensbegrenzung, wenn es doch knallt.
+
+Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand, dann von Angestellten übernommen.
+
+- **Ohne Wachen** senkt ein Tap auf die Truhe das Risiko um 25 Punkte der Hundert-Punkte-Skala. Währenddessen ruht das ganze Reich für 1,5 Sekunden — Schürfen, Transport und ein zweiter Sicherungs-Tap sind gesperrt, sichtbar als Füllung des Truhen-Buttons. Das Sichern kostet also echte Spielzeit.
+- **Ab der ersten Wache** sichert sie selbstständig in festem Takt. Mehr Wachen verkürzen den Takt, höhere Stufen zusätzlich; die abgetragenen Punkte wachsen mit der Gesamtstärke. Die Sperre entfällt damit vollständig.
+- **Der Tap bleibt danach nützlich** — wie die Eilreise beim Transport: Läuft das Risiko zwischen zwei Takten hoch, senkt ein Tap es sofort zusätzlich, ohne irgendetwas zu blockieren.
+
+Die Wachen bremsen den Anstieg des Risikos bewusst **nicht** mehr. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte, und die Bedrohung verschwände schon nach den ersten Käufen aus dem Spiel. Ihr Wert steckt jetzt in Takt und Stärke der Sicherung.
+
+Eine einzelne Wache der ersten Stufe trägt das Risiko bei vollem Beutel noch nicht allein; ab etwa zwei Wachen kippt das Verhältnis, und ein ausgebauter Trupp hält die Anzeige dauerhaft unten.
 
 ## Offline-Fortschritt
 
@@ -70,14 +80,14 @@ Beim Öffnen oder Zurückkehren in den Tab rekonstruiert dieselbe Engine maximal
 - diskrete Reisen,
 - automatisierte Folgereisen,
 - Überfüllungsverluste,
-- Diebesgefahr und Diebeszüge,
+- Diebesgefahr, automatische Sicherungen der Wachen und Diebeszüge,
 - Grenzen der Schatztruhe.
 
 Ein Rückkehrdialog fasst geschürftes, gesichertes und gestohlenes Gold zusammen. Die Simulationslogik ist zeitbasiert und unabhängig von der Bildrate.
 
 ## Savegame, Audio und Technik
 
-Der Spielstand liegt lokal im Browser und enthält eine `schemaVersion`, Timestamps, Upgrades, Bestände, Lebenszeitstatistiken und Ereigniszähler. Schema 4 speichert für Bergleute, Transporteure und Wachen jeweils vier Level. Ältere Fortschritte aus Schema 1–3 werden gleichmäßig auf die passenden vier Slots verteilt. Autosave erfolgt regelmäßig und beim Verlassen des Tabs.
+Der Spielstand liegt lokal im Browser und enthält eine `schemaVersion`, Timestamps, Upgrades, Bestände, Lebenszeitstatistiken und Ereigniszähler. Schema 5 speichert für Bergleute, Transporteure und Wachen jeweils vier Level sowie die Zeitstempel der laufenden und der letzten automatischen Sicherung. Schema 4 wird um diese Zeitstempel ergänzt, ältere Fortschritte aus Schema 1–3 werden zusätzlich gleichmäßig auf die passenden vier Slots verteilt. Autosave erfolgt regelmäßig und beim Verlassen des Tabs.
 
 Schläge, Käufe und abgeschlossene Reisen besitzen kurze synthetisierte Soundeffekte. Unterstützte Browser erhalten dezente Vibrationen. Reduzierte Bewegungseinstellungen des Betriebssystems werden respektiert.
 

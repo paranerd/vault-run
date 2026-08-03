@@ -4,14 +4,18 @@ import {
   cargoCapacity,
   chestCapacity,
   equipmentUpgradeCost,
+  MANUAL_SECURE_AMOUNT,
+  SECURE_COOLDOWN_MS,
   expressDuration,
+  hasAutomaticSecurity,
   hasAutomaticTransport,
   passiveRate,
-  securityFactor,
+  riskGrowth,
+  securingInterval,
+  securingPower,
   securityLoss,
   slotUpgradeCost,
   tapValue,
-  threatReductionPerClick,
   transportDuration,
   vaultCapacity,
 } from './config'
@@ -21,7 +25,7 @@ const STEP_MS = 500
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     savedAt: now,
     lastTick: now,
     chestGold: 0,
@@ -37,6 +41,9 @@ export function createInitialState(now = Date.now()): GameState {
     transporterLevels: [0, 0, 0, 0],
     guardLevels: [0, 0, 0, 0],
     threat: 0,
+    secureStartedAt: null,
+    secureEndsAt: null,
+    lastAutoSecureAt: null,
     transportStartedAt: null,
     transportDeliveredAt: null,
     transportEndsAt: null,
@@ -67,7 +74,13 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
   return stored
 }
 
+/** Eine laufende manuelle Sicherung legt das ganze Reich still; mit Wachen entfällt die Sperre. */
+export function isSecuringManually(state: GameState): boolean {
+  return state.secureEndsAt !== null && !hasAutomaticSecurity(state)
+}
+
 export function tap(state: GameState): GameState {
+  if (isSecuringManually(state)) return state
   if (state.transportEndsAt !== null && !hasAutomaticTransport(state)) return state
   if (state.expressEndsAt !== null) return state
   if (state.chestGold >= chestCapacity(state)) return state
@@ -81,7 +94,7 @@ function availableVaultSpace(state: GameState): number {
 }
 
 export function startTransport(state: GameState, now = Date.now()): GameState {
-  if (state.transportEndsAt !== null || state.chestGold <= 0) return state
+  if (isSecuringManually(state) || state.transportEndsAt !== null || state.chestGold <= 0) return state
   const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
   if (payload <= 0) {
     const blocked = structuredClone(state)
@@ -99,7 +112,7 @@ export function startTransport(state: GameState, now = Date.now()): GameState {
 }
 
 export function startExpressTransport(state: GameState, now = Date.now()): GameState {
-  if (!hasAutomaticTransport(state) || state.expressEndsAt !== null || state.chestGold <= 0) return state
+  if (isSecuringManually(state) || !hasAutomaticTransport(state) || state.expressEndsAt !== null || state.chestGold <= 0) return state
   const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
   if (payload <= 0) return state
   const next = structuredClone(state)
@@ -147,10 +160,12 @@ function runTheft(state: GameState, report?: OfflineReport): void {
   addEvent(state, 'warning', `Diebeszug: ${Math.ceil(stolen)} ungesichertes Gold verloren.`)
 }
 
-export function lowerThreat(state: GameState): GameState {
-  if (state.threat <= 0) return state
+export function lowerThreat(state: GameState, now = Date.now()): GameState {
+  if (state.threat <= 0 || state.secureEndsAt !== null) return state
   const next = structuredClone(state)
-  next.threat = Math.max(0, next.threat - threatReductionPerClick(next))
+  next.threat = Math.max(0, next.threat - MANUAL_SECURE_AMOUNT)
+  next.secureStartedAt = now
+  next.secureEndsAt = now + SECURE_COOLDOWN_MS
   return next
 }
 
@@ -174,19 +189,31 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
       state.transportEndsAt ?? Number.POSITIVE_INFINITY,
       state.expressGold > 0 ? state.expressDeliveredAt ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY,
       state.expressEndsAt ?? Number.POSITIVE_INFINITY,
+      state.secureEndsAt ?? Number.POSITIVE_INFINITY,
     )
     const nextCursor = Math.min(target, cursor + STEP_MS, nextEvent)
     const dt = Math.max(0, nextCursor - cursor) / 1000
-    const miningPaused = state.transportEndsAt !== null && !hasAutomaticTransport(state)
+    const miningPaused = isSecuringManually(state) || (state.transportEndsAt !== null && !hasAutomaticTransport(state))
     if (!miningPaused) storeGold(state, passiveRate(state) * dt, report)
 
-    if (state.chestGold > 0) {
-      const fill = state.chestGold / chestCapacity(state)
-      state.threat += dt * (0.045 + 0.075 * fill) / securityFactor(state)
-      if (state.threat >= 100) runTheft(state, report)
+    // Wachen sichern im festen Takt — auch offline, sonst wäre jede Nacht ein garantierter Diebstahl.
+    if (hasAutomaticSecurity(state)) {
+      const interval = securingInterval(state) * 1_000
+      if (state.lastAutoSecureAt === null) state.lastAutoSecureAt = cursor
+      while (nextCursor >= state.lastAutoSecureAt + interval) {
+        state.lastAutoSecureAt += interval
+        state.threat = Math.max(0, state.threat - securingPower(state))
+      }
     }
 
+    state.threat += dt * riskGrowth(state)
+    if (state.chestGold > 0 && state.threat >= 100) runTheft(state, report)
+
     cursor = nextCursor
+    if (state.secureEndsAt !== null && cursor >= state.secureEndsAt) {
+      state.secureStartedAt = null
+      state.secureEndsAt = null
+    }
     if (state.inTransitGold > 0 && state.transportDeliveredAt !== null && cursor >= state.transportDeliveredAt) {
       deliverTransport(state, false, report)
     }

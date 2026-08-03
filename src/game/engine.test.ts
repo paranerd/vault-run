@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   GOLD_FLIGHT_DURATION_MS,
+  MANUAL_SECURE_AMOUNT,
+  SECURE_COOLDOWN_MS,
   automaticTransportAmount,
   cargoCapacity,
   chestCapacity,
   getEquipmentUpgrade,
   getSlotUpgrades,
   passiveRate,
+  securingInterval,
+  securingPower,
   securityRating,
   slotVisualLevel,
   slotUpgradeCost,
@@ -18,6 +22,7 @@ import {
   buyEquipmentUpgrade,
   buySlotUpgrade,
   createInitialState,
+  isSecuringManually,
   lowerThreat,
   startExpressTransport,
   startTransport,
@@ -187,9 +192,49 @@ describe('Vault Run engine', () => {
 
   it('reduces attention by clicking the treasure chest action', () => {
     const state = { ...createInitialState(0), threat: 50 }
-    const secured = lowerThreat(state)
-    expect(secured.threat).toBeLessThan(50)
+    const secured = lowerThreat(state, 0)
+    expect(secured.threat).toBe(50 - MANUAL_SECURE_AMOUNT)
     expect(state.threat).toBe(50)
+  })
+
+  it('blocks every action while an unguarded player secures by hand', () => {
+    const state = { ...createInitialState(0), threat: 50, chestGold: 40 }
+    const securing = lowerThreat(state, 0)
+    expect(isSecuringManually(securing)).toBe(true)
+    expect(tap(securing).chestGold).toBe(40)
+    expect(startTransport(securing, 10).transportEndsAt).toBeNull()
+    expect(lowerThreat(securing, 10).threat).toBe(securing.threat)
+
+    const released = advanceGame(securing, SECURE_COOLDOWN_MS + 1)
+    expect(released.secureEndsAt).toBeNull()
+    expect(isSecuringManually(released)).toBe(false)
+  })
+
+  it('lets guards secure on their own without blocking the player', () => {
+    const guarded = { ...createInitialState(0), threat: 60, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
+    const securing = lowerThreat(guarded, 0)
+    expect(securing.secureEndsAt).not.toBeNull()
+    expect(isSecuringManually(securing)).toBe(false)
+
+    const interval = securingInterval(guarded) * 1_000
+    const ticked = advanceGame(guarded, interval + 10)
+    expect(ticked.threat).toBeCloseTo(60 - securingPower(guarded), 5)
+  })
+
+  it('keeps a guarded vault safe across a long offline stretch', () => {
+    const levels = [3, 3, 3, 3] as [number, number, number, number]
+    const state = { ...createInitialState(0), chestGold: 40, chestLevel: 2, guardLevels: levels, minerLevels: levels }
+    const returned = advanceGame(state, 6 * 60 * 60 * 1_000, true)
+    expect(returned.theftCount).toBe(0)
+    expect(returned.threat).toBeLessThan(100)
+  })
+
+  it('robs an unguarded bag once the risk runs full', () => {
+    const state = { ...createInitialState(0), chestGold: 40, threat: 95 }
+    const robbed = advanceGame(state, 30_000)
+    expect(robbed.theftCount).toBe(1)
+    expect(robbed.chestGold).toBeLessThan(40)
+    expect(robbed.threat).toBeLessThan(100)
   })
 
   it('improves the security rating through independently levelled guards', () => {
@@ -213,7 +258,7 @@ describe('Vault Run engine', () => {
       guardLevels: undefined,
     }
     const migrated = migrateGame(legacy)
-    expect(migrated?.schemaVersion).toBe(4)
+    expect(migrated?.schemaVersion).toBe(5)
     expect(migrated?.minerLevels).toEqual([2, 1, 1, 1])
     expect(migrated?.transporterLevels).toEqual([1, 1, 1, 1])
     expect(migrated?.guardLevels).toEqual([1, 1, 1, 0])
