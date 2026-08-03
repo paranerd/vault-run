@@ -152,7 +152,7 @@ function completeExpressTransport(state: GameState): void {
 }
 
 /** Diebeszug auf die Schatztruhe. `budget` deckelt die Beute (Offline-Strecke); ist es
-    aufgebraucht, ebbt die Aufmerksamkeit trotzdem ab, damit der Zug nicht endlos nachfeuert. */
+    aufgebraucht, fällt das Risiko trotzdem zurück, damit der Zug nicht endlos nachfeuert. */
 function runTheft(state: GameState, budget: number, report?: OfflineReport): number {
   const stolen = Math.min(state.vaultGold * securityLoss(state), budget)
   state.threat = 8

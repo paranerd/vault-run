@@ -87,6 +87,8 @@ const cost = (base: number, factor: number, level: number) => Math.ceil(base * f
 const visualStage = (level: number) => Math.min(3, Math.max(0, level))
 const effectValue = (value: number) => Math.floor(value).toLocaleString('de-DE')
 const effectRate = (value: number) => value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
+/** Feste Nachkommastelle: Die Wachen-Raten stehen direkt untereinander und dürfen nicht springen. */
+const effectFixed = (value: number) => value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
@@ -123,8 +125,9 @@ export const guardStrength = (state: GameState) => totalLevels(state.guardLevels
     Beutel-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt einer Tasche. */
 export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 ** guardStrength(state))
 
-/** Anzeigeseitiges Gegenstück zu `threat`: startet bei 100 % und sinkt; bei 0 schlagen die Diebe zu. */
-export const vigilance = (state: GameState) => Math.max(0, 100 - state.threat)
+/** Ab hier färbt sich die Risikokachel; ab `RISK_ALERT` pulsiert zusätzlich die Sicherung. */
+export const RISK_WARNING = 50
+export const RISK_ALERT = 80
 
 /** Risiko-Zuwachs pro Sekunde. Wächst nur, solange etwas in der Schatztruhe liegt, und hängt
     allein an deren Füllstand — die Diebe zielen auf den Hort, nicht auf den Beutel. Die Wachen
@@ -157,6 +160,11 @@ export const securingInterval = (state: GameState) => {
 
 /** Risikopunkte, die eine automatische Sicherung abträgt. */
 export const securingPower = (state: GameState) => hasAutomaticSecurity(state) ? 6 + 2 * guardStrength(state) : 0
+
+/** Dauerleistung des Trupps in Risikopunkten pro Sekunde — dieselbe Einheit wie `riskGrowth`,
+    damit Kachel und Wachen-Karte direkt gegeneinander lesbar sind. */
+export const securingRate = (state: GameState) =>
+  hasAutomaticSecurity(state) ? securingPower(state) / securingInterval(state) : 0
 
 export const threatReductionPerClick = (_state: GameState) => MANUAL_SECURE_AMOUNT
 
@@ -238,9 +246,14 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       nextEffect = `${effectValue(transporterCapacity(level + 1))} Gold`
       description = 'Erhöht die automatische Transportmenge und verkürzt die Zeit zwischen Fahrten.'
     } else {
-      currentEffect = `${effectRate(securityLoss(state) * 100)} % Verlust`
-      nextEffect = `${effectRate(securityLoss(next) * 100)} % Verlust`
-      description = 'Bewacht den Hort: sichert selbstständig in festem Takt und drückt den Anteil, den ein Diebeszug aus der Schatztruhe mitnimmt.'
+      // Vorne steht die Dauerleistung, weil nur sie zwischen zwei Stufen vergleichbar ist:
+      // Takt und Punkte ändern sich gleichzeitig. Der Takt selbst — das, was man tatsächlich
+      // sieht — und der Schadensdeckel stehen darunter im Text.
+      // „gesamt“ ist nicht schmückend: Die Karte zeigt den Trupp, nicht den Slot. Ohne das Wort
+      // läse sich „Stufe 0 | -1,0 %/s“, als sichere die noch unbesetzte Ecke bereits selbst.
+      currentEffect = securingRate(state) === 0 ? 'Ungesichert' : `-${effectFixed(securingRate(state))} %/s gesamt`
+      nextEffect = `-${effectFixed(securingRate(next))} %/s gesamt`
+      description = `Der Trupp senkt das Risiko danach alle ${effectRate(securingInterval(next))} s um ${Math.round(securingPower(next))} Punkte und drückt den Verlust bei einem Diebeszug auf ${effectRate(securityLoss(next) * 100)} %.`
     }
 
     return {

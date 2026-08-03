@@ -13,6 +13,7 @@ import {
   riskGrowth,
   securingInterval,
   securingPower,
+  securingRate,
   securityLoss,
   slotVisualLevel,
   slotUpgradeCost,
@@ -286,7 +287,28 @@ describe('Vault Run engine', () => {
     const state = createInitialState(0)
     const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
     expect(securityLoss(guarded)).toBeLessThan(securityLoss(state))
-    expect(getSlotUpgrades(guarded, 'chest')[0].currentEffect).toBe('5,9 % Verlust')
+  })
+
+  it('leads the guard card with the securing rate and keeps the cadence in the text', () => {
+    const state = createInitialState(0)
+    const [unguarded] = getSlotUpgrades(state, 'chest')
+    expect(unguarded.currentEffect).toBe('Ungesichert')
+    expect(unguarded.nextEffect).toBe('-0,7 %/s gesamt')
+    expect(unguarded.description).toBe('Der Trupp senkt das Risiko danach alle 12 s um 8 Punkte und drückt den Verlust bei einem Diebeszug auf 6,9 %.')
+
+    const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
+    expect(getSlotUpgrades(guarded, 'chest')[0].currentEffect).toBe('-1,0 %/s gesamt')
+  })
+
+  it('reports a securing rate that can be read against the risk growth', () => {
+    const base = createInitialState(0)
+    const full = { ...base, vaultGold: vaultCapacity(base) }
+    const oneGuard = { ...full, guardLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    const threeGuards = { ...full, guardLevels: [1, 1, 1, 0] as [number, number, number, number] }
+
+    expect(securingRate(base)).toBe(0)
+    expect(securingRate(oneGuard)).toBeLessThan(riskGrowth(full))
+    expect(securingRate(threeGuards)).toBeGreaterThan(riskGrowth(full))
   })
 
   it('migrates schema-3 progress into the new four-slot model', () => {

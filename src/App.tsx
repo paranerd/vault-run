@@ -5,8 +5,8 @@ import {
   Check,
   Clock3,
   Download,
-  Eye,
   RotateCcw,
+  ShieldAlert,
   Settings,
   Volume2,
   VolumeX,
@@ -15,6 +15,8 @@ import {
   GOLD_FLIGHT_DURATION_MS,
   SECTION_LABEL,
   MANUAL_SECURE_AMOUNT,
+  RISK_ALERT,
+  RISK_WARNING,
   SECTION_SLOT_GROUP,
   UPGRADE_FILTERS,
   UPGRADE_FILTER_LABEL,
@@ -28,7 +30,6 @@ import {
   slotVisualLevel,
   tapValue,
   vaultCapacity,
-  vigilance,
 } from './game/config'
 import {
   advanceGame,
@@ -43,7 +44,7 @@ import {
 } from './game/engine'
 import { formatDuration, formatGold } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
-import type { GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
+import type { GameEvent, GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
 
 interface UpgradePanelState {
   filter: UpgradeFilter
@@ -60,6 +61,10 @@ const TAP_RATE_WINDOW_MS = 3_000
 /** Dasselbe für selbst ausgelöste Fuhren. Entspricht der Basis-Reisedauer, sodass lückenlos
     hintereinander gestartete Reisen die tatsächlich erreichbare Rate ergeben. */
 const TRIP_RATE_WINDOW_MS = 12_000
+
+/** Standzeit einer eingeblendeten Warnung; höchstens `MAX_ALERTS` liegen gleichzeitig an. */
+const ALERT_LIFETIME_MS = 3_600
+const MAX_ALERTS = 3
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
@@ -161,9 +166,9 @@ function UpgradeIcon({ className = 'dock-button__icon' }: { className?: string }
   return <img className={className} src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
-function StatTile({ label, value, icon }: { label?: string; value?: string; icon?: ReactNode }) {
+function StatTile({ label, value, icon, tone }: { label?: string; value?: string; icon?: ReactNode; tone?: 'warning' | 'alert' }) {
   return (
-    <div className={`stat-tile ${label ? '' : 'is-empty'}`} aria-hidden={!label || undefined}>
+    <div className={`stat-tile ${label ? '' : 'is-empty'} ${tone ? `is-${tone}` : ''}`} aria-hidden={!label || undefined}>
       {icon && <span className="stat-tile__icon">{icon}</span>}
       {label ? <><strong>{value}</strong><span>{label}</span></> : <span>·</span>}
     </div>
@@ -250,6 +255,9 @@ function App() {
   const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
   const [upgradeNoticePulsing, setUpgradeNoticePulsing] = useState(false)
   const [updateInstalling, setUpdateInstalling] = useState(false)
+  const [alerts, setAlerts] = useState<GameEvent[]>([])
+  /** Höchste bereits gesichtete Ereignis-ID; `null`, bis der geladene Spielstand quittiert ist. */
+  const lastAlertId = useRef<number | null>(null)
   const serviceWorkerRegistration = useRef<ServiceWorkerRegistration | null>(null)
   const {
     needRefresh: [updateAvailable, setUpdateAvailable],
@@ -422,6 +430,24 @@ function App() {
     lastExpressTransportStart.current = state.expressStartedAt
   }, [state.transportStartedAt, state.expressStartedAt, state.inTransitGold, state.expressGold, launchGold])
 
+  // Nur Warnungen werden eingeblendet — ein Diebeszug und die volle Truhe verlangen eine Reaktion.
+  // Lieferungen und Käufe zeigen ihre Wirkung ohnehin selbst und liefen als Dauerfeuer.
+  // Beim ersten Lauf wird der geladene Spielstand nur quittiert, sonst begrüßte jeder Start den
+  // Spieler mit den Meldungen der letzten Sitzung.
+  useEffect(() => {
+    const newest = state.events[0]?.id ?? 0
+    const seen = lastAlertId.current
+    lastAlertId.current = newest
+    if (seen === null || newest <= seen) return
+
+    const fresh = state.events.filter((event) => event.id > seen && event.kind === 'warning').reverse()
+    if (fresh.length === 0) return
+    setAlerts((current) => [...current, ...fresh].slice(-MAX_ALERTS))
+    for (const event of fresh) {
+      window.setTimeout(() => setAlerts((current) => current.filter((alert) => alert.id !== event.id)), ALERT_LIFETIME_MS)
+    }
+  }, [state.events])
+
   const now = Date.now()
   const bagMax = chestCapacity(state)
   const treasureMax = vaultCapacity(state)
@@ -448,6 +474,12 @@ function App() {
     || state.vaultGold > 0
     || (state.transportEndsAt !== null && state.inTransitGold === 0)
     || (state.expressEndsAt !== null && state.expressGold === 0)
+
+  // Steigende Anzeige: 0 % ist ruhig, 100 % ist der Diebeszug. Ab `RISK_WARNING` färbt sich die
+  // Kachel, ab `RISK_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Schlag.
+  const risk = Math.min(100, state.threat)
+  const riskTone = risk >= RISK_ALERT ? 'alert' : risk >= RISK_WARNING ? 'warning' : undefined
+  const riskAlarming = chestRevealed && risk >= RISK_ALERT && !securing
 
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
   // Die Kachel zeigt, was tatsächlich ankommt: Ohne Fuhrknecht ruht die Mine während einer
@@ -554,15 +586,15 @@ function App() {
             <h2 className="section-divider"><span>Truhe</span></h2>
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
-                <StatTile label="Aufmerksamkeit" value={`${Math.round(vigilance(state))}%`} icon={<Eye aria-hidden="true" />} />
+                <StatTile label="Risiko" value={`${Math.round(risk)}%`} icon={<ShieldAlert aria-hidden="true" />} tone={riskTone} />
               </div>
               <div className="section-center">
                 <button
                   ref={chestButtonRef}
-                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''}`}
+                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''} ${riskAlarming ? 'is-alarming' : ''}`}
                   disabled={!chestRevealed || state.threat <= 0 || securing}
                   onClick={handleSecure}
-                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : securing ? `Wird gesichert: ${Math.round(secureProgress)} Prozent` : `Risiko um ${MANUAL_SECURE_AMOUNT} senken`}
+                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : securing ? `Wird gesichert: ${Math.round(secureProgress)} Prozent` : `Risiko um ${MANUAL_SECURE_AMOUNT} senken, aktuell ${Math.round(risk)} Prozent`}
                 >
                   {securing && <i className="section-action__progress" style={{ height: `${secureProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="chest" level={state.vaultLevel} />
@@ -623,6 +655,12 @@ function App() {
             }}>
               {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatFlightGold(flight.value, flight.preciseValue)}</span>
             </i>
+          ))}
+        </div>
+
+        <div className="alert-stack" role="status" aria-live="polite">
+          {alerts.map((alert) => (
+            <p key={alert.id} className="alert">{alert.message}</p>
           ))}
         </div>
       </main>
