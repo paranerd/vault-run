@@ -2,7 +2,7 @@ import {
   GOLD_FLIGHT_DURATION_MS,
   MAX_OFFLINE_SECONDS,
   OFFLINE_THEFT_SHARE,
-  cargoCapacity,
+  transportCargo,
   chestCapacity,
   equipmentUpgradeCost,
   MANUAL_SECURE_AMOUNT,
@@ -96,7 +96,7 @@ function availableVaultSpace(state: GameState): number {
 
 export function startTransport(state: GameState, now = Date.now()): GameState {
   if (isSecuringManually(state) || state.transportEndsAt !== null || state.chestGold <= 0) return state
-  const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
+  const payload = Math.min(state.chestGold, transportCargo(state), availableVaultSpace(state))
   if (payload <= 0) {
     const blocked = structuredClone(state)
     addEvent(blocked, 'warning', 'Die Schatztruhe ist voll.')
@@ -114,7 +114,7 @@ export function startTransport(state: GameState, now = Date.now()): GameState {
 
 export function startExpressTransport(state: GameState, now = Date.now()): GameState {
   if (isSecuringManually(state) || !hasAutomaticTransport(state) || state.expressEndsAt !== null || state.chestGold <= 0) return state
-  const payload = Math.min(state.chestGold, cargoCapacity(state), availableVaultSpace(state))
+  const payload = Math.min(state.chestGold, transportCargo(state), availableVaultSpace(state))
   if (payload <= 0) return state
   const next = structuredClone(state)
   next.chestGold -= payload

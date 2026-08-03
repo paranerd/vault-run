@@ -67,7 +67,7 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
     Zahl, die nur zu ihr gehört, und ließe sie sich beim Kauf nebenan ändern. */
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
   miners: 'Bergleute schürfen ohne Klicks. Jeder Stollen fördert für sich, unabhängig von den anderen.',
-  transporters: 'Alle Fuhrknechte ziehen gemeinsam an einer Fuhre. Jede Stufe vergrößert sie und verkürzt zugleich die Fahrzeit.',
+  transporters: 'Fuhrknechte fahren ohne Zutun; deine eigene Fuhre bleibt daneben jederzeit möglich. Alle ziehen gemeinsam an einer Ladung, und jede Stufe verkürzt zugleich die Fahrzeit.',
   guards: 'Wachen wirken als Trupp: Ihre gesammelten Punkte werden in festem Takt vom Risiko abgetragen. Jede Stufe verkürzt zusätzlich den Takt und senkt den Verlust bei einem Diebeszug um 14 %.',
 }
 
@@ -112,11 +112,22 @@ export const passiveRate = (state: GameState) => state.minerLevels.reduce((total
 export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
+/** Was der Spieler selbst auf dem Rücken zur Truhe trägt. Eine eigene Größe und ausdrücklich
+    keine Untergrenze der Fuhrknechte: Die eigene Fuhr steht neben dem Gespann, so wie der eigene
+    Schlag neben den Bergleuten steht. Als das ein gemeinsamer Boden war, deckte die eigene
+    Tragkraft die ersten Fuhrknecht-Stufen mit ab — sie kosteten Gold und brachten nichts. */
+export const MANUAL_CARGO = 20
+
 export const activeTransporters = (state: GameState) => state.transporterLevels.filter((level) => level > 0).length
 export const hasAutomaticTransport = (state: GameState) => activeTransporters(state) > 0
 export const transporterCapacity = (level: number) => level === 0 ? 0 : 12 * 1.55 ** (level - 1)
 export const automaticTransportAmount = (state: GameState) => state.transporterLevels.reduce((total, level) => total + transporterCapacity(level), 0)
-export const cargoCapacity = (state: GameState) => Math.max(20, automaticTransportAmount(state))
+
+/** Die Ladung der Fuhre, die gerade fährt: ohne Fuhrknecht die eigene, sonst die des Gespanns.
+    Auch die Eilfuhre lädt das Gespann voll — sie ist dasselbe Gespann, nur angetrieben. */
+export const transportCargo = (state: GameState) =>
+  hasAutomaticTransport(state) ? automaticTransportAmount(state) : MANUAL_CARGO
+
 export const transportDuration = (state: GameState) => {
   const active = activeTransporters(state)
   if (active === 0) return 12
@@ -125,10 +136,9 @@ export const transportDuration = (state: GameState) => {
 }
 export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
 
-/** Dauerdurchsatz der automatischen Fuhren. `cargoCapacity` hat einen Boden von 20, ein
-    einzelner Fuhrknecht schleppt also mehr als seine nominelle Kapazität. */
+/** Dauerdurchsatz der automatischen Fuhren — die Ladung des Gespanns je Fahrt. */
 export const automaticTransportRate = (state: GameState) =>
-  hasAutomaticTransport(state) ? cargoCapacity(state) / transportDuration(state) : 0
+  hasAutomaticTransport(state) ? automaticTransportAmount(state) / transportDuration(state) : 0
 
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
 
@@ -264,19 +274,13 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     const name = slotStageName(group, level)
 
     // Jede Karte zeigt genau eine Zahl: den Zuwachs, den dieser Kauf bringt. Der Bestand steht
-    // ohnehin auf der Kachel des Abschnitts.
-    //
-    // Bergleute sind der einfache Fall — ein Stollen fördert für sich, die Zahl hängt an keinem
-    // anderen Slot. Fuhrknechte und Wachen wirken dagegen als Gespann: Die Fuhre ist die Summe
-    // aller Ladungen (mit einem Mindestmaß von `cargoCapacity`), die Sicherungskraft die Summe
-    // aller Wachstufen. Ihr Zuwachs wird deshalb an der tatsächlichen Gruppengröße gemessen und
-    // nicht am Slot allein — sonst verspräche die Karte früh eine Ladung, die das Mindestmaß
-    // längst abdeckt. Praktisch bleibt die Zahl trotzdem stehen, wenn nebenan gekauft wird:
-    // Beide Größen sind additiv, sobald das Gespann einmal steht.
+    // ohnehin auf der Kachel des Abschnitts. Gemessen wird am Slot selbst, damit die Zahl stehen
+    // bleibt, wenn nebenan gekauft wird — Fördermenge und Ladung sind rein slot-eigen, die
+    // Sicherungskraft ist zumindest additiv und wächst je Stufe um denselben Betrag.
     const slotGain = group === 'miners'
       ? gain(minerRate(level), minerRate(level + 1), 'Gold/s', effectRate)
       : group === 'transporters'
-        ? gain(cargoCapacity(state), cargoCapacity(next), 'Gold je Fuhre', effectGold)
+        ? gain(transporterCapacity(level), transporterCapacity(level + 1), 'Gold je Fuhre', effectGold)
         : gain(securingPower(state), securingPower(next), 'Punkte je Sicherung', effectValue)
 
     return {

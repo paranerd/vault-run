@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   GOLD_FLIGHT_DURATION_MS,
+  MANUAL_CARGO,
   MANUAL_SECURE_AMOUNT,
   OFFLINE_THEFT_SHARE,
   SECURE_COOLDOWN_MS,
   automaticTransportAmount,
-  cargoCapacity,
   chestCapacity,
   getAllUpgrades,
   getEquipmentUpgrade,
@@ -20,6 +20,8 @@ import {
   slotVisualLevel,
   slotUpgradeCost,
   tapValue,
+  transportCargo,
+  transporterCapacity,
   vaultCapacity,
   withSlotLevel,
 } from './config'
@@ -178,7 +180,23 @@ describe('Vault Run engine', () => {
     expect(vaultCapacity({ ...state, vaultLevel: 1 })).toBeGreaterThan(vaultCapacity(state))
     const staffed = { ...state, transporterLevels: [1, 1, 0, 0] as [number, number, number, number] }
     expect(automaticTransportAmount(staffed)).toBe(24)
-    expect(cargoCapacity(staffed)).toBeGreaterThan(cargoCapacity(state))
+    expect(transportCargo(staffed)).toBeGreaterThan(transportCargo(state))
+  })
+
+  // Die eigene Fuhre steht neben dem Gespann, nicht darunter: Sie bleibt bei ihrer Tragkraft,
+  // während die Fuhrknechte ausschließlich ihre eigenen Ladungen summieren. Als beides ein
+  // gemeinsamer Boden war, deckte die Tragkraft die ersten Stufen ab — sie brachten nichts.
+  it('keeps the carried load apart from the team the transporters pull', () => {
+    const state = createInitialState(0)
+    expect(transportCargo(state)).toBe(MANUAL_CARGO)
+
+    const single = { ...state, transporterLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    expect(transportCargo(single)).toBe(transporterCapacity(1))
+    for (let level = 1; level < 5; level += 1) {
+      const team = { ...state, transporterLevels: [level, 0, 0, 0] as [number, number, number, number] }
+      const upgraded = withSlotLevel(team, 'transporters', 0)
+      expect(transportCargo(upgraded) - transportCargo(team)).toBeCloseTo(transporterCapacity(level + 1) - transporterCapacity(level), 6)
+    }
   })
 
   it('reduces every card to the one number the purchase adds', () => {
@@ -321,14 +339,13 @@ describe('Vault Run engine', () => {
     expect(getSlotUpgrades(guarded, 'chest')[0].gain).toEqual({ amount: '+2', unit: 'Punkte je Sicherung' })
   })
 
-  // Alle Fuhrknechte ziehen an einer Fuhre, deren Mindestmaß bei 20 Gold liegt. Solange dieses
-  // Mindestmaß greift, bringt eine weitere Stufe tatsächlich nichts — und die Karte sagt das.
-  it('measures a transporter in the gold the shared load actually gains', () => {
+  // Ein Fuhrknecht bringt genau seine eigene Ladung ein — vom ersten an und ohne tote Stufe.
+  it('measures a transporter in the load it carries itself', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'bag')[0].gain).toEqual({ amount: '±0', unit: 'Gold je Fuhre' })
+    expect(getSlotUpgrades(state, 'bag')[0].gain).toEqual({ amount: `+${formatGold(transporterCapacity(1))}`, unit: 'Gold je Fuhre' })
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
-    const gained = cargoCapacity(withSlotLevel(staffed, 'transporters', 0)) - cargoCapacity(staffed)
+    const gained = transporterCapacity(4) - transporterCapacity(3)
     expect(getSlotUpgrades(staffed, 'bag')[0].gain).toEqual({ amount: `+${formatGold(gained)}`, unit: 'Gold je Fuhre' })
   })
 
