@@ -1,6 +1,8 @@
 export type SectionId = 'mine' | 'bag' | 'chest'
 export type EquipmentUpgradeId = 'tap' | 'chest' | 'vault'
 export type SlotGroup = 'miners' | 'transporters' | 'guards'
+export type UpgradeCategory = 'equipment' | SlotGroup
+export type UpgradeFilter = 'all' | UpgradeCategory
 export type SlotIndex = 0 | 1 | 2 | 3
 export type SlotLevels = [number, number, number, number]
 

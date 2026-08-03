@@ -5,6 +5,8 @@ import type {
   SlotGroup,
   SlotIndex,
   SlotLevels,
+  UpgradeCategory,
+  UpgradeFilter,
   UpgradeView,
 } from './types'
 
@@ -207,4 +209,50 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
 export function getAllUpgrades(state: GameState): UpgradeView[] {
   const sections: SectionId[] = ['mine', 'bag', 'chest']
   return sections.flatMap((section) => [getEquipmentUpgrade(state, section), ...getSlotUpgrades(state, section)])
+}
+
+export const UPGRADE_CATEGORIES: readonly UpgradeCategory[] = ['equipment', 'miners', 'transporters', 'guards']
+export const UPGRADE_FILTERS: readonly UpgradeFilter[] = ['all', ...UPGRADE_CATEGORIES]
+
+export const UPGRADE_FILTER_LABEL: Record<UpgradeFilter, string> = {
+  all: 'Alle',
+  equipment: 'Ausrüstung',
+  miners: 'Bergleute',
+  transporters: 'Transport',
+  guards: 'Wachen',
+}
+
+export const UPGRADE_FILTER_TITLE: Record<UpgradeFilter, string> = {
+  all: 'Alle Ausbauten',
+  equipment: 'Pickhacke, Beutel und Truhe',
+  miners: 'Vier Bergleute',
+  transporters: 'Vier Transporte',
+  guards: 'Vier Wachen',
+}
+
+/** Prefix of every `UpgradeView.key` that belongs to a filter; `all` matches everything. */
+export const UPGRADE_FILTER_PREFIX: Record<UpgradeFilter, string> = {
+  all: '',
+  equipment: 'equipment:',
+  miners: 'slot:miners:',
+  transporters: 'slot:transporters:',
+  guards: 'slot:guards:',
+}
+
+export const SECTION_FILTER: Record<SectionId, UpgradeCategory> = SECTION_SLOT_GROUP
+
+export function getCategoryUpgrades(state: GameState, category: UpgradeCategory): UpgradeView[] {
+  if (category === 'equipment') return [getEquipmentUpgrade(state, 'mine'), getEquipmentUpgrade(state, 'bag'), getEquipmentUpgrade(state, 'chest')]
+  return getSlotUpgrades(state, SLOT_SECTION[category])
+}
+
+export interface UpgradeGroup {
+  category: UpgradeCategory
+  label: string
+  upgrades: UpgradeView[]
+}
+
+export function getUpgradeGroups(state: GameState, filter: UpgradeFilter): UpgradeGroup[] {
+  const categories = filter === 'all' ? UPGRADE_CATEGORIES : [filter]
+  return categories.map((category) => ({ category, label: UPGRADE_FILTER_LABEL[category], upgrades: getCategoryUpgrades(state, category) }))
 }
