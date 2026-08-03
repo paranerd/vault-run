@@ -97,7 +97,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .dock-button__badge { position: absolute; z-index: 2; top: -8px; right: -6px; min-width: 21px; height: 21px; padding: 0 4px; display: grid; place-items: center; border: 2px solid #301a10; border-radius: 3px; color: #fff2c8; background: var(--red); box-shadow: 2px 2px 0 rgba(25,11,7,.55); font-size: 12px; font-style: normal; line-height: 1; }
 .dock-button.is-notifying { animation: full-alert .9s steps(2,end) 1; }
 
-.game-stage { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+.game-stage { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .game-sections {
   position: relative;
   width: min(100%, 760px);
@@ -186,6 +186,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: 1px 2px 0 rgba(52,27,14,.3), inset 1px 1px rgba(255,243,202,.24);
 }
 .stat-tile.is-empty { opacity: .35; background: rgba(121,80,43,.2); }
+/* Die Risikokachel ist die einzige, die auf ein Ereignis zuläuft — sie heizt sich sichtbar auf. */
+.stat-tile.is-warning { border-color: #8a4c17; background: rgba(240,178,88,.72); }
+.stat-tile.is-warning .stat-tile__icon { color: #8a4113; }
+.stat-tile.is-alert { border-color: #7d2712; background: rgba(226,124,79,.78); }
+.stat-tile.is-alert strong,.stat-tile.is-alert .stat-tile__icon { color: #5c1c07; }
+.stat-tile.is-alert > span:not(.stat-tile__icon) { color: #6d2a12; }
 .stat-tile strong { max-width: 100%; overflow: hidden; color: #3a2317; font-family: var(--pixel-font); font-size: clamp(10px,2.7vw,13px); line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .stat-tile > span:not(.stat-tile__icon) { display: -webkit-box; margin-top: 3px; overflow: hidden; color: #684b35; font-size: clamp(8px,2.1vw,10px); font-weight: 400; line-height: 1; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .stat-tile__icon { height: 13px; margin-bottom: 2px; color: #74502f; }
@@ -219,6 +225,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-action.is-progressing:disabled { filter: none; }
 .section-action--chest.is-revealed:disabled { filter: none; }
 .section-action.is-full { animation: bag-full-pulse 1.1s steps(2,end) infinite; }
+/* Vorwarnung vor dem Diebeszug: ab RISK_ALERT pocht die Sicherung, bis der Spieler reagiert. */
+.section-action.is-alarming { animation: risk-alarm-pulse .85s steps(2,end) infinite; }
 
 .slot-grid.is-notifying { animation: full-alert .9s steps(2,end) 1; }
 
@@ -391,6 +399,37 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .update-notice__later { color: #5a3823; background: #d6ae70; box-shadow: 2px 3px 0 rgba(49,23,11,.2); }
 .update-notice__actions button:disabled { opacity: .7; cursor: wait; }
 
+/* Kurzlebige Warnungen über der Szene. Sie nehmen keine Klicks an und verdrängen kein Layout,
+   damit die Hauptansicht ihre feste Höhe behält. */
+.alert-stack {
+  position: absolute;
+  z-index: 8;
+  top: 8px;
+  right: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  pointer-events: none;
+}
+.alert {
+  max-width: min(100%, 320px);
+  padding: 6px 11px;
+  border: 2px solid #55190c;
+  border-radius: 3px;
+  color: #ffe6c4;
+  background: rgba(140,44,22,.94);
+  box-shadow: 2px 3px 0 rgba(40,12,5,.42), inset 1px 1px rgba(255,196,150,.22);
+  font-family: var(--pixel-font);
+  font-size: clamp(13px,3.4vw,16px);
+  font-weight: 400;
+  line-height: 1.15;
+  text-align: center;
+  animation: alert-in .18s steps(3,end) 1;
+}
+
 @keyframes coin-flight {
   0% { opacity: 0; transform: translate(-50%,-50%) scale(.7) rotate(0); }
   10% { opacity: 1; }
@@ -400,6 +439,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 }
 @keyframes full-alert { 50% { filter: drop-shadow(0 0 7px rgba(221,78,48,.9)); } }
 @keyframes bag-full-pulse { 50% { filter: drop-shadow(0 0 8px rgba(255,218,92,.95)) brightness(1.08); } }
+@keyframes risk-alarm-pulse { 50% { filter: drop-shadow(0 0 9px rgba(214,58,32,.95)) brightness(1.06); } }
+@keyframes alert-in {
+  0% { opacity: 0; transform: translateY(-7px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
 
 @media (max-width: 360px) {
   .section-layout { grid-template-columns: minmax(0,1fr) 92px minmax(0,1fr); gap: 4px; padding-right: 5px; padding-left: 5px; }
