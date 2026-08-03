@@ -270,26 +270,14 @@ const UpgradeCard = memo(function UpgradeCard({ upgrade, affordable, focused, on
             Stufe {upgrade.stage} <i aria-hidden="true">→</i> {upgrade.stage + 1}
             {upgrade.nextName && <b>{upgrade.nextName}</b>}
           </p>
+          {/* Die eine Zahl der Karte: was der Kauf obendrauf legt. Kein „vorher → nachher“ — der
+              Bestand steht auf der Kachel des Abschnitts, hier zählt nur der Zuwachs. */}
+          <p className="upgrade-card__gain"><strong>{upgrade.gain.amount}</strong> <span>{upgrade.gain.unit}</span></p>
         </div>
-        <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold auf Stufe ${upgrade.stage + 1} verbessern`}>
+        <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold auf Stufe ${upgrade.stage + 1} verbessern, bringt ${upgrade.gain.amount} ${upgrade.gain.unit}`}>
           {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
         </button>
       </div>
-      {/* Die Wirkung als benannte Zeilen „Größe: vorher → nachher“. Vorher standen hier zwei
-          unbeschriftete Zahlen unter „Stufe n“/„Stufe n+1“ — man sah, dass sich etwas ändert,
-          aber nicht, was gemessen wird. */}
-      <dl className="upgrade-effects">
-        {upgrade.effects.map((effect) => (
-          <div key={effect.label}>
-            <dt>{effect.label}</dt>
-            <dd>
-              <span>{effect.current}</span>
-              <i aria-hidden="true">→</i><em className="sr-only">wird zu</em>
-              <strong>{effect.unit ? `${effect.next} ${effect.unit}` : effect.next}</strong>
-            </dd>
-          </div>
-        ))}
-      </dl>
       {upgrade.hint && <p className="upgrade-card__hint">{upgrade.hint}</p>}
     </article>
   )

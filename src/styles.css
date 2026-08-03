@@ -325,17 +325,13 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .upgrade-card__step { display: flex; flex-wrap: wrap; gap: 0 6px; margin: 0; color: var(--muted); font-size: 11.5px; font-weight: 400; line-height: 1.25; }
 .upgrade-card__step i { font-style: normal; }
 .upgrade-card__step b { min-width: 0; overflow: hidden; color: #7a4c28; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
-.upgrade-card__hint { margin: 8px 0 0; color: var(--muted); font-size: 12.5px; font-weight: 400; line-height: 1.15; }
-/* Eine Zeile je Wirkung: Beschriftung links, „vorher → nachher“ rechtsbündig. Der Nachher-Wert ist
-   die einzige hervorgehobene Zahl der Karte — sie beantwortet „was bringt mir der Aufstieg“. */
-.upgrade-effects { display: grid; gap: 2px; margin: 9px 0 0; padding: 7px 0 0; border-top: 1px solid rgba(112,70,41,.35); }
-.upgrade-effects > div { min-width: 0; display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
-.upgrade-effects dt { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.upgrade-effects dd { flex: 0 0 auto; display: flex; gap: 5px; align-items: baseline; margin: 0; }
-.upgrade-effects dd span { color: var(--muted); font-family: var(--pixel-font); font-size: 12px; }
-.upgrade-effects dd i { color: #a97a45; font-size: 11px; font-style: normal; }
-.upgrade-effects dd strong { color: var(--ink); font-family: var(--pixel-font); font-size: 14px; font-weight: 400; }
-.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; border: 0; clip-path: inset(50%); white-space: nowrap; }
+.upgrade-card__hint { margin: 9px 0 0; padding: 7px 0 0; border-top: 1px solid rgba(112,70,41,.35); color: var(--muted); font-size: 12.5px; font-weight: 400; line-height: 1.15; }
+/* Der Zuwachs ist die einzige hervorgehobene Zahl der Karte und steht direkt neben dem Preis:
+   links, was der Kauf bringt — rechts, was er kostet. */
+.upgrade-card__gain { margin: 5px 0 0; color: var(--ink); font-size: 12.5px; font-weight: 400; line-height: 1.1; }
+.upgrade-card__gain strong { color: #6c4113; font-family: var(--pixel-font); font-size: 19px; font-weight: 400; }
+.upgrade-card--logistics .upgrade-card__gain strong { color: #245b7a; }
+.upgrade-card--vault .upgrade-card__gain strong { color: #3d6b32; }
 .buy-button { align-self: center; width: 72px; min-height: 58px; padding: 7px 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; border: 2px solid #352017; border-radius: 4px; color: #fff0c8; background: #714325; box-shadow: 2px 3px 0 rgba(48,24,12,.4),inset 2px 2px rgba(255,235,178,.14); font-size: 14px; font-weight: 400; cursor: pointer; }
 .buy-button .pixel-coin { width: 20px; height: 20px; }
 .buy-button:disabled { color: #8b7760; background: #c8aa7c; box-shadow: none; cursor: default; }
@@ -474,9 +470,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .upgrade-card__sprite { width: 46px; height: 46px; }
   .upgrade-card__sprite img { width: 50px; height: 50px; }
   .upgrade-card h3 { font-size: 15px; }
-  .upgrade-effects dt { font-size: 11px; }
-  .upgrade-effects dd span { font-size: 11px; }
-  .upgrade-effects dd strong { font-size: 13px; }
+  .upgrade-card__gain { font-size: 11.5px; }
+  .upgrade-card__gain strong { font-size: 17px; }
   .buy-button { width: 66px; }
 }
 

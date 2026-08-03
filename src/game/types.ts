@@ -60,15 +60,14 @@ export interface GameState {
   lastOfflineReport?: OfflineReport
 }
 
-/** Eine messbare Größe, die der Stufenaufstieg verändert: benannt, mit Wert vorher und nachher.
-    Genau eine Zeile der Wirkungstabelle einer Upgrade-Karte. */
-export interface UpgradeEffect {
-  /** Was gemessen wird, z. B. „Fördermenge“. */
-  label: string
-  current: string
-  next: string
-  /** Einheit, die nur einmal hinter dem Nachher-Wert steht — „12 → 19 Gold“ statt zweimal „Gold“. */
-  unit?: string
+/** Was der Kauf zusätzlich einbringt — die eine Zahl, um die es auf einer Upgrade-Karte geht.
+    Bewusst der Zugewinn und nicht „vorher → nachher“: Der Bestand steht ohnehin auf der Kachel
+    des Abschnitts, hier zählt allein, was die Stufe obendrauf legt. */
+export interface UpgradeGain {
+  /** Vorzeichenbehafteter Zuwachs, z. B. „+0,7“. */
+  amount: string
+  /** Einheit dahinter, z. B. „Gold/s“. */
+  unit: string
 }
 
 export interface UpgradeView {
@@ -83,8 +82,8 @@ export interface UpgradeView {
   hint?: string
   /** Spielerseitige Stufennummer; die nächste Stufe ist immer `stage + 1`. */
   stage: number
-  /** Alles, was der Aufstieg zahlenmäßig verändert — führende Zeile zuerst. */
-  effects: UpgradeEffect[]
+  /** Was der Kauf einbringt — die eine Zahl der Karte. */
+  gain: UpgradeGain
   cost: number
   available: boolean
   maxed?: boolean

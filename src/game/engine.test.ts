@@ -5,7 +5,6 @@ import {
   OFFLINE_THEFT_SHARE,
   SECURE_COOLDOWN_MS,
   automaticTransportAmount,
-  automaticTransportRate,
   cargoCapacity,
   chestCapacity,
   getAllUpgrades,
@@ -21,11 +20,10 @@ import {
   slotVisualLevel,
   slotUpgradeCost,
   tapValue,
-  transportDuration,
   vaultCapacity,
   withSlotLevel,
 } from './config'
-import { formatDecimal } from './format'
+import { formatGold } from './format'
 import {
   advanceGame,
   buyEquipmentUpgrade,
@@ -183,12 +181,19 @@ describe('Vault Run engine', () => {
     expect(cargoCapacity(staffed)).toBeGreaterThan(cargoCapacity(state))
   })
 
-  it('labels every effect of equipment and slots with a value before and after', () => {
+  it('reduces every card to the one number the purchase adds', () => {
     const state = createInitialState(0)
     const upgrades = [getEquipmentUpgrade(state, 'mine'), ...getSlotUpgrades(state, 'mine')]
     expect(upgrades).toHaveLength(5)
-    expect(upgrades.every((upgrade) => upgrade.effects.every((effect) => effect.label && effect.current && effect.next))).toBe(true)
-    expect(upgrades[0].effects).toEqual([{ label: 'Pro Schlag', current: '1', next: '2', unit: 'Gold' }])
+    expect(upgrades.every((upgrade) => upgrade.gain.amount && upgrade.gain.unit)).toBe(true)
+    expect(upgrades[0].gain).toEqual({ amount: '+1', unit: 'Gold je Schlag' })
+    expect(upgrades[1].gain).toEqual({ amount: '+0,7', unit: 'Gold/s' })
+  })
+
+  // Eine Stufe, die rechnerisch nichts bringt, muss das zeigen — die Karte fordert zum Kauf auf.
+  // `tapValue` rundet auf, weshalb Stufe 3 → 4 denselben Wert liefert wie Stufe 2 → 3.
+  it('admits it when a level adds nothing at all', () => {
+    expect(getEquipmentUpgrade({ ...createInitialState(0), tapLevel: 2 }, 'mine').gain.amount).toBe('±0')
   })
 
   // Der Rangname ist der einzige Vorteil eines Aufstiegs, der in keiner Zahl steckt — und oberhalb
@@ -205,7 +210,7 @@ describe('Vault Run engine', () => {
     const state = { ...createInitialState(0), tapLevel: 4 }
     const upgraded = getEquipmentUpgrade(state, 'mine')
     expect(tapValue(state)).toBe(5)
-    expect(upgraded.effects[0].current).toBe('5')
+    expect(upgraded.gain).toEqual({ amount: '+1', unit: 'Gold je Schlag' })
     expect(tap(state).chestGold).toBe(5)
   })
 
@@ -305,30 +310,43 @@ describe('Vault Run engine', () => {
     expect(securityLoss(guarded)).toBeLessThan(securityLoss(state))
   })
 
-  it('leads the guard card with the securing rate and names the raid loss separately', () => {
+  // Die Wachen-Karte nennt die Punkte, die der Trupp je Sicherung zusätzlich abträgt — dieselbe
+  // Einheit, in der die Risikokachel steigt. Takt und Schadensdeckel gehören dem ganzen Trupp und
+  // stehen deshalb im Gruppenhinweis, nicht auf einer einzelnen Karte.
+  it('measures a guard in the risk points the troop gains per securing', () => {
     const state = createInitialState(0)
-    const [unguarded] = getSlotUpgrades(state, 'chest')
-    expect(unguarded.effects).toEqual([
-      { label: 'Sicherung gesamt', current: 'Ungesichert', next: '-0,7 %/s' },
-      { label: 'Verlust je Diebeszug', current: '8', next: '6,9', unit: '%' },
-    ])
+    expect(getSlotUpgrades(state, 'chest')[0].gain).toEqual({ amount: '+8', unit: 'Punkte je Sicherung' })
 
     const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
-    expect(getSlotUpgrades(guarded, 'chest')[0].effects[0].current).toBe('-1,0 %/s')
+    expect(getSlotUpgrades(guarded, 'chest')[0].gain).toEqual({ amount: '+2', unit: 'Punkte je Sicherung' })
   })
 
-  // Die Beutel-Kachel zeigt „Gold / Sek.“ — dieselbe Größe steht als Ergebniszeile auf der Karte,
-  // damit ein Fuhrknecht-Aufstieg ohne Kopfrechnen an der Anzeige im Spiel ablesbar ist.
-  it('closes the transporter card with the throughput the bag tile shows', () => {
+  // Alle Fuhrknechte ziehen an einer Fuhre, deren Mindestmaß bei 20 Gold liegt. Solange dieses
+  // Mindestmaß greift, bringt eine weitere Stufe tatsächlich nichts — und die Karte sagt das.
+  it('measures a transporter in the gold the shared load actually gains', () => {
     const state = createInitialState(0)
-    const [empty] = getSlotUpgrades(state, 'bag')
-    expect(empty.effects.map((effect) => effect.label)).toEqual(['Fuhre', 'Fahrzeit', 'Transport gesamt'])
-    expect(empty.effects[2].current).toBe('Nur von Hand')
+    expect(getSlotUpgrades(state, 'bag')[0].gain).toEqual({ amount: '±0', unit: 'Gold je Fuhre' })
 
-    const staffed = { ...state, transporterLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    const [upgradable] = getSlotUpgrades(staffed, 'bag')
-    expect(upgradable.effects[2].current).toBe(`${formatDecimal(automaticTransportRate(staffed))}/s`)
-    expect(upgradable.effects[1].next).toBe(formatDecimal(transportDuration(withSlotLevel(staffed, 'transporters', 0))))
+    const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
+    const gained = cargoCapacity(withSlotLevel(staffed, 'transporters', 0)) - cargoCapacity(staffed)
+    expect(getSlotUpgrades(staffed, 'bag')[0].gain).toEqual({ amount: `+${formatGold(gained)}`, unit: 'Gold je Fuhre' })
+  })
+
+  // Der Kern der Karte: Ihre Zahl steht still, wenn nebenan gekauft wird. Bei den Bergleuten gilt
+  // das immer, bei Fuhrknechten und Wachen, sobald das Gespann einmal steht — sie sind additiv.
+  it('holds every card number steady when a neighbouring slot is bought', () => {
+    const state = {
+      ...createInitialState(0),
+      minerLevels: [2, 1, 0, 0] as [number, number, number, number],
+      transporterLevels: [3, 1, 0, 0] as [number, number, number, number],
+      guardLevels: [2, 1, 0, 0] as [number, number, number, number],
+    }
+    const sections = [['mine', 'miners'], ['bag', 'transporters'], ['chest', 'guards']] as const
+    for (const [section, group] of sections) {
+      const before = getSlotUpgrades(state, section)[0].gain
+      const neighbourBought = getSlotUpgrades(withSlotLevel(state, group, 2), section)[0].gain
+      expect(neighbourBought).toEqual(before)
+    }
   })
 
   // Der Gruppenhinweis gilt für alle vier Karten und steht deshalb genau einmal über ihnen; die

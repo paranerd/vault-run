@@ -1,4 +1,4 @@
-import { formatDecimal, formatFixedDecimal, formatInteger } from './format'
+import { formatDecimal, formatGold, formatInteger } from './format'
 import type {
   EquipmentUpgradeId,
   GameState,
@@ -7,8 +7,8 @@ import type {
   SlotIndex,
   SlotLevels,
   UpgradeCategory,
-  UpgradeEffect,
   UpgradeFilter,
+  UpgradeGain,
   UpgradeView,
 } from './types'
 
@@ -61,12 +61,14 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
   guards: 'Unbewachte Ecke',
 }
 
-/** Was eine Gruppe grundsätzlich tut. Steht einmal über den vier Karten, weil er für alle vier
-    identisch gilt — auf den Karten selbst stand derselbe Satz bisher viermal untereinander. */
+/** Wie eine Gruppe zusammenwirkt. Steht einmal über den vier Karten, weil es für alle vier
+    identisch gilt — auf den Karten selbst stand derselbe Satz bisher viermal untereinander.
+    Hier steht außerdem alles, was mehrere Slots gemeinsam bewirken: Auf der Karte hätte es keine
+    Zahl, die nur zu ihr gehört, und ließe sie sich beim Kauf nebenan ändern. */
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
-  miners: 'Bergleute schürfen ohne Klicks. Jeder Stollen zählt für sich und fördert gleichzeitig mit den anderen.',
-  transporters: 'Fuhrknechte bringen das Gold von allein zur Truhe: größere Fuhren in kürzerem Takt.',
-  guards: 'Wachen senken das Risiko laufend und drücken den Verlust, falls es doch zum Diebeszug kommt.',
+  miners: 'Bergleute schürfen ohne Klicks. Jeder Stollen fördert für sich, unabhängig von den anderen.',
+  transporters: 'Alle Fuhrknechte ziehen gemeinsam an einer Fuhre. Jede Stufe vergrößert sie und verkürzt zugleich die Fahrzeit.',
+  guards: 'Wachen wirken als Trupp: Ihre gesammelten Punkte werden in festem Takt vom Risiko abgetragen. Jede Stufe verkürzt zusätzlich den Takt und senkt den Verlust bei einem Diebeszug um 14 %.',
 }
 
 export function slotStageName(group: SlotGroup, level: number): string {
@@ -94,10 +96,10 @@ const SLOT_SPRITE: Record<SlotGroup, UpgradeView['spriteFamily']> = {
 }
 
 const cost = (base: number, factor: number, level: number) => Math.ceil(base * factor ** level)
+const effectGold = (value: number) => formatGold(value)
 const visualStage = (level: number) => Math.min(3, Math.max(0, level))
 const effectValue = (value: number) => formatInteger(Math.floor(value))
 const effectRate = (value: number) => formatDecimal(value)
-const effectFixed = (value: number) => formatFixedDecimal(value)
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
@@ -209,6 +211,13 @@ export function withSlotLevel(state: GameState, group: SlotGroup, index: SlotInd
     benannten Stufe wiederholt er sich sonst und wäre als „Vorteil“ eine Falschaussage. */
 const changedName = (current: string, next: string) => (next === current ? undefined : next)
 
+/** Der Zugewinn einer Karte, immer als Differenz vorher/nachher. `±0` steht bewusst da, wo eine
+    Stufe rechnerisch nichts bringt — eine Karte, die zum Kauf auffordert, muss das zeigen. */
+function gain(before: number, after: number, unit: string, format: (value: number) => string): UpgradeGain {
+  const delta = after - before
+  return { amount: delta === 0 ? '±0' : `${delta < 0 ? '−' : '+'}${format(Math.abs(delta))}`, unit }
+}
+
 export function getEquipmentUpgrade(state: GameState, section: SectionId): UpgradeView {
   if (section === 'mine') {
     const next = withEquipmentLevel(state, 'tap')
@@ -217,7 +226,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       key: 'equipment:tap', section, equipmentId: 'tap', name,
       nextName: changedName(name, PICKAXES[visualStage(state.tapLevel + 1)]),
       hint: 'Wirkt nur, wenn du selbst in der Mine klickst.',
-      effects: [{ label: 'Pro Schlag', current: effectValue(tapValue(state)), next: effectValue(tapValue(next)), unit: 'Gold' }],
+      gain: gain(tapValue(state), tapValue(next), 'Gold je Schlag', effectValue),
       stage: state.tapLevel + 1, cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
       spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,
     }
@@ -229,7 +238,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       key: 'equipment:chest', section, equipmentId: 'chest', name,
       nextName: changedName(name, BAGS[visualStage(state.chestLevel + 1)]),
       hint: 'Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre.',
-      effects: [{ label: 'Beutelgröße', current: effectValue(chestCapacity(state)), next: effectValue(chestCapacity(next)), unit: 'Gold' }],
+      gain: gain(Math.floor(chestCapacity(state)), Math.floor(chestCapacity(next)), 'Gold Platz', effectGold),
       stage: state.chestLevel + 1, cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
       spriteFamily: 'bag', spriteLevel: state.chestLevel,
     }
@@ -240,7 +249,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
     key: 'equipment:vault', section, equipmentId: 'vault', name,
     nextName: changedName(name, TREASURE_CHESTS[visualStage(state.vaultLevel + 1)]),
     hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
-    effects: [{ label: 'Truhengröße', current: effectValue(vaultCapacity(state)), next: effectValue(vaultCapacity(next)), unit: 'Gold' }],
+    gain: gain(Math.floor(vaultCapacity(state)), Math.floor(vaultCapacity(next)), 'Gold Platz', effectGold),
     stage: state.vaultLevel + 1, cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
     spriteFamily: 'chest', spriteLevel: state.vaultLevel,
   }
@@ -253,41 +262,22 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     const index = rawIndex as SlotIndex
     const next = withSlotLevel(state, group, index)
     const name = slotStageName(group, level)
-    let effects: UpgradeEffect[]
 
-    if (group === 'miners') {
-      // Erst der eigene Stollen, dann die Mine als Ganzes: Die erste Zeile beantwortet „was
-      // bringt genau diese Karte“, die zweite „was habe ich danach insgesamt“.
-      effects = [
-        { label: 'Dieser Stollen', current: level === 0 ? 'Unbesetzt' : `${effectRate(minerRate(level))}/s`, next: `${effectRate(minerRate(level + 1))}/s` },
-        { label: 'Mine gesamt', current: `${effectRate(passiveRate(state))}/s`, next: `${effectRate(passiveRate(next))}/s` },
-      ]
-    } else if (group === 'transporters') {
-      // Ladung und Fahrzeit sind die beiden Stellschrauben, der Durchsatz ihr gemeinsames
-      // Ergebnis — und exakt die Zahl, die auch auf der Beutel-Kachel steht.
-      effects = [
-        { label: 'Fuhre', current: effectValue(cargoCapacity(state)), next: effectValue(cargoCapacity(next)), unit: 'Gold' },
-        { label: 'Fahrzeit', current: effectRate(transportDuration(state)), next: effectRate(transportDuration(next)), unit: 's' },
-        {
-          label: 'Transport gesamt',
-          current: hasAutomaticTransport(state) ? `${effectRate(automaticTransportRate(state))}/s` : 'Nur von Hand',
-          next: `${effectRate(automaticTransportRate(next))}/s`,
-        },
-      ]
-    } else {
-      // Die Dauerleistung steht vorne, weil nur sie mit dem Risikoanstieg vergleichbar ist: Takt
-      // und Punkte ändern sich gleichzeitig, einzeln sagt keiner von beiden etwas aus. Genau
-      // deshalb steht der Takt hier auch nicht mehr — er ist in der Rate bereits enthalten.
-      // „gesamt“ ist nicht schmückend: Wachen wirken als Trupp, nicht als einzelner Posten.
-      effects = [
-        {
-          label: 'Sicherung gesamt',
-          current: securingRate(state) === 0 ? 'Ungesichert' : `-${effectFixed(securingRate(state))} %/s`,
-          next: `-${effectFixed(securingRate(next))} %/s`,
-        },
-        { label: 'Verlust je Diebeszug', current: effectRate(securityLoss(state) * 100), next: effectRate(securityLoss(next) * 100), unit: '%' },
-      ]
-    }
+    // Jede Karte zeigt genau eine Zahl: den Zuwachs, den dieser Kauf bringt. Der Bestand steht
+    // ohnehin auf der Kachel des Abschnitts.
+    //
+    // Bergleute sind der einfache Fall — ein Stollen fördert für sich, die Zahl hängt an keinem
+    // anderen Slot. Fuhrknechte und Wachen wirken dagegen als Gespann: Die Fuhre ist die Summe
+    // aller Ladungen (mit einem Mindestmaß von `cargoCapacity`), die Sicherungskraft die Summe
+    // aller Wachstufen. Ihr Zuwachs wird deshalb an der tatsächlichen Gruppengröße gemessen und
+    // nicht am Slot allein — sonst verspräche die Karte früh eine Ladung, die das Mindestmaß
+    // längst abdeckt. Praktisch bleibt die Zahl trotzdem stehen, wenn nebenan gekauft wird:
+    // Beide Größen sind additiv, sobald das Gespann einmal steht.
+    const slotGain = group === 'miners'
+      ? gain(minerRate(level), minerRate(level + 1), 'Gold/s', effectRate)
+      : group === 'transporters'
+        ? gain(cargoCapacity(state), cargoCapacity(next), 'Gold je Fuhre', effectGold)
+        : gain(securingPower(state), securingPower(next), 'Punkte je Sicherung', effectValue)
 
     return {
       key: `slot:${group}:${index}`,
@@ -296,7 +286,7 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       name,
       nextName: changedName(name, slotStageName(group, level + 1)),
       stage: level,
-      effects,
+      gain: slotGain,
       cost: slotUpgradeCost(state, group, index),
       available: true,
       accent: SLOT_ACCENT[group],
