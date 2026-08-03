@@ -58,9 +58,11 @@ export interface GameState {
 export interface UpgradeView {
   key: string
   section: SectionId
+  /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. */
   name: string
   description: string
-  level: string
+  /** Spielerseitige Stufennummer; die nächste Stufe ist immer `stage + 1`. */
+  stage: number
   currentEffect: string
   nextEffect: string
   cost: number

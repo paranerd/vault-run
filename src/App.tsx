@@ -205,26 +205,27 @@ function SlotGrid({
 function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView; state: GameState; focused?: boolean; onBuy: (upgrade: UpgradeView) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
-  const unowned = Boolean(upgrade.slot && upgrade.level === 'Unbesetzt')
+  const unowned = Boolean(upgrade.slot) && upgrade.stage === 0
   // Only the focused card carries the ref, so it scrolls into view exactly once when the focus moves.
   const revealFocused = useCallback((node: HTMLElement | null) => node?.scrollIntoView({ block: 'center' }), [])
   return (
     <article ref={focused ? revealFocused : undefined} className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''} ${unowned ? 'is-unowned' : ''}`}>
-      <div className="upgrade-card__content">
+      <div className="upgrade-card__head">
         <span className="upgrade-card__sprite"><PixelSprite family={upgrade.spriteFamily} level={upgrade.spriteLevel} /></span>
-        <div className="upgrade-card__details">
-          <div className="upgrade-card__top"><span>{upgrade.level}</span>{upgrade.maxed && <b><Check size={13} /> Aktiv</b>}</div>
-          <h3>{upgrade.name}</h3>
-          <p>{upgrade.description}</p>
+        <div className="upgrade-card__facts">
+          {/* Stufenname statt Slot-Name; die Slot-Nummer bleibt als Kennung, weil vier Slots
+              derselben Stufe sonst identisch heißen. */}
+          <h3><span>{upgrade.name}</span>{upgrade.slot && <em>Slot {upgrade.slot.index + 1}</em>}</h3>
           <div className="upgrade-effects" aria-label="Upgrade-Effekt">
-            <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
-            <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
+            <div><span>Stufe {upgrade.stage}</span><strong>{upgrade.currentEffect}</strong></div>
+            <div><span>Stufe {upgrade.stage + 1}</span><strong>{upgrade.nextEffect}</strong></div>
           </div>
         </div>
+        <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold auf Stufe ${upgrade.stage + 1} verbessern`}>
+          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
+        </button>
       </div>
-      <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name} für ${formatGold(upgrade.cost)} Gold verbessern`}>
-        {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
-      </button>
+      <p className="upgrade-card__description">{upgrade.description}</p>
     </article>
   )
 }
