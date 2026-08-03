@@ -43,7 +43,7 @@ Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht
 
 - **Mine:** die Gesamtförderung in ganzen Gold pro Sekunde, also passive Bergleute plus aktives Schürfen.
 - **Beutel:** der Durchsatz zur Truhe in ganzen Gold pro Sekunde. Nebeneinander gelesen sagen Minen- und Beutelrate sofort, ob der Transport mithält oder der Beutel überläuft.
-- **Truhe:** die Aufmerksamkeit in Prozent. Sie startet bei 100 %, sinkt fortlaufend und löst bei 0 % den Diebeszug aus; eine Sicherung hebt sie wieder an. Bewusst eine fallende Anzeige — „das musst du oben halten“ liest sich unmittelbarer als ein wachsendes Risiko.
+- **Truhe:** die Aufmerksamkeit in Prozent. Sie startet bei 100 %, sinkt, solange Gold in der Schatztruhe liegt, und löst bei 0 % den Diebeszug aus; eine Sicherung hebt sie wieder an. Je voller der Hort, desto schneller fällt sie. Bewusst eine fallende Anzeige — „das musst du oben halten“ liest sich unmittelbarer als ein wachsendes Risiko.
 
 Beide Raten sind nach demselben Muster gebaut: der automatisierte Dauerdurchsatz plus die selbst ausgelösten Aktionen, gemittelt über ein gleitendes Zeitfenster — drei Sekunden für Klicks, zwölf für Reisen, passend zur Basis-Reisedauer. Ohne Automatik und ohne Zutun ebben sie von selbst auf null ab. Sie zeigen zudem, was tatsächlich ankommt: Die Minenrate steht auf null, wenn der Beutel voll ist oder die Mine während einer eigenen Reise ruht, die Transportrate, wenn die Schatztruhe nichts mehr aufnimmt. Beutel und Mine zeigen den Fortschritt eines manuellen Transports direkt als von unten nach oben wachsende goldene Füllung ihrer Aktions-Buttons; der separate Minenbalken entfällt. Der Beutel- und Truhenbalken zeigen ihre Füllstände. Ist der Beutel voll, pulsiert die Transportaktion. Die Schatztruhe bleibt bis zur ersten Goldlieferung ausgegraut. Manuell erzeugtes Gold fliegt sofort, automatisch geschürftes Gold einmal pro Sekunde auf leicht variierenden Bahnen zum Beutel.
 
@@ -63,9 +63,17 @@ Alle Käufe laufen über ein einziges Ausbau-Popup. Sein Kopfbereich scrollt nic
 
 ## Diebstahl und Schutz
 
-Diebstahl findet aktiv und offline statt, greift aber nur ungesichertes Gold im Beutel an. Gold in der Schatztruhe und bereits transportierte Ladung sind sicher.
+Diebstahl findet aktiv und offline statt und greift ausschließlich die **Schatztruhe** an. Gold im Beutel und Ladung unterwegs sind zu kleine Beute, um jemanden zu interessieren — Diebe überfallen Schatzkammern, keine Gürteltaschen.
 
-Die sichtbare Aufmerksamkeit steigt, solange Gold im Beutel liegt; ein voller Beutel treibt sie schneller. Bei 100 % wird ein Anteil des Beutels gestohlen, danach fällt die Anzeige auf einen kleinen Restwert zurück. Wie hoch dieser Anteil ausfällt, hängt weiterhin an der Wachstärke — sie ist die Schadensbegrenzung, wenn es doch knallt.
+Damit wirkt jeder Abschnitt genau auf die Ressource, die er besitzt: Die Wachen stehen im Truhen-Abschnitt und verteidigen dessen Gold. Jeder Abschnitt trägt außerdem genau einen Fehlermodus — der Beutel setzt unter **Zeitdruck** (er läuft über, wenn niemand transportiert), die Truhe unter **Sicherheitsdruck** (sie wird bestohlen, wenn niemand sichert).
+
+Der Transport zahlt deshalb nicht mehr in Sicherheit, sondern in **Handlungsfähigkeit**: Nur Truhengold lässt sich ausgeben. Umgekehrt ist ausgegebenes Gold unangreifbar — Ausbauen ist damit immer auch Verteidigen, und Horten hat einen Preis. Wer trotzdem auf ein teures Upgrade sparen will, kauft vorher Wachen.
+
+Die Aufmerksamkeit sinkt, sobald Gold in der Schatztruhe liegt; ein voller Hort treibt sie schneller. Vor der ersten Lieferung entsteht überhaupt kein Risiko — der Abschnitt ist zu diesem Zeitpunkt ohnehin ausgegraut, sodass niemand unter Druck gerät, bevor er die Truhe kennt. Bei 0 % wird ein Anteil der Truhe gestohlen, danach springt die Anzeige auf einen kleinen Restwert zurück. Wie hoch dieser Anteil ausfällt, hängt an der Wachstärke — sie ist die Schadensbegrenzung, wenn es doch knallt.
+
+Der Anteil ist bewusst klein: Bezugsgröße ist das gesamte Vermögen, nicht der Inhalt einer Tasche. Ohne Wachen nimmt ein Diebeszug 8 % der Truhe, ein ausgebauter Trupp drückt das bis auf 1,5 %. Weil es ein Anteil bleibt, ist der Verlust auf jedem Ausbaustand gleich spürbar und verliert nie an Bedeutung — anders als eine feste Summe, die im späteren Spiel verschwindet.
+
+Ein Gegenmittel steckt in der Truhe selbst: Weil das Risiko am Füllstand hängt, senkt jeder Ausbau der Schatztruhe den Druck. Die Ausrüstungskarte hat damit einen zweiten Zweck neben reiner Kapazität.
 
 Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand, dann von Angestellten übernommen.
 
@@ -75,7 +83,7 @@ Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand
 
 Die Wachen bremsen den Anstieg des Risikos bewusst **nicht** mehr. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte, und die Bedrohung verschwände schon nach den ersten Käufen aus dem Spiel. Ihr Wert steckt jetzt in Takt und Stärke der Sicherung.
 
-Eine einzelne Wache der ersten Stufe trägt das Risiko bei vollem Beutel noch nicht allein; ab etwa zwei Wachen kippt das Verhältnis, und ein ausgebauter Trupp hält die Anzeige dauerhaft unten.
+Eine einzelne Wache der ersten Stufe trägt das Risiko bei voller Truhe noch nicht allein; ab etwa zwei Wachen kippt das Verhältnis, und ein ausgebauter Trupp hält die Anzeige dauerhaft unten.
 
 ## Offline-Fortschritt
 
@@ -88,6 +96,8 @@ Beim Öffnen oder Zurückkehren in den Tab rekonstruiert dieselbe Engine maximal
 - Überfüllungsverluste,
 - Diebesgefahr, automatische Sicherungen der Wachen und Diebeszüge,
 - Grenzen der Schatztruhe.
+
+Weil der Diebstahl jetzt die Schatztruhe trifft, braucht die Offline-Strecke einen Deckel: Ein Aufenthalt nimmt höchstens ein Viertel dessen mit, was auf der Strecke Truhengold war — also der Stand beim Verlassen plus alles, was die Fuhren inzwischen angeliefert haben. Ohne diesen Bezug auf die Lieferungen wäre eine bei Abschied leere Truhe die ganze Nacht über unantastbar. Läuft das Budget aus, ebbt die Aufmerksamkeit weiterhin ab, damit die Rückkehr nicht in einem sofortigen Überfall endet.
 
 Ein Rückkehrdialog fasst geschürftes, gesichertes und gestohlenes Gold zusammen. Die Simulationslogik ist zeitbasiert und unabhängig von der Bildrate.
 

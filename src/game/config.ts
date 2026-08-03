@@ -118,20 +118,27 @@ export const automaticTransportRate = (state: GameState) =>
   hasAutomaticTransport(state) ? cargoCapacity(state) / transportDuration(state) : 0
 
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
-export const securityLoss = (state: GameState) => Math.max(0.06, 0.3 * 0.86 ** guardStrength(state))
-export const securityRating = (state: GameState) => Math.round((1 - securityLoss(state)) * 100)
+
+/** Anteil der Schatztruhe, den ein Diebeszug mitnimmt. Deutlich kleiner als der frühere
+    Beutel-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt einer Tasche. */
+export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 ** guardStrength(state))
 
 /** Anzeigeseitiges Gegenstück zu `threat`: startet bei 100 % und sinkt; bei 0 schlagen die Diebe zu. */
 export const vigilance = (state: GameState) => Math.max(0, 100 - state.threat)
 
-/** Risiko-Zuwachs pro Sekunde. Wächst nur, solange ungesichertes Gold im Beutel liegt, und
-    hängt allein am Füllstand — die Wachen greifen jetzt über ihre Sicherungen ein, nicht mehr
-    bremsend, sonst zählten sie doppelt. */
+/** Risiko-Zuwachs pro Sekunde. Wächst nur, solange etwas in der Schatztruhe liegt, und hängt
+    allein an deren Füllstand — die Diebe zielen auf den Hort, nicht auf den Beutel. Die Wachen
+    greifen über ihre Sicherungen ein, nicht bremsend, sonst zählten sie doppelt. */
 export const riskGrowth = (state: GameState) => {
-  if (state.chestGold <= 0) return 0
-  const fill = Math.min(1, state.chestGold / chestCapacity(state))
+  if (state.vaultGold <= 0) return 0
+  const fill = Math.min(1, state.vaultGold / vaultCapacity(state))
   return 0.3 + 0.75 * fill
 }
+
+/** Deckel für Diebstahl während einer Offline-Strecke, gemessen an allem, was auf der Strecke
+    Truhengold war (Stand beim Verlassen plus Lieferungen). Ohne ihn räumte eine durchschlafene
+    Nacht die Truhe restlos leer. */
+export const OFFLINE_THEFT_SHARE = 0.25
 
 /** Eine manuelle Sicherung nimmt ein Viertel der vollen Risikoskala. */
 export const MANUAL_SECURE_AMOUNT = 25
@@ -231,9 +238,9 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       nextEffect = `${effectValue(transporterCapacity(level + 1))} Gold`
       description = 'Erhöht die automatische Transportmenge und verkürzt die Zeit zwischen Fahrten.'
     } else {
-      currentEffect = `${securityRating(state)}% gesamt`
-      nextEffect = `${securityRating(next)}% gesamt`
-      description = 'Bewacht die Schatztruhe, bremst Aufmerksamkeit und begrenzt Verluste bei Diebeszügen.'
+      currentEffect = `${effectRate(securityLoss(state) * 100)} % Verlust`
+      nextEffect = `${effectRate(securityLoss(next) * 100)} % Verlust`
+      description = 'Bewacht den Hort: sichert selbstständig in festem Takt und drückt den Anteil, den ein Diebeszug aus der Schatztruhe mitnimmt.'
     }
 
     return {

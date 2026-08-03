@@ -1,6 +1,7 @@
 import {
   GOLD_FLIGHT_DURATION_MS,
   MAX_OFFLINE_SECONDS,
+  OFFLINE_THEFT_SHARE,
   cargoCapacity,
   chestCapacity,
   equipmentUpgradeCost,
@@ -150,14 +151,18 @@ function completeExpressTransport(state: GameState): void {
   state.tripCount += 1
 }
 
-function runTheft(state: GameState, report?: OfflineReport): void {
-  const stolen = state.chestGold * securityLoss(state)
-  state.chestGold -= stolen
+/** Diebeszug auf die Schatztruhe. `budget` deckelt die Beute (Offline-Strecke); ist es
+    aufgebraucht, ebbt die Aufmerksamkeit trotzdem ab, damit der Zug nicht endlos nachfeuert. */
+function runTheft(state: GameState, budget: number, report?: OfflineReport): number {
+  const stolen = Math.min(state.vaultGold * securityLoss(state), budget)
+  state.threat = 8
+  if (stolen <= 0) return 0
+  state.vaultGold -= stolen
   state.stolenGold += stolen
   state.theftCount += 1
-  state.threat = 8
   if (report) report.stolen += stolen
-  addEvent(state, 'warning', `Diebeszug: ${Math.ceil(stolen)} ungesichertes Gold verloren.`)
+  addEvent(state, 'warning', `Diebeszug: ${Math.ceil(stolen)} Gold aus der Schatztruhe verloren.`)
+  return stolen
 }
 
 export function lowerThreat(state: GameState, now = Date.now()): GameState {
@@ -177,6 +182,15 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
   const report: OfflineReport | undefined = offline
     ? { seconds: elapsedMs / 1000, earned: 0, delivered: 0, stolen: 0 }
     : undefined
+
+  // Offline darf ein Diebeszug nach dem anderen die Truhe nicht restlos ausräumen. Bezugsgröße
+  // ist alles, was auf der Strecke Truhengold war — sonst wäre eine bei Abschied leere Truhe
+  // die ganze Nacht über unantastbar, egal wie viel die Fuhren noch anliefern.
+  const vaultAtDeparture = state.vaultGold
+  let stolenOffline = 0
+  const remainingTheftBudget = () => offline
+    ? Math.max(0, OFFLINE_THEFT_SHARE * (vaultAtDeparture + (report?.delivered ?? 0)) - stolenOffline)
+    : Number.POSITIVE_INFINITY
 
   let cursor = state.lastTick
   while (cursor < target) {
@@ -207,7 +221,7 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
     }
 
     state.threat += dt * riskGrowth(state)
-    if (state.chestGold > 0 && state.threat >= 100) runTheft(state, report)
+    if (state.vaultGold > 0 && state.threat >= 100) stolenOffline += runTheft(state, remainingTheftBudget(), report)
 
     cursor = nextCursor
     if (state.secureEndsAt !== null && cursor >= state.secureEndsAt) {
