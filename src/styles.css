@@ -159,9 +159,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   grid-template-columns: minmax(0,1fr) minmax(100px,124px) minmax(0,1fr);
   gap: 7px;
   align-items: center;
+  /* Gemeinsame Blockhöhe der drei Spalten: hält Stat-, Text- und Slot-Unterkante auf einer Linie. */
+  --stat-block: min(146px, 90%);
 }
 .stats-grid,.slot-grid { min-width: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 4px; align-self: center; }
-.stats-grid { height: min(134px,88%); }
+.stats-grid { height: var(--stat-block); }
 /* Jeder Abschnitt zeigt nur noch seine eine handlungsrelevante Zahl — eine Kachel über die volle Fläche. */
 .stats-grid--single { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
 .stats-grid--single .stat-tile strong { font-size: clamp(24px,7.5vw,34px); }
@@ -189,7 +191,9 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .stat-tile__icon { height: 13px; margin-bottom: 2px; color: #74502f; }
 .stat-tile__icon svg { width: 13px; height: 13px; }
 
-.section-center { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+.section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; }
+/* Die Mine hat keinen Füllstandstext, den es auszurichten gäbe — ihr Button bleibt mittig. */
+.game-section--mine .section-center { justify-content: center; }
 .section-action {
   position: relative;
   overflow: hidden;
@@ -222,9 +226,9 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-progress__bar { width: 100%; height: 8px; overflow: hidden; padding: 1px; border: 2px solid #4c2a14; border-radius: 2px; background: rgba(68,39,18,.48); box-shadow: 1px 1px rgba(255,229,166,.16); }
 .section-progress__bar i { display: block; height: 100%; background: repeating-linear-gradient(90deg,#ffe992 0 7px,#d99d30 7px 9px); transition: width .1s steps(8,end); }
 .section-progress.is-muted .section-progress__bar { opacity: .62; }
-.section-progress__amount { margin-top: 2px; overflow: hidden; color: #4b301e; font-family: var(--pixel-font); font-size: 8px; font-weight: 700; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.section-progress__amount { margin-top: 3px; overflow: hidden; color: #43291a; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
 
-.slot-grid { position: relative; width: 100%; max-width: 126px; height: min(134px,88%); justify-self: end; }
+.slot-grid { position: relative; width: 100%; max-width: 126px; height: var(--stat-block); justify-self: end; }
 .slot-grid button {
   position: relative;
   min-width: 0;
@@ -427,7 +431,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .game-section { grid-template-rows: 19px minmax(0,1fr); }
   .section-divider { height: 19px; }.section-divider span { font-size: 11px; }.section-divider::before,.section-divider::after { height: 3px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
-  .stats-grid,.slot-grid { height: min(100px,86%); gap: 2px; }
+  .section-layout { --stat-block: min(112px, 88%); }
+  .stats-grid,.slot-grid { gap: 2px; }
   .stats-grid--single .stat-tile strong { font-size: 24px; }
   .stats-grid--single .stat-tile > span:not(.stat-tile__icon) { margin-top: 3px; font-size: 9px; }
   .stats-grid--single .stat-tile__icon { display: block; height: 15px; margin-bottom: 3px; }
@@ -436,7 +441,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-center { gap: 2px; }
   .section-action { width: 88px; height: 80px; border-width: 2px; box-shadow: 2px 2px 0 #2a160d; }
   .section-action img { width: 58px; height: 58px; }
-  .section-progress__bar { height: 6px; border-width: 1px; }.section-progress__amount { margin-top: 1px; font-size: 6px; }
+  .section-progress__bar { height: 6px; border-width: 1px; }.section-progress__amount { margin-top: 2px; font-size: 13px; }
   .slot-grid img { width: 38px; height: 38px; }.slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
 }
 
@@ -445,12 +450,13 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .game-section { grid-template-rows: 30px minmax(0,1fr); }
   .section-divider { height: 30px; }.section-divider span { font-size: 18px; }
   .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
-  .stats-grid,.slot-grid { max-width: 145px; height: min(145px,84%); gap: 6px; }
+  .section-layout { --stat-block: min(168px, 86%); }
+  .stats-grid,.slot-grid { max-width: 145px; gap: 6px; }
   .stat-tile strong { font-size: 15px; }.stat-tile > span:not(.stat-tile__icon) { font-size: 9px; }
   .stats-grid--single .stat-tile strong { font-size: 38px; }.stats-grid--single .stat-tile > span:not(.stat-tile__icon) { font-size: 14px; }
   .stats-grid--single .stat-tile__icon { height: 26px; }.stats-grid--single .stat-tile__icon svg { width: 26px; height: 26px; }
-  .section-action { width: 128px; height: 126px; }.section-action img { width: 86px; height: 86px; }.section-action strong { font-size: 13px; }
-  .section-progress { width: 130px; }.section-progress__amount { font-size: 9px; }
+  .section-action { width: 128px; height: 122px; }.section-action img { width: 84px; height: 84px; }.section-action strong { font-size: 13px; }
+  .section-progress { width: 130px; }.section-progress__amount { font-size: 17px; }
   .slot-grid img { width: 64px; height: 64px; }
   .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); transform: translateX(100%); }
   .management-sheet.is-open { transform: translateX(0); }
