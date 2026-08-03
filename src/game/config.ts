@@ -67,7 +67,7 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
     Zahl, die nur zu ihr gehört, und ließe sie sich beim Kauf nebenan ändern. */
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
   miners: 'Jeder Bergmann fördert für sich, jede Sekunde einmal. Jede Stufe erhöht allein seine Fördermenge.',
-  transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigener Fahrzeit. Deine eigene Fuhre läuft unabhängig daneben.',
+  transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigener Dauer. Deine eigene Fuhre läuft unabhängig daneben.',
   guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Jede Stufe senkt zusätzlich den Verlust bei einem Diebeszug um 14 %.',
 }
 
@@ -307,8 +307,8 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       slotFacts.push(fact('Förderung', empty ? null : minerRate(level), minerRate(level + 1), '/s', signedRate))
     } else if (group === 'transporters') {
       slotFacts.push(
-        fact('Ladung', empty ? null : transporterCapacity(level), transporterCapacity(level + 1), ' Gold', effectGold),
-        fact('Fahrzeit', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), ' s', effectRate),
+        fact('Ladung', empty ? null : transporterCapacity(level), transporterCapacity(level + 1), '', effectGold),
+        fact('Dauer', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), ' s', effectRate),
       )
     } else {
       // „x % alle y s“: was eine Sicherung abträgt und wie oft sie stattfindet. Beides sind die

@@ -386,13 +386,13 @@ describe('Vault Run engine', () => {
   it('describes a transporter by its load and its travel time', () => {
     const state = createInitialState(0)
     const [, load, travel] = getSlotUpgrades(state, 'bag')[0].facts
-    expect(load).toEqual({ from: '–', to: `${formatGold(transporterCapacity(1))} Gold`, label: 'Ladung' })
-    expect(travel).toEqual({ from: '–', to: `${formatDecimal(transporterTripSeconds(1))} s`, label: 'Fahrzeit' })
+    expect(load).toEqual({ from: '–', to: formatGold(transporterCapacity(1)), label: 'Ladung' })
+    expect(travel).toEqual({ from: '–', to: `${formatDecimal(transporterTripSeconds(1))} s`, label: 'Dauer' })
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
     expect(getSlotUpgrades(staffed, 'bag')[0].facts[1]).toEqual({
       from: formatGold(transporterCapacity(3)),
-      to: `${formatGold(transporterCapacity(4))} Gold`,
+      to: formatGold(transporterCapacity(4)),
       label: 'Ladung',
     })
   })
