@@ -264,16 +264,33 @@ const UpgradeCard = memo(function UpgradeCard({ upgrade, affordable, focused, on
           {/* Stufenname statt Slot-Name; die Slot-Nummer bleibt als Kennung, weil vier Slots
               derselben Stufe sonst identisch heißen. */}
           <h3><span>{upgrade.name}</span>{upgrade.slot && <em>Slot {upgrade.slot.index + 1}</em>}</h3>
-          <div className="upgrade-effects" aria-label="Upgrade-Effekt">
-            <div><span>Stufe {upgrade.stage}</span><strong>{upgrade.currentEffect}</strong></div>
-            <div><span>Stufe {upgrade.stage + 1}</span><strong>{upgrade.nextEffect}</strong></div>
-          </div>
+          {/* Eine Zeile für den Aufstieg selbst: Stufe vorher → nachher, und der neue Rang, sobald
+              der Kauf ihn ändert — der einzige „Vorteil“, den keine Zahl der Tabelle zeigt. */}
+          <p className="upgrade-card__step">
+            Stufe {upgrade.stage} <i aria-hidden="true">→</i> {upgrade.stage + 1}
+            {upgrade.nextName && <b>{upgrade.nextName}</b>}
+          </p>
         </div>
         <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold auf Stufe ${upgrade.stage + 1} verbessern`}>
           {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
         </button>
       </div>
-      <p className="upgrade-card__description">{upgrade.description}</p>
+      {/* Die Wirkung als benannte Zeilen „Größe: vorher → nachher“. Vorher standen hier zwei
+          unbeschriftete Zahlen unter „Stufe n“/„Stufe n+1“ — man sah, dass sich etwas ändert,
+          aber nicht, was gemessen wird. */}
+      <dl className="upgrade-effects">
+        {upgrade.effects.map((effect) => (
+          <div key={effect.label}>
+            <dt>{effect.label}</dt>
+            <dd>
+              <span>{effect.current}</span>
+              <i aria-hidden="true">→</i><em className="sr-only">wird zu</em>
+              <strong>{effect.unit ? `${effect.next} ${effect.unit}` : effect.next}</strong>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {upgrade.hint && <p className="upgrade-card__hint">{upgrade.hint}</p>}
     </article>
   )
 })
@@ -795,7 +812,10 @@ function App() {
         <div className="sheet-content" ref={sheetContentRef}>
           {upgradeGroups.map((group) => (
             <section key={group.category} className="upgrade-group">
-              {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}
+              {/* Der Titel steht jetzt auch im gefilterten Sheet, weil der Hinweis darunter hängt:
+                  Er gilt für alle vier Karten der Gruppe und stand vorher auf jeder einzeln. */}
+              <h3 className="upgrade-group__title">{group.label}</h3>
+              {group.hint && <p className="upgrade-group__hint">{group.hint}</p>}
               <div className="upgrade-list">
                 {group.upgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} affordable={state.vaultGold >= upgrade.cost} focused={panel.focusKey === upgrade.key} onBuy={handleBuy} />)}
               </div>

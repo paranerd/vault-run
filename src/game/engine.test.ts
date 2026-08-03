@@ -5,11 +5,13 @@ import {
   OFFLINE_THEFT_SHARE,
   SECURE_COOLDOWN_MS,
   automaticTransportAmount,
+  automaticTransportRate,
   cargoCapacity,
   chestCapacity,
   getAllUpgrades,
   getEquipmentUpgrade,
   getSlotUpgrades,
+  getUpgradeGroups,
   passiveRate,
   riskGrowth,
   securingInterval,
@@ -19,8 +21,11 @@ import {
   slotVisualLevel,
   slotUpgradeCost,
   tapValue,
+  transportDuration,
   vaultCapacity,
+  withSlotLevel,
 } from './config'
+import { formatDecimal } from './format'
 import {
   advanceGame,
   buyEquipmentUpgrade,
@@ -178,19 +183,29 @@ describe('Vault Run engine', () => {
     expect(cargoCapacity(staffed)).toBeGreaterThan(cargoCapacity(state))
   })
 
-  it('describes equipment and every slot with current and next effects', () => {
+  it('labels every effect of equipment and slots with a value before and after', () => {
     const state = createInitialState(0)
     const upgrades = [getEquipmentUpgrade(state, 'mine'), ...getSlotUpgrades(state, 'mine')]
     expect(upgrades).toHaveLength(5)
-    expect(upgrades.every((upgrade) => upgrade.currentEffect && upgrade.nextEffect)).toBe(true)
-    expect(upgrades[0]).toMatchObject({ currentEffect: '+1', nextEffect: '+2' })
+    expect(upgrades.every((upgrade) => upgrade.effects.every((effect) => effect.label && effect.current && effect.next))).toBe(true)
+    expect(upgrades[0].effects).toEqual([{ label: 'Pro Schlag', current: '1', next: '2', unit: 'Gold' }])
+  })
+
+  // Der Rangname ist der einzige Vorteil eines Aufstiegs, der in keiner Zahl steckt — und oberhalb
+  // der letzten benannten Stufe gibt es ihn nicht mehr. Dann darf die Karte auch keinen versprechen.
+  it('announces the next rank only while the upgrade still changes it', () => {
+    const state = createInitialState(0)
+    expect(getSlotUpgrades(state, 'mine')[0]).toMatchObject({ name: 'Leerer Stollen', nextName: 'Tagelöhner' })
+    expect(getSlotUpgrades({ ...state, minerLevels: [4, 0, 0, 0] }, 'mine')[0]).toMatchObject({ name: 'Erzmeister', nextName: undefined })
+    expect(getEquipmentUpgrade(state, 'mine')).toMatchObject({ name: 'Rostige Pickhacke', nextName: 'Eiserne Pickhacke' })
+    expect(getEquipmentUpgrade({ ...state, tapLevel: 3 }, 'mine').nextName).toBeUndefined()
   })
 
   it('uses the promised integer pickaxe value in gameplay and upgrade stats', () => {
     const state = { ...createInitialState(0), tapLevel: 4 }
     const upgraded = getEquipmentUpgrade(state, 'mine')
     expect(tapValue(state)).toBe(5)
-    expect(upgraded.currentEffect).toBe('+5')
+    expect(upgraded.effects[0].current).toBe('5')
     expect(tap(state).chestGold).toBe(5)
   })
 
@@ -290,15 +305,41 @@ describe('Vault Run engine', () => {
     expect(securityLoss(guarded)).toBeLessThan(securityLoss(state))
   })
 
-  it('leads the guard card with the securing rate and keeps the cadence in the text', () => {
+  it('leads the guard card with the securing rate and names the raid loss separately', () => {
     const state = createInitialState(0)
     const [unguarded] = getSlotUpgrades(state, 'chest')
-    expect(unguarded.currentEffect).toBe('Ungesichert')
-    expect(unguarded.nextEffect).toBe('-0,7 %/s gesamt')
-    expect(unguarded.description).toBe('Der Trupp senkt das Risiko danach alle 12 s um 8 Punkte und drückt den Verlust bei einem Diebeszug auf 6,9 %.')
+    expect(unguarded.effects).toEqual([
+      { label: 'Sicherung gesamt', current: 'Ungesichert', next: '-0,7 %/s' },
+      { label: 'Verlust je Diebeszug', current: '8', next: '6,9', unit: '%' },
+    ])
 
     const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
-    expect(getSlotUpgrades(guarded, 'chest')[0].currentEffect).toBe('-1,0 %/s gesamt')
+    expect(getSlotUpgrades(guarded, 'chest')[0].effects[0].current).toBe('-1,0 %/s')
+  })
+
+  // Die Beutel-Kachel zeigt „Gold / Sek.“ — dieselbe Größe steht als Ergebniszeile auf der Karte,
+  // damit ein Fuhrknecht-Aufstieg ohne Kopfrechnen an der Anzeige im Spiel ablesbar ist.
+  it('closes the transporter card with the throughput the bag tile shows', () => {
+    const state = createInitialState(0)
+    const [empty] = getSlotUpgrades(state, 'bag')
+    expect(empty.effects.map((effect) => effect.label)).toEqual(['Fuhre', 'Fahrzeit', 'Transport gesamt'])
+    expect(empty.effects[2].current).toBe('Nur von Hand')
+
+    const staffed = { ...state, transporterLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    const [upgradable] = getSlotUpgrades(staffed, 'bag')
+    expect(upgradable.effects[2].current).toBe(`${formatDecimal(automaticTransportRate(staffed))}/s`)
+    expect(upgradable.effects[1].next).toBe(formatDecimal(transportDuration(withSlotLevel(staffed, 'transporters', 0))))
+  })
+
+  // Der Gruppenhinweis gilt für alle vier Karten und steht deshalb genau einmal über ihnen; die
+  // Ausrüstungskarten erklären sich einzeln und tragen ihren Hinweis selbst.
+  it('carries shared wording on the group and per-card wording only on equipment', () => {
+    const state = createInitialState(0)
+    const [equipment, miners] = getUpgradeGroups(state, 'all')
+    expect(equipment.hint).toBeUndefined()
+    expect(equipment.upgrades.every((upgrade) => Boolean(upgrade.hint))).toBe(true)
+    expect(miners.hint).toBeTruthy()
+    expect(miners.upgrades.every((upgrade) => upgrade.hint === undefined)).toBe(true)
   })
 
   it('reports a securing rate that can be read against the risk growth', () => {

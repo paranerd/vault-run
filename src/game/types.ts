@@ -60,16 +60,31 @@ export interface GameState {
   lastOfflineReport?: OfflineReport
 }
 
+/** Eine messbare Größe, die der Stufenaufstieg verändert: benannt, mit Wert vorher und nachher.
+    Genau eine Zeile der Wirkungstabelle einer Upgrade-Karte. */
+export interface UpgradeEffect {
+  /** Was gemessen wird, z. B. „Fördermenge“. */
+  label: string
+  current: string
+  next: string
+  /** Einheit, die nur einmal hinter dem Nachher-Wert steht — „12 → 19 Gold“ statt zweimal „Gold“. */
+  unit?: string
+}
+
 export interface UpgradeView {
   key: string
   section: SectionId
   /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. */
   name: string
-  description: string
+  /** Name nach dem Kauf; nur gesetzt, wenn der Aufstieg ihn tatsächlich ändert. */
+  nextName?: string
+  /** Kurzer Hinweis auf einen Effekt, der sich aus keiner Zahl ablesen lässt. Slots tragen ihn
+      nicht — dort steht der gemeinsame Hinweis einmal über der Gruppe statt viermal je Karte. */
+  hint?: string
   /** Spielerseitige Stufennummer; die nächste Stufe ist immer `stage + 1`. */
   stage: number
-  currentEffect: string
-  nextEffect: string
+  /** Alles, was der Aufstieg zahlenmäßig verändert — führende Zeile zuerst. */
+  effects: UpgradeEffect[]
   cost: number
   available: boolean
   maxed?: boolean
