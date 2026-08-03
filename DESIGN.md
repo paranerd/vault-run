@@ -70,12 +70,14 @@ Alle Käufe laufen über ein einziges Ausbau-Popup. Sein Kopfbereich scrollt nic
 Der mittlere Teil jeder Karte ist eine **Attributtabelle**: je Zeile ein Wert vor und nach dem Kauf, dahinter sein Name. Die Stufe führt sie an und trägt den Rang, den die Einheit danach hat.
 
 ```text
-Stufe 2   →  Stufe 3    Wachturm
-+0,9      →  +1,4       %/s Sicherung
-8,9       →  7,1        Sek. Takt
+Stufe 2   →  Stufe 3     Wachturm
+-0,9      →  -1,4 %/s    Risiko
+8,9       →  7,1 s       Takt
 ```
 
-Die drei Wertespalten sind inhaltsbreit und über alle Zeilen geteilt, sodass die Pfeile untereinander stehen und man die Karte in einer Blickachse hinunterliest. Die Einheit steht **einmal** im Namen am Zeilenende statt an beiden Zahlen: „16,6 Tsd. Gold → 39,8 Tsd. Gold“ sprengt sonst die Kartenbreite, und zweimal dieselbe Einheit trägt nichts bei. Ein unbesetzter Slot hat keinen Vorher-Wert und zeigt dort einen Strich statt einer erfundenen Null. Bringt eine Stufe rechnerisch nichts, stehen links und rechts dieselben Zahlen — eine Karte, die zum Kauf auffordert, muss das zeigen.
+Die drei Wertespalten sind inhaltsbreit und über alle Zeilen geteilt, sodass die Pfeile untereinander stehen und man die Karte in einer Blickachse hinunterliest. Die Einheit hängt **nur am Nachher-Wert** und bleibt so kurz wie möglich — `/s` statt `Gold/s`, `s` statt `Sek.`: Zweimal dieselbe Einheit trägt nichts bei und kostet die Breite, die der Attributname braucht. Ein unbesetzter Slot hat keinen Vorher-Wert und zeigt dort einen Strich statt einer erfundenen Null. Bringt eine Stufe rechnerisch nichts, steht links dieselbe Zahl wie rechts — eine Karte, die zum Kauf auffordert, muss das zeigen.
+
+Das Vorzeichen sagt die Richtung: Bergleute und Fuhrknechte legen etwas zu einer Summe dazu und schreiben `+`, eine Wache trägt vom Risiko ab und schreibt `-`. Ihre Zeile heißt deshalb **Risiko** und nicht „Sicherung“ — benannt wird die Größe, die sich bewegt, und die steht als Prozentwert auf der Kachel darüber.
 
 Aufgeführt sind nur die **unabhängigen** Attribute. Die Menge je Takt steht nicht zusätzlich dabei: Sie ist das Produkt aus Durchsatz und Takt und wäre nur eine dritte Schreibweise derselben Sache.
 

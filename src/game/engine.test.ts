@@ -228,13 +228,13 @@ describe('Vault Run engine', () => {
 
     expect(upgrades[0].facts).toEqual([
       { from: 'Stufe 1', to: 'Stufe 2', label: 'Eiserne Pickhacke' },
-      { from: '1', to: '2', label: 'Gold je Schlag' },
+      { from: '1', to: '2 Gold', label: 'je Schlag' },
     ])
     // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
     expect(upgrades[1].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Tagelöhner' },
-      { from: '–', to: `+${formatDecimal(minerRate(1))}`, label: 'Gold/s Förderung' },
-      { from: '–', to: formatDecimal(minerInterval(1)), label: 'Sek. Takt' },
+      { from: '–', to: `+${formatDecimal(minerRate(1))}/s`, label: 'Förderung' },
+      { from: '–', to: `${formatDecimal(minerInterval(1))} s`, label: 'Takt' },
     ])
   })
 
@@ -242,7 +242,7 @@ describe('Vault Run engine', () => {
   // `tapValue` rundet auf, weshalb Stufe 3 → 4 denselben Wert liefert wie Stufe 2 → 3.
   it('admits it when a level adds nothing at all', () => {
     const [, hit] = getEquipmentUpgrade({ ...createInitialState(0), tapLevel: 2 }, 'mine').facts
-    expect(hit.from).toBe(hit.to)
+    expect(hit.to).toBe(`${hit.from} Gold`)
   })
 
   // Der Rangname ist der einzige Vorteil eines Aufstiegs, der in keiner Zahl steckt — und oberhalb
@@ -259,7 +259,7 @@ describe('Vault Run engine', () => {
     const state = { ...createInitialState(0), tapLevel: 4 }
     const upgraded = getEquipmentUpgrade(state, 'mine')
     expect(tapValue(state)).toBe(5)
-    expect(upgraded.facts[1]).toEqual({ from: '5', to: '6', label: 'Gold je Schlag' })
+    expect(upgraded.facts[1]).toEqual({ from: '5', to: '6 Gold', label: 'je Schlag' })
     expect(tap(state).chestGold).toBe(5)
   })
 
@@ -370,9 +370,11 @@ describe('Vault Run engine', () => {
     const state = createInitialState(0)
     expect(getSlotUpgrades(state, 'chest')[0].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Eisenschloss' },
-      { from: '–', to: `+${formatDecimal(guardRate(1))}`, label: '%/s Sicherung' },
-      { from: '–', to: formatDecimal(guardInterval(1)), label: 'Sek. Takt' },
+      { from: '–', to: `-${formatDecimal(guardRate(1))} %/s`, label: 'Risiko' },
+      { from: '–', to: `${formatDecimal(guardInterval(1))} s`, label: 'Takt' },
     ])
+
+    expect(getSlotUpgrades(state, 'chest')[0].facts[1].to.startsWith('-')).toBe(true)
 
     // Eine zweite Wache daneben ändert nichts an diesen Zeilen — jede sichert für sich.
     const guarded = { ...state, guardLevels: [0, 3, 0, 0] as [number, number, number, number] }
@@ -383,15 +385,15 @@ describe('Vault Run engine', () => {
   it('measures a transporter in the gold it delivers per second by itself', () => {
     const state = createInitialState(0)
     const [, throughput, travel] = getSlotUpgrades(state, 'bag')[0].facts
-    expect(throughput).toEqual({ from: '–', to: `+${formatDecimal(transporterRate(1))}`, label: 'Gold/s Transport' })
-    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterTripSeconds(1)), label: 'Sek. Fahrzeit' })
-    expect(getSlotUpgrades(state, 'mine')[0].facts[1].label).toBe('Gold/s Förderung')
+    expect(throughput).toEqual({ from: '–', to: `+${formatDecimal(transporterRate(1))}/s`, label: 'Transport' })
+    expect(travel).toEqual({ from: '–', to: `${formatDecimal(transporterTripSeconds(1))} s`, label: 'Fahrzeit' })
+    expect(getSlotUpgrades(state, 'mine')[0].facts[1].to).toContain('/s')
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
     expect(getSlotUpgrades(staffed, 'bag')[0].facts[1]).toEqual({
       from: `+${formatDecimal(transporterRate(3))}`,
-      to: `+${formatDecimal(transporterRate(4))}`,
-      label: 'Gold/s Transport',
+      to: `+${formatDecimal(transporterRate(4))}/s`,
+      label: 'Transport',
     })
   })
 

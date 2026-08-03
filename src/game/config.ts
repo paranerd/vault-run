@@ -100,8 +100,10 @@ const effectGold = (value: number) => formatGold(value)
 const visualStage = (level: number) => Math.min(3, Math.max(0, level))
 const effectValue = (value: number) => formatInteger(Math.floor(value))
 const effectRate = (value: number) => formatDecimal(value)
-/** Beiträge zu einer Summe tragen ihr Vorzeichen: Was hier steht, kommt zum Gesamtwert hinzu. */
+/** Beiträge zu einer Summe tragen ihr Vorzeichen: Was hier steht, kommt zum Gesamtwert hinzu.
+    Eine Wache trägt umgekehrt ab — sie senkt das Risiko und schreibt deshalb ein Minus. */
 const signedRate = (value: number) => `+${formatDecimal(value)}`
+const loweringRate = (value: number) => `-${formatDecimal(value)}`
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
@@ -229,12 +231,12 @@ const changedName = (current: string, next: string) => (next === current ? undef
 const stageFact = (stage: number, nextName?: string): UpgradeFact =>
   ({ from: `Stufe ${stage}`, to: `Stufe ${stage + 1}`, label: nextName ?? '' })
 
-/** Eine Attributzeile: derselbe Wert vor und nach dem Kauf. Die Einheit steht im Namen am
-    Zeilenende und nicht an beiden Zahlen — „16,6 Tsd. Gold → 39,8 Tsd. Gold“ sprengt sonst die
-    Kartenbreite, und zweimal dieselbe Einheit trägt ohnehin nichts bei. Ein Slot, der noch
-    unbesetzt ist, hat keinen Vorher-Wert; dort steht ein Strich statt einer erfundenen Null. */
-function fact(label: string, before: number | null, after: number, format: (value: number) => string): UpgradeFact {
-  return { from: before === null ? '–' : format(before), to: format(after), label }
+/** Eine Attributzeile: derselbe Wert vor und nach dem Kauf. Die Einheit hängt nur am Nachher-Wert
+    — zweimal dieselbe Einheit trägt nichts bei und kostet die Breite, die der Attributname braucht.
+    Ein Slot, der noch unbesetzt ist, hat keinen Vorher-Wert; dort steht ein Strich statt einer
+    erfundenen Null. */
+function fact(label: string, before: number | null, after: number, unit: string, format: (value: number) => string): UpgradeFact {
+  return { from: before === null ? '–' : format(before), to: `${format(after)}${unit}`, label }
 }
 
 export function getEquipmentUpgrade(state: GameState, section: SectionId): UpgradeView {
@@ -247,7 +249,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       hint: 'Wirkt nur, wenn du selbst in der Mine klickst.',
       facts: [
         stageFact(state.tapLevel + 1, changedName(name, PICKAXES[visualStage(state.tapLevel + 1)])),
-        fact('Gold je Schlag', tapValue(state), tapValue(next), effectValue),
+        fact('je Schlag', tapValue(state), tapValue(next), ' Gold', effectValue),
       ],
       stage: state.tapLevel + 1, cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
       spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,
@@ -262,7 +264,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       hint: 'Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre.',
       facts: [
         stageFact(state.chestLevel + 1, changedName(name, BAGS[visualStage(state.chestLevel + 1)])),
-        fact('Gold Platz', chestCapacity(state), chestCapacity(next), effectGold),
+        fact('Platz', chestCapacity(state), chestCapacity(next), ' Gold', effectGold),
       ],
       stage: state.chestLevel + 1, cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
       spriteFamily: 'bag', spriteLevel: state.chestLevel,
@@ -276,7 +278,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
     hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
     facts: [
       stageFact(state.vaultLevel + 1, changedName(name, TREASURE_CHESTS[visualStage(state.vaultLevel + 1)])),
-      fact('Gold Platz', vaultCapacity(state), vaultCapacity(next), effectGold),
+      fact('Platz', vaultCapacity(state), vaultCapacity(next), ' Gold', effectGold),
     ],
     stage: state.vaultLevel + 1, cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
     spriteFamily: 'chest', spriteLevel: state.vaultLevel,
@@ -299,18 +301,18 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     const slotFacts: UpgradeFact[] = [stageFact(level, changedName(name, slotStageName(group, level + 1)))]
     if (group === 'miners') {
       slotFacts.push(
-        fact('Gold/s Förderung', empty ? null : minerRate(level), minerRate(level + 1), signedRate),
-        fact('Sek. Takt', empty ? null : minerInterval(level), minerInterval(level + 1), effectRate),
+        fact('Förderung', empty ? null : minerRate(level), minerRate(level + 1), '/s', signedRate),
+        fact('Takt', empty ? null : minerInterval(level), minerInterval(level + 1), ' s', effectRate),
       )
     } else if (group === 'transporters') {
       slotFacts.push(
-        fact('Gold/s Transport', empty ? null : transporterRate(level), transporterRate(level + 1), signedRate),
-        fact('Sek. Fahrzeit', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), effectRate),
+        fact('Transport', empty ? null : transporterRate(level), transporterRate(level + 1), '/s', signedRate),
+        fact('Fahrzeit', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), ' s', effectRate),
       )
     } else {
       slotFacts.push(
-        fact('%/s Sicherung', empty ? null : guardRate(level), guardRate(level + 1), signedRate),
-        fact('Sek. Takt', empty ? null : guardInterval(level), guardInterval(level + 1), effectRate),
+        fact('Risiko', empty ? null : guardRate(level), guardRate(level + 1), ' %/s', loweringRate),
+        fact('Takt', empty ? null : guardInterval(level), guardInterval(level + 1), ' s', effectRate),
       )
     }
 
