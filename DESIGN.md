@@ -121,11 +121,21 @@ Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand
 - **Ab der ersten Wache** sichert sie selbstständig in ihrem eigenen Takt. Jede Wache trägt ihre eigenen Punkte ab und wird mit jeder Stufe stärker und schneller; ein Trupp-Bonus existiert nicht. Die Sperre entfällt damit vollständig.
 - **Der Tap bleibt danach nützlich** — wie die Eilreise beim Transport: Läuft das Risiko zwischen zwei Takten hoch, senkt ein Tap es sofort zusätzlich, ohne irgendetwas zu blockieren.
 
-Die Wachen-Karte nennt deshalb die **Punkte, die der Trupp je Sicherung zusätzlich abträgt** — dieselbe Einheit, in der die Risikokachel steigt, sodass beide Zahlen direkt gegeneinander lesbar sind. Der Takt ist keine Kartenzahl: Er ändert sich mit jeder Wache für den ganzen Trupp und ließe die Karte springen, sobald nebenan gekauft wird. Ebenso der Schadensdeckel — der Effekt, den man ausschließlich im Moment des Scheiterns sieht. Beides steht als ein Satz über der Gruppe. Wachen wirken immer als **Trupp**, nie als einzelner Posten: Die zweite Wache verkürzt den Takt für alle, ein Einzelbeitrag ist dort nicht trennbar; trennbar ist allein die Sicherungskraft, und genau die zeigt die Karte.
+Die Wachen-Karte nennt deshalb **„x % alle y s“** — die Punkte, die diese eine Wache je Sicherung abträgt, in derselben Einheit, in der die Risikokachel steigt, und den Takt, in dem sie das tut. Beides gehört ihr allein. Der Schadensdeckel gilt dagegen für den ganzen Trupp und steht als ein Satz über der Gruppe: Es ist der Effekt, den man ausschließlich im Moment des Scheiterns sieht.
 
-Die Wachen bremsen den Anstieg des Risikos bewusst **nicht** mehr. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte, und die Bedrohung verschwände schon nach den ersten Käufen aus dem Spiel. Ihr Wert steckt jetzt in Takt und Stärke der Sicherung.
+Die Wachen bremsen den Anstieg des Risikos bewusst **nicht**. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte. Ihr Wert steckt allein in Takt und Stärke der Sicherung.
 
-Eine einzelne Wache der ersten Stufe trägt das Risiko bei voller Truhe noch nicht allein; ab etwa zwei Wachen kippt das Verhältnis, und ein ausgebauter Trupp hält die Anzeige dauerhaft unten.
+**Der Anstieg wächst mit der Truhenstufe** (+25 % je Stufe), und zwar aus genau diesem Grund. Ohne den Faktor stand ein fester Deckel von 1,05 %/s gegen Wachen, deren Rate mit jeder Stufe quadratisch zulegt: Drei Wachen der ersten Stufe für 450 Gold stellten das Risiko dauerhaft auf null — und mit ihm den Sicherungs-Tap, den Schadensdeckel und den ganzen Diebstahl-Teil des Spiels. Eine Konstante gegen eine unbegrenzte Gegenkraft kann nur einmal ausgehen.
+
+Mit dem Faktor bleibt der Trupp gefordert, ohne je aussichtslos zu werden — der nötige Ausbau wächst deutlich langsamer als der der Truhe selbst:
+
+| Truhenstufe | Anstieg bei voller Truhe | Truhe kostete bis dahin | nötiger Trupp |
+|---|---|---|---|
+| 0 | 1,05 %/s | – | 3× Stufe 1 (450 Gold) |
+| 4 | 2,10 %/s | 3.782 Gold | 3× Stufe 2 (1.260 Gold) |
+| 8 | 3,15 %/s | 48.075 Gold | 4× Stufe 2 (1.680 Gold) |
+
+Der Gegenzug bleibt trotzdem der **Truhenausbau selbst**: Er vervielfacht die Kapazität, der Füllstand fällt damit auf gut 40 % und der Anstieg auf knapp 60 % — mehr, als der Stufenfaktor von höchstens 25 % dagegenhält. Wer ausbaut, verschafft sich also weiterhin sofort Luft und handelt sie gegen einen höheren Sockel ein.
 
 ## Offline-Fortschritt
 

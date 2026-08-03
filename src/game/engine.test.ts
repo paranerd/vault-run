@@ -331,6 +331,31 @@ describe('Vault Run engine', () => {
     expect(returned.theftCount).toBe(0)
   })
 
+  // Der Kern des Risikos: Es darf nicht dauerhaft abzuschalten sein. Ein fester Deckel gegen
+  // Wachen, die unbegrenzt weiterwachsen, hatte genau das erlaubt — drei billigste Wachen für
+  // 450 Gold stellten es auf null und nahmen dem Spiel seinen ganzen Diebstahl-Teil.
+  it('keeps outgrowing a troop that stops being upgraded', () => {
+    const cheapTroop = [1, 1, 1, 0] as [number, number, number, number]
+    const early = { ...createInitialState(0), guardLevels: cheapTroop }
+    const late = { ...early, vaultLevel: 8 }
+
+    expect(securingRate(early)).toBeGreaterThan(riskGrowth({ ...early, vaultGold: vaultCapacity(early) }))
+    expect(securingRate(late)).toBeLessThan(riskGrowth({ ...late, vaultGold: vaultCapacity(late) }))
+
+    const robbed = advanceGame({ ...late, vaultGold: vaultCapacity(late), threat: 50 }, 2 * 60 * 60 * 1_000)
+    expect(robbed.theftCount).toBeGreaterThan(0)
+  })
+
+  // Der Gegenzug bleibt trotzdem der Truhenausbau: Er verdreifacht die Kapazität, der Füllstand
+  // fällt auf gut 40 % — mehr, als der Stufenfaktor dagegenhält.
+  it('still relieves the pressure the moment the treasury is enlarged', () => {
+    for (let vaultLevel = 0; vaultLevel <= 8; vaultLevel += 1) {
+      const before = { ...createInitialState(0), vaultLevel }
+      const full = { ...before, vaultGold: vaultCapacity(before) }
+      expect(riskGrowth({ ...full, vaultLevel: vaultLevel + 1 })).toBeLessThan(riskGrowth(full))
+    }
+  })
+
   it('grows the risk faster the fuller the treasury sits', () => {
     const base = createInitialState(0)
     const light = { ...base, vaultGold: vaultCapacity(base) * 0.1 }
