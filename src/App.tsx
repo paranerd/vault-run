@@ -443,8 +443,9 @@ function App() {
     || (state.expressEndsAt !== null && state.expressGold === 0)
 
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
-  // Ohne Fuhrknecht ruht die Mine während einer manuellen Reise — dann fördert auch niemand.
-  const miningPaused = mainTravelling && !automatic
+  // Die Kachel zeigt, was tatsächlich ankommt: Ohne Fuhrknecht ruht die Mine während einer
+  // manuellen Reise, und bei vollem Beutel verfällt jedes weitere Korn — beides ergibt 0.
+  const miningPaused = (mainTravelling && !automatic) || bagFull
   const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
   const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
 
