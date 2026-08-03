@@ -264,10 +264,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 /* Alle fünf Filter stehen in einer Zeile: die Chips füllen die Breite komplett aus,
    wachsen und schrumpfen dafür proportional zu ihrer Beschriftung, brechen aber nie um. */
 .sheet-filters { width: 100%; display: flex; flex-wrap: nowrap; gap: 3px; padding: 3px; border: 2px solid #704629; border-radius: 4px; background: #c79c61; }
-.sheet-filters button { position: relative; flex: 1 1 auto; min-width: 0; min-height: 31px; padding: 0 8px; overflow: hidden; border: 0; border-radius: 2px; color: #67462f; background: rgba(255,240,200,.2); font-family: var(--pixel-font); font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.sheet-filters button { position: relative; flex: 1 1 auto; min-width: 0; min-height: 31px; padding: 0 8px; overflow: hidden; border: 0; border-radius: 2px; color: #67462f; background: transparent; font-family: var(--pixel-font); font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .sheet-filters button.is-active { color: #fff0c5; background: #694026; box-shadow: inset 2px 2px rgba(30,14,8,.22); }
-/* Punkt statt Zahl, absolut in der Innenabstands-Ecke: die Chip-Breite bleibt dadurch konstant. */
-.sheet-filters button b { position: absolute; top: 3px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+/* Punkt statt Zahl, direkt an der Beschriftung. Der negative rechte Außenabstand hebt seine
+   Laufweite wieder auf, sodass ein Chip mit Punkt exakt so breit ist wie einer ohne. */
+.sheet-filters button b { display: inline-block; width: 6px; height: 6px; margin: 0 -9px 0 3px; border-radius: 50%; vertical-align: .5em; background: var(--red); }
 .sheet-filters button.is-active b { background: #ff8a6d; }
 .sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 13px 2px 26px; overscroll-behavior: contain; }
 .sheet-hint { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.1; }
@@ -395,7 +396,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 @media (max-width: 380px) {
   .sheet-filters { gap: 2px; }
   .sheet-filters button { padding: 0 6px; font-size: 12px; }
-  .sheet-filters button b { top: 2px; right: 2px; width: 5px; height: 5px; }
+  .sheet-filters button b { width: 5px; height: 5px; margin: 0 -7px 0 2px; }
 }
 
 @media (max-height: 700px) {
