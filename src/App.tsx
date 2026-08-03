@@ -618,9 +618,16 @@ function App() {
                 {UPGRADE_FILTERS.map((filter) => {
                   const buyable = affordableIn(filter).length
                   return (
-                    <button key={filter} role="tab" aria-selected={panel.filter === filter} className={panel.filter === filter ? 'is-active' : ''} onClick={() => openUpgrades(filter)}>
+                    <button
+                      key={filter}
+                      role="tab"
+                      aria-selected={panel.filter === filter}
+                      aria-label={buyable > 0 ? `${UPGRADE_FILTER_LABEL[filter]}, ${buyable} bezahlbar` : UPGRADE_FILTER_LABEL[filter]}
+                      className={panel.filter === filter ? 'is-active' : ''}
+                      onClick={() => openUpgrades(filter)}
+                    >
                       {UPGRADE_FILTER_LABEL[filter]}
-                      {buyable > 0 && <b aria-label={`${buyable} bezahlbar`}>{buyable}</b>}
+                      {buyable > 0 && <b aria-hidden="true" />}
                     </button>
                   )
                 })}

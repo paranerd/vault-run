@@ -261,11 +261,13 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .sheet-header__top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .sheet-header__top h2 { min-width: 0; margin: 0; overflow: hidden; color: #3d2518; font-family: var(--pixel-font); font-size: 28px; font-weight: 400; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .sheet-close { flex: 0 0 auto; width: 35px; height: 35px; border: 2px solid #6b4327; border-radius: 3px; color: #4e2c1b; background: #d4aa69; box-shadow: 2px 2px 0 rgba(56,30,15,.28); font-size: 24px; line-height: 1; cursor: pointer; }
-/* Alle fünf Filter bleiben sichtbar: die Chips brechen um, statt seitlich wegzuscrollen. */
-.sheet-filters { width: 100%; display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border: 2px solid #704629; border-radius: 4px; background: #c79c61; }
-.sheet-filters button { flex: 0 0 auto; min-height: 31px; padding: 0 8px; display: flex; gap: 5px; align-items: center; border: 0; border-radius: 2px; color: #67462f; background: transparent; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; white-space: nowrap; cursor: pointer; }
+/* Alle fünf Filter stehen in einer Zeile: die Chips schrumpfen notfalls, brechen aber nie um. */
+.sheet-filters { width: 100%; display: flex; flex-wrap: nowrap; gap: 3px; padding: 3px; border: 2px solid #704629; border-radius: 4px; background: #c79c61; }
+.sheet-filters button { position: relative; flex: 0 1 auto; min-width: 0; min-height: 31px; padding: 0 8px; overflow: hidden; border: 0; border-radius: 2px; color: #67462f; background: transparent; font-family: var(--pixel-font); font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .sheet-filters button.is-active { color: #fff0c5; background: #694026; box-shadow: inset 2px 2px rgba(30,14,8,.22); }
-.sheet-filters button b { min-width: 16px; height: 16px; padding: 0 3px; display: grid; place-items: center; border-radius: 2px; color: #fff2c8; background: var(--red); font-size: 11px; font-weight: 400; line-height: 1; }
+/* Punkt statt Zahl, absolut in der Innenabstands-Ecke: die Chip-Breite bleibt dadurch konstant. */
+.sheet-filters button b { position: absolute; top: 3px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+.sheet-filters button.is-active b { background: #ff8a6d; }
 .sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 13px 2px 26px; overscroll-behavior: contain; }
 .sheet-hint { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.1; }
 .upgrade-group + .upgrade-group { margin-top: 15px; }
@@ -387,6 +389,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-action { width: 94px; }
   .dock__inner { gap: 5px; }
   .dock-button { font-size: 12px; }
+}
+
+@media (max-width: 380px) {
+  .sheet-filters { gap: 2px; }
+  .sheet-filters button { padding: 0 6px; font-size: 12px; }
+  .sheet-filters button b { top: 2px; right: 2px; width: 5px; height: 5px; }
 }
 
 @media (max-height: 700px) {
