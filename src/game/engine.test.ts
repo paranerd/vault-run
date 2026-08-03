@@ -7,6 +7,7 @@ import {
   automaticTransportAmount,
   cargoCapacity,
   chestCapacity,
+  getAllUpgrades,
   getEquipmentUpgrade,
   getSlotUpgrades,
   passiveRate,
@@ -309,6 +310,62 @@ describe('Vault Run engine', () => {
     expect(securingRate(base)).toBe(0)
     expect(securingRate(oneGuard)).toBeLessThan(riskGrowth(full))
     expect(securingRate(threeGuards)).toBeGreaterThan(riskGrowth(full))
+  })
+
+  // App.tsx memoisiert die Upgrade-Views allein über die Stufen (`upgradeLevelKey`). Sobald eine
+  // Beschreibung, ein Effekt oder ein Preis zusätzlich an Gold, Risiko oder Transport hinge, würde
+  // die Karte veraltete Werte zeigen, ohne dass es auffiele. Dieser Test hält die Annahme fest.
+  it('derives every upgrade view from the levels alone', () => {
+    const base = createInitialState(0)
+    const levelled = {
+      ...base,
+      tapLevel: 3,
+      chestLevel: 2,
+      vaultLevel: 2,
+      minerLevels: [2, 1, 0, 0] as [number, number, number, number],
+      transporterLevels: [2, 1, 0, 0] as [number, number, number, number],
+      guardLevels: [2, 1, 0, 0] as [number, number, number, number],
+    }
+    const busy = {
+      ...levelled,
+      vaultGold: 98_765,
+      chestGold: 421,
+      inTransitGold: 77,
+      expressGold: 33,
+      threat: 84,
+      tripCount: 219,
+      theftCount: 7,
+      lastTick: 5_000_000,
+      transportStartedAt: 1_000,
+      transportEndsAt: 9_000,
+      secureStartedAt: 1_000,
+      secureEndsAt: 4_000,
+    }
+    expect(getAllUpgrades(busy)).toEqual(getAllUpgrades(levelled))
+  })
+
+  it('skips work and keeps its identity while the game lies dormant', () => {
+    const dormant = createInitialState(0)
+    const ticked = advanceGame(dormant, 10_000)
+
+    expect(ticked).toBe(dormant)
+    // Die Uhr muss trotzdem laufen, sonst würde die Ruhezeit beim ersten Bergmann rückwirkend
+    // als Förderung gutgeschrieben.
+    expect(ticked.lastTick).toBe(10_000)
+
+    const hired = { ...ticked, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    expect(advanceGame(hired, 11_000).chestGold).toBeCloseTo(passiveRate(hired), 5)
+  })
+
+  it('keeps advancing once anything is actually in motion', () => {
+    const mining = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    expect(advanceGame(mining, 1_000)).not.toBe(mining)
+
+    const banked = { ...createInitialState(0), vaultGold: 100 }
+    expect(advanceGame(banked, 1_000).threat).toBeGreaterThan(0)
+
+    const carrying = { ...createInitialState(0), transporterLevels: [1, 0, 0, 0] as [number, number, number, number], chestGold: 20 }
+    expect(advanceGame(carrying, 1_000).transportStartedAt).not.toBeNull()
   })
 
   it('migrates schema-3 progress into the new four-slot model', () => {

@@ -1,3 +1,4 @@
+import { formatDecimal, formatFixedDecimal, formatInteger } from './format'
 import type {
   EquipmentUpgradeId,
   GameState,
@@ -85,10 +86,9 @@ const SLOT_SPRITE: Record<SlotGroup, UpgradeView['spriteFamily']> = {
 
 const cost = (base: number, factor: number, level: number) => Math.ceil(base * factor ** level)
 const visualStage = (level: number) => Math.min(3, Math.max(0, level))
-const effectValue = (value: number) => Math.floor(value).toLocaleString('de-DE')
-const effectRate = (value: number) => value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
-/** Feste Nachkommastelle: Die Wachen-Raten stehen direkt untereinander und dürfen nicht springen. */
-const effectFixed = (value: number) => value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const effectValue = (value: number) => formatInteger(Math.floor(value))
+const effectRate = (value: number) => formatDecimal(value)
+const effectFixed = (value: number) => formatFixedDecimal(value)
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
