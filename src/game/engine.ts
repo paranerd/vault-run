@@ -174,8 +174,33 @@ export function lowerThreat(state: GameState, now = Date.now()): GameState {
   return next
 }
 
+/** Ruhezustand: In diesem Tick kann sich am sichtbaren Zustand nichts ändern — keine Bergleute,
+    keine Fuhre unterwegs oder startbereit, keine laufende Sicherung, kein Risiko und kein Gold in
+    der Truhe, das Risiko erzeugen könnte. Das ist das frühe Spiel zwischen zwei Klicks. */
+function isDormant(state: GameState): boolean {
+  return passiveRate(state) === 0
+    && state.transportEndsAt === null
+    && state.expressEndsAt === null
+    && state.secureEndsAt === null
+    && state.inTransitGold === 0
+    && state.expressGold === 0
+    && state.threat <= 0
+    && state.vaultGold <= 0
+    && !(hasAutomaticTransport(state) && state.chestGold > 0)
+}
+
 export function advanceGame(input: GameState, now = Date.now(), offline = false): GameState {
   if (now <= input.lastTick) return input
+  // Im Ruhezustand wird nur die Uhr weitergestellt und **dieselbe Referenz** zurückgegeben, damit
+  // React den Re-Render überspringt. `lastTick`/`savedAt` werden dafür in place gesetzt: Beide
+  // werden nirgends gerendert, und ohne das Weiterstellen bekäme der Spieler die verstrichene
+  // Ruhezeit beim nächsten Bergmann rückwirkend gutgeschrieben. Die Offline-Strecke bleibt außen
+  // vor, damit der Rückkehr-Bericht unverändert entsteht.
+  if (!offline && isDormant(input)) {
+    input.lastTick = now
+    input.savedAt = now
+    return input
+  }
   const state = structuredClone(input)
   const elapsedMs = Math.min(now - state.lastTick, MAX_OFFLINE_SECONDS * 1000)
   const target = state.lastTick + elapsedMs

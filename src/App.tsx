@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import {
   BarChart3,
@@ -8,6 +8,8 @@ import {
   RotateCcw,
   ShieldAlert,
   Settings,
+  Vibrate,
+  VibrateOff,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -42,7 +44,7 @@ import {
   startTransport,
   tap,
 } from './game/engine'
-import { formatDuration, formatGold } from './game/format'
+import { formatDecimal, formatDuration, formatGold } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
 import type { GameEvent, GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
 
@@ -65,6 +67,12 @@ const TRIP_RATE_WINDOW_MS = 12_000
 /** Standzeit einer eingeblendeten Warnung; höchstens `MAX_ALERTS` liegen gleichzeitig an. */
 const ALERT_LIFETIME_MS = 3_600
 const MAX_ALERTS = 3
+
+/** Abstand zwischen zwei übernommenen Spielzuständen. Entspricht dem bisherigen `setInterval`-Takt,
+    damit sich Zahlen und Fortschrittsbalken unverändert flüssig bewegen. */
+const TICK_INTERVAL_MS = 100
+/** Erst ab dieser Abwesenheit gilt ein App-Wechsel als Offline-Strecke mit Rückkehr-Bericht. */
+const OFFLINE_REPORT_THRESHOLD_MS = 60_000
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
@@ -92,15 +100,30 @@ function percentage(value: number, capacity: number) {
 
 function formatFlightGold(value: number, precise: boolean) {
   if (!precise || Number.isInteger(value)) return formatGold(value)
-  return value.toLocaleString('de-DE', { maximumFractionDigits: 1 })
+  return formatDecimal(value)
+}
+
+/** Ein einziger, wiederverwendeter AudioContext. Vorher entstand pro Ton ein eigener und wurde
+    sofort wieder geschlossen — das initialisiert jedes Mal den Audio-Graph und weckt die
+    Audio-Hardware, bei einem Klickspiel also im Dauerbetrieb. Er wird erst beim ersten Ton
+    angelegt, damit ohne Nutzergeste gar kein Kontext existiert. */
+let sharedAudioContext: AudioContext | null = null
+
+function getAudioContext(): AudioContext | null {
+  if (sharedAudioContext) return sharedAudioContext
+  const AudioContextClass = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AudioContextClass) return null
+  sharedAudioContext = new AudioContextClass()
+  return sharedAudioContext
 }
 
 function playTone(kind: 'coin' | 'trip' | 'upgrade' | 'secure', enabled: boolean) {
   if (!enabled) return
   try {
-    const AudioContextClass = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AudioContextClass) return
-    const context = new AudioContextClass()
+    const context = getAudioContext()
+    if (!context) return
+    // iOS suspendiert den Kontext, sobald die App in den Hintergrund geht.
+    if (context.state === 'suspended') void context.resume()
     const oscillator = context.createOscillator()
     const gain = context.createGain()
     oscillator.type = kind === 'trip' || kind === 'secure' ? 'square' : 'sine'
@@ -113,13 +136,20 @@ function playTone(kind: 'coin' | 'trip' | 'upgrade' | 'secure', enabled: boolean
     oscillator.connect(gain).connect(context.destination)
     oscillator.start()
     oscillator.stop(context.currentTime + 0.12)
-    oscillator.addEventListener('ended', () => void context.close())
+    // Der Kontext bleibt bestehen, die Knoten müssen aber abgehängt werden, sonst wächst der Graph.
+    oscillator.addEventListener('ended', () => {
+      oscillator.disconnect()
+      gain.disconnect()
+    })
   } catch {
     // Sound is progressive enhancement and can be blocked by the browser.
   }
 }
 
-function haptic(duration = 10) {
+/** Der Vibrationsmotor ist eine physische Wärmequelle im Gehäuse und ein spürbarer
+    Akkuverbraucher — beim schnellen Schürfen läuft er praktisch durchgehend. Deshalb abschaltbar. */
+function haptic(enabled: boolean, duration = 10) {
+  if (!enabled) return
   navigator.vibrate?.(duration)
 }
 
@@ -217,8 +247,11 @@ function SlotGrid({
   )
 }
 
-function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView; state: GameState; focused?: boolean; onBuy: (upgrade: UpgradeView) => void }) {
-  const affordable = state.vaultGold >= upgrade.cost
+/** `memo` bringt hier nur etwas, weil die Karte **kein** `state` mehr bekommt: Der ganze
+    Spielzustand ändert sich zehnmal pro Sekunde, die Bezahlbarkeit einer einzelnen Karte dagegen
+    nur beim Überschreiten ihrer Kosten. Die `upgrade`-Objekte selbst sind stabil, solange sich
+    keine Stufe ändert (siehe `upgradeLevelKey`). */
+const UpgradeCard = memo(function UpgradeCard({ upgrade, affordable, focused, onBuy }: { upgrade: UpgradeView; affordable: boolean; focused?: boolean; onBuy: (upgrade: UpgradeView) => void }) {
   const disabled = !upgrade.available || !affordable || upgrade.maxed
   const unowned = Boolean(upgrade.slot) && upgrade.stage === 0
   // Only the focused card carries the ref, so it scrolls into view exactly once when the focus moves.
@@ -243,7 +276,7 @@ function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView;
       <p className="upgrade-card__description">{upgrade.description}</p>
     </article>
   )
-}
+})
 
 function App() {
   const [state, setState] = useState<GameState>(() => loadGame())
@@ -251,6 +284,7 @@ function App() {
   const [dockPanel, setDockPanel] = useState<'settings' | 'stats' | null>(null)
   const [resetArmed, setResetArmed] = useState(false)
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
+  const [haptics, setHaptics] = useState(() => localStorage.getItem('vault-run-haptics') !== 'off')
   const [goldFlights, setGoldFlights] = useState<GoldFlight[]>([])
   const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
   const [upgradeNoticePulsing, setUpgradeNoticePulsing] = useState(false)
@@ -301,21 +335,44 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const timer = window.setInterval(() => setState((current) => advanceGame(current, Date.now())), 100)
+    // Der Takt läuft über `requestAnimationFrame` statt `setInterval`: Er pausiert von selbst,
+    // sobald die App in den Hintergrund geht, und liegt auf der Frame-Grenze statt mitten im
+    // Frame. Übernommen wird der Zustand weiterhin nur alle `TICK_INTERVAL_MS` — die Anzeige
+    // bleibt damit exakt so flüssig wie vorher, die Schleife selbst kostet nur einen Vergleich.
+    let lastCommit = 0
+    const loop = (timestamp: number) => {
+      frame = requestAnimationFrame(loop)
+      if (timestamp - lastCommit < TICK_INTERVAL_MS) return
+      lastCommit = timestamp
+      setState((current) => advanceGame(current, Date.now()))
+    }
+    let frame = requestAnimationFrame(loop)
+
     const saver = window.setInterval(() => setState((current) => {
       saveGame(current)
       return current
     }), 2_000)
+
+    // Ein kurzer App-Wechsel ist kein Offline-Aufenthalt. Da der Takt im Hintergrund jetzt ganz
+    // ruht, würde sonst schon ein Blick in eine andere App den „Willkommen zurück“-Bericht
+    // auslösen. Nachgerechnet wird trotzdem immer — nur eben stillschweigend.
+    let hiddenSince: number | null = null
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') setState((current) => {
-        saveGame(current)
-        return current
-      })
-      else setState((current) => advanceGame(current, Date.now(), true))
+      if (document.visibilityState === 'hidden') {
+        hiddenSince = Date.now()
+        setState((current) => {
+          saveGame(current)
+          return current
+        })
+      } else {
+        const away = hiddenSince === null ? 0 : Date.now() - hiddenSince
+        hiddenSince = null
+        setState((current) => advanceGame(current, Date.now(), away >= OFFLINE_REPORT_THRESHOLD_MS))
+      }
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      window.clearInterval(timer)
+      cancelAnimationFrame(frame)
       window.clearInterval(saver)
       document.removeEventListener('visibilitychange', onVisibility)
     }
@@ -326,9 +383,23 @@ function App() {
     lastTrips.current = state.tripCount
   }, [state.tripCount, sound])
 
-  const allUpgrades = useMemo(() => getAllUpgrades(state), [state])
-  const affordable = allUpgrades.filter((upgrade) => upgrade.available && !upgrade.maxed && state.vaultGold >= upgrade.cost)
-  const affordableKeys = affordable.map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
+  // Upgrade-Views hängen ausschließlich an den Stufen — nicht am Gold, nicht am Risiko, nicht am
+  // Transport. Der bisherige Memo-Key `[state]` änderte sich jeden Tick und griff deshalb nie;
+  // die Views wurden zehnmal pro Sekunde neu gebaut. Über die Stufen als Schlüssel passiert das
+  // nur noch bei einem tatsächlichen Kauf.
+  const upgradeLevelKey = [
+    state.tapLevel, state.chestLevel, state.vaultLevel,
+    ...state.minerLevels, ...state.transporterLevels, ...state.guardLevels,
+  ].join(':')
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `state` ist absichtlich nicht in den
+  // Dependencies: Alles, was `getAllUpgrades` liest, steckt bereits in `upgradeLevelKey`.
+  const allUpgrades = useMemo(() => getAllUpgrades(state), [upgradeLevelKey])
+  const affordable = useMemo(
+    () => allUpgrades.filter((upgrade) => upgrade.available && !upgrade.maxed && state.vaultGold >= upgrade.cost),
+    [allUpgrades, state.vaultGold],
+  )
+  const affordableKeys = useMemo(() => affordable.map((upgrade) => `${upgrade.key}:${upgrade.cost}`), [affordable])
   const affordableSignature = affordableKeys.join('|')
 
   useEffect(() => {
@@ -506,7 +577,7 @@ function App() {
     setState((current) => tap(current))
     launchGold(earned, 'coin')
     playTone('coin', sound)
-    haptic(8)
+    haptic(haptics, 8)
   }
 
   const handleTransport = () => {
@@ -517,27 +588,35 @@ function App() {
     recentTrips.current = [...recentTrips.current.filter((trip) => now - trip.at < TRIP_RATE_WINDOW_MS), { at: now, amount: payload }]
     setState(next)
     playTone('trip', sound)
-    haptic(18)
+    haptic(haptics, 18)
   }
 
   const handleSecure = () => {
     if (state.threat <= 0 || securing) return
     setState((current) => lowerThreat(current, Date.now()))
     playTone('secure', sound)
-    haptic(10)
+    haptic(haptics, 10)
   }
 
-  const handleBuy = (upgrade: UpgradeView) => {
+  // Stabil halten, sonst rendert `memo(UpgradeCard)` trotzdem bei jedem Tick neu.
+  const handleBuy = useCallback((upgrade: UpgradeView) => {
     setState((current) => upgrade.equipmentId
       ? buyEquipmentUpgrade(current, upgrade.equipmentId)
       : upgrade.slot ? buySlotUpgrade(current, upgrade.slot.group, upgrade.slot.index) : current)
     playTone('upgrade', sound)
-    haptic(14)
-  }
+    haptic(haptics, 14)
+  }, [sound, haptics])
 
   const toggleSound = () => {
     setSound((enabled) => {
       localStorage.setItem('vault-run-sound', enabled ? 'off' : 'on')
+      return !enabled
+    })
+  }
+
+  const toggleHaptics = () => {
+    setHaptics((enabled) => {
+      localStorage.setItem('vault-run-haptics', enabled ? 'off' : 'on')
       return !enabled
     })
   }
@@ -571,7 +650,8 @@ function App() {
     }
   }
 
-  const upgradeGroups = getUpgradeGroups(state, panel.filter)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- wie oben: `upgradeLevelKey` deckt alles ab.
+  const upgradeGroups = useMemo(() => getUpgradeGroups(state, panel.filter), [upgradeLevelKey, panel.filter])
   const dockNoticeCount = unseenFor('all').length
 
   return (
@@ -717,7 +797,7 @@ function App() {
             <section key={group.category} className="upgrade-group">
               {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}
               <div className="upgrade-list">
-                {group.upgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focusKey === upgrade.key} onBuy={handleBuy} />)}
+                {group.upgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} affordable={state.vaultGold >= upgrade.cost} focused={panel.focusKey === upgrade.key} onBuy={handleBuy} />)}
               </div>
             </section>
           ))}
@@ -735,6 +815,10 @@ function App() {
                 <button className="settings-toggle" onClick={toggleSound} aria-pressed={sound}>
                   {sound ? <Volume2 size={22} /> : <VolumeX size={22} />}
                   <span><strong>Sounds</strong><small>{sound ? 'Ein' : 'Aus'}</small></span>
+                </button>
+                <button className="settings-toggle" onClick={toggleHaptics} aria-pressed={haptics}>
+                  {haptics ? <Vibrate size={22} /> : <VibrateOff size={22} />}
+                  <span><strong>Vibration</strong><small>{haptics ? 'Ein' : 'Aus'}</small></span>
                 </button>
                 <button className={`settings-reset ${resetArmed ? 'is-armed' : ''}`} onClick={handleReset}>
                   <RotateCcw size={21} />
