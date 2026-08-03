@@ -43,7 +43,11 @@ Die Hauptszene ist auf Smartphones fest auf `100dvh` ausgelegt und scrollt nicht
 
 - **Mine:** die Gesamtförderung in ganzen Gold pro Sekunde, also passive Bergleute plus aktives Schürfen.
 - **Beutel:** der Durchsatz zur Truhe in ganzen Gold pro Sekunde. Nebeneinander gelesen sagen Minen- und Beutelrate sofort, ob der Transport mithält oder der Beutel überläuft.
-- **Truhe:** die Aufmerksamkeit in Prozent. Sie startet bei 100 %, sinkt, solange Gold in der Schatztruhe liegt, und löst bei 0 % den Diebeszug aus; eine Sicherung hebt sie wieder an. Je voller der Hort, desto schneller fällt sie. Bewusst eine fallende Anzeige — „das musst du oben halten“ liest sich unmittelbarer als ein wachsendes Risiko.
+- **Truhe:** das Risiko in Prozent. Es startet bei 0 %, steigt, solange Gold in der Schatztruhe liegt, und löst bei 100 % den Diebeszug aus; eine Sicherung drückt es wieder herunter. Je voller der Hort, desto schneller steigt es.
+
+Die Truhe zeigt bewusst ein **steigendes Risiko** statt einer fallenden Aufmerksamkeit. Entscheidend ist die Kausalität: „volle Truhe → hohes Risiko“ ist ein Schritt, während „volle Truhe → sinkende Aufmerksamkeit“ eine Geschichte bräuchte, warum die eigenen Leute nachlässiger werden, je mehr Gold da liegt. Die Aufmerksamkeit, die tatsächlich steigt, ist die der Diebe — das Label beschrieb den falschen Akteur. Dass diese Kachel als einzige nicht „höher ist besser“ liest, ist kein Bruch: Mine und Beutel zeigen **Raten**, die man gegeneinander liest, die Truhe zeigt einen **Füllstand, der auf ein Ereignis zuläuft**. Zwei Sorten Zahl dürfen verschieden aussehen, und ein Balken, der sich Richtung Rot füllt, ist dafür das gewohnte Bild.
+
+Ab 50 % färbt sich die Kachel, ab 80 % pocht zusätzlich die Sicherung — die Vorwarnung, die dem Spieler ein Reaktionsfenster gibt, statt ihn von einer stillen Zahl überraschen zu lassen.
 
 Beide Raten sind nach demselben Muster gebaut: der automatisierte Dauerdurchsatz plus die selbst ausgelösten Aktionen, gemittelt über ein gleitendes Zeitfenster — drei Sekunden für Klicks, zwölf für Reisen, passend zur Basis-Reisedauer. Ohne Automatik und ohne Zutun ebben sie von selbst auf null ab. Sie zeigen zudem, was tatsächlich ankommt: Die Minenrate steht auf null, wenn der Beutel voll ist oder die Mine während einer eigenen Reise ruht, die Transportrate, wenn die Schatztruhe nichts mehr aufnimmt. Beutel und Mine zeigen den Fortschritt eines manuellen Transports direkt als von unten nach oben wachsende goldene Füllung ihrer Aktions-Buttons; der separate Minenbalken entfällt. Der Beutel- und Truhenbalken zeigen ihre Füllstände. Ist der Beutel voll, pulsiert die Transportaktion. Die Schatztruhe bleibt bis zur ersten Goldlieferung ausgegraut. Manuell erzeugtes Gold fliegt sofort, automatisch geschürftes Gold einmal pro Sekunde auf leicht variierenden Bahnen zum Beutel.
 
@@ -69,7 +73,9 @@ Damit wirkt jeder Abschnitt genau auf die Ressource, die er besitzt: Die Wachen 
 
 Der Transport zahlt deshalb nicht mehr in Sicherheit, sondern in **Handlungsfähigkeit**: Nur Truhengold lässt sich ausgeben. Umgekehrt ist ausgegebenes Gold unangreifbar — Ausbauen ist damit immer auch Verteidigen, und Horten hat einen Preis. Wer trotzdem auf ein teures Upgrade sparen will, kauft vorher Wachen.
 
-Die Aufmerksamkeit sinkt, sobald Gold in der Schatztruhe liegt; ein voller Hort treibt sie schneller. Vor der ersten Lieferung entsteht überhaupt kein Risiko — der Abschnitt ist zu diesem Zeitpunkt ohnehin ausgegraut, sodass niemand unter Druck gerät, bevor er die Truhe kennt. Bei 0 % wird ein Anteil der Truhe gestohlen, danach springt die Anzeige auf einen kleinen Restwert zurück. Wie hoch dieser Anteil ausfällt, hängt an der Wachstärke — sie ist die Schadensbegrenzung, wenn es doch knallt.
+Das Risiko steigt, sobald Gold in der Schatztruhe liegt; ein voller Hort treibt es schneller. Vor der ersten Lieferung entsteht überhaupt keines — der Abschnitt ist zu diesem Zeitpunkt ohnehin ausgegraut, sodass niemand unter Druck gerät, bevor er die Truhe kennt. Bei 100 % wird ein Anteil der Truhe gestohlen, danach fällt die Anzeige auf einen kleinen Restwert zurück. Wie hoch dieser Anteil ausfällt, hängt an der Wachstärke — sie ist die Schadensbegrenzung, wenn es doch knallt.
+
+Ein Diebeszug und die volle Schatztruhe blenden sich als kurze Meldung über der Szene ein. Nur Warnungen erscheinen dort: Lieferungen und Käufe zeigen ihre Wirkung ohnehin selbst und liefen als Dauerfeuer, sobald die Automatik steht.
 
 Der Anteil ist bewusst klein: Bezugsgröße ist das gesamte Vermögen, nicht der Inhalt einer Tasche. Ohne Wachen nimmt ein Diebeszug 8 % der Truhe, ein ausgebauter Trupp drückt das bis auf 1,5 %. Weil es ein Anteil bleibt, ist der Verlust auf jedem Ausbaustand gleich spürbar und verliert nie an Bedeutung — anders als eine feste Summe, die im späteren Spiel verschwindet.
 
@@ -80,6 +86,8 @@ Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand
 - **Ohne Wachen** senkt ein Tap auf die Truhe das Risiko um 25 Punkte der Hundert-Punkte-Skala. Währenddessen ruht das ganze Reich für 1,5 Sekunden — Schürfen, Transport und ein zweiter Sicherungs-Tap sind gesperrt, sichtbar als Füllung des Truhen-Buttons. Das Sichern kostet also echte Spielzeit.
 - **Ab der ersten Wache** sichert sie selbstständig in festem Takt. Mehr Wachen verkürzen den Takt, höhere Stufen zusätzlich; die abgetragenen Punkte wachsen mit der Gesamtstärke. Die Sperre entfällt damit vollständig.
 - **Der Tap bleibt danach nützlich** — wie die Eilreise beim Transport: Läuft das Risiko zwischen zwei Takten hoch, senkt ein Tap es sofort zusätzlich, ohne irgendetwas zu blockieren.
+
+Die Wachen-Karten führen deshalb mit der **Dauerleistung** in Risikopunkten pro Sekunde — derselben Einheit, in der die Kachel darüber steigt, sodass beide Zahlen direkt gegeneinander lesbar sind. Takt und Punkte je Sicherung ändern sich zwischen zwei Stufen gleichzeitig; als Wertespalte wäre das nicht vergleichbar. Sie stehen darum in der Beschreibung, zusammen mit dem Schadensdeckel — dem Effekt, den man ausschließlich im Moment des Scheiterns sieht und der deshalb nicht die Überschrift verdient. Wachen-Karten zeigen immer den **Trupp**, nie den einzelnen Slot: Die zweite Wache verkürzt den Takt für alle, ein Einzelbeitrag ist nicht trennbar.
 
 Die Wachen bremsen den Anstieg des Risikos bewusst **nicht** mehr. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte, und die Bedrohung verschwände schon nach den ersten Käufen aus dem Spiel. Ihr Wert steckt jetzt in Takt und Stärke der Sicherung.
 
@@ -97,7 +105,7 @@ Beim Öffnen oder Zurückkehren in den Tab rekonstruiert dieselbe Engine maximal
 - Diebesgefahr, automatische Sicherungen der Wachen und Diebeszüge,
 - Grenzen der Schatztruhe.
 
-Weil der Diebstahl jetzt die Schatztruhe trifft, braucht die Offline-Strecke einen Deckel: Ein Aufenthalt nimmt höchstens ein Viertel dessen mit, was auf der Strecke Truhengold war — also der Stand beim Verlassen plus alles, was die Fuhren inzwischen angeliefert haben. Ohne diesen Bezug auf die Lieferungen wäre eine bei Abschied leere Truhe die ganze Nacht über unantastbar. Läuft das Budget aus, ebbt die Aufmerksamkeit weiterhin ab, damit die Rückkehr nicht in einem sofortigen Überfall endet.
+Weil der Diebstahl jetzt die Schatztruhe trifft, braucht die Offline-Strecke einen Deckel: Ein Aufenthalt nimmt höchstens ein Viertel dessen mit, was auf der Strecke Truhengold war — also der Stand beim Verlassen plus alles, was die Fuhren inzwischen angeliefert haben. Ohne diesen Bezug auf die Lieferungen wäre eine bei Abschied leere Truhe die ganze Nacht über unantastbar. Läuft das Budget aus, fällt das Risiko weiterhin zurück, damit die Rückkehr nicht in einem sofortigen Überfall endet.
 
 Ein Rückkehrdialog fasst geschürftes, gesichertes und gestohlenes Gold zusammen. Die Simulationslogik ist zeitbasiert und unabhängig von der Bildrate.
 
