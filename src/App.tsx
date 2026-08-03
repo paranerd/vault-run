@@ -16,11 +16,13 @@ import {
   GOLD_FLIGHT_DURATION_MS,
   SECTION_LABEL,
   SECTION_SLOT_GROUP,
+  UPGRADE_FILTERS,
+  UPGRADE_FILTER_LABEL,
+  UPGRADE_FILTER_PREFIX,
   automaticTransportAmount,
   chestCapacity,
   getAllUpgrades,
-  getEquipmentUpgrade,
-  getSlotUpgrades,
+  getUpgradeGroups,
   hasAutomaticTransport,
   passiveRate,
   securityRating,
@@ -42,14 +44,17 @@ import {
 } from './game/engine'
 import { formatDuration, formatGold } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
-import type { GameState, SectionId, SlotIndex, UpgradeView } from './game/types'
+import type { GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
 
-type PanelKind = 'equipment' | 'slots'
-interface PanelState {
-  section: SectionId
-  kind: PanelKind
-  focus?: SlotIndex
+interface UpgradePanelState {
+  filter: UpgradeFilter
+  focusKey?: string
+  open: boolean
 }
+
+/** Das Sheet bleibt dauerhaft montiert, damit es beim ersten Öffnen einen Startzustand
+    zum Herüberblenden hat und beim Schließen nach unten ausfahren kann. */
+const CLOSED_PANEL: UpgradePanelState = { filter: 'all', open: false }
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
@@ -148,7 +153,7 @@ function PixelGoldPile() {
 }
 
 function UpgradeIcon() {
-  return <img className="equipment-button__icon" src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
+  return <img className="dock-button__icon" src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
 function StatTile({ label, value, icon }: { label?: string; value?: string; icon?: ReactNode }) {
@@ -205,32 +210,35 @@ function SlotGrid({
 function UpgradeCard({ upgrade, state, focused, onBuy }: { upgrade: UpgradeView; state: GameState; focused?: boolean; onBuy: (upgrade: UpgradeView) => void }) {
   const affordable = state.vaultGold >= upgrade.cost
   const disabled = !upgrade.available || !affordable || upgrade.maxed
-  const unowned = Boolean(upgrade.slot && upgrade.level === 'Unbesetzt')
+  const unowned = Boolean(upgrade.slot) && upgrade.stage === 0
+  // Only the focused card carries the ref, so it scrolls into view exactly once when the focus moves.
+  const revealFocused = useCallback((node: HTMLElement | null) => node?.scrollIntoView({ block: 'center' }), [])
   return (
-    <article className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''} ${unowned ? 'is-unowned' : ''}`}>
-      <div className="upgrade-card__content">
+    <article ref={focused ? revealFocused : undefined} className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''} ${unowned ? 'is-unowned' : ''}`}>
+      <div className="upgrade-card__head">
         <span className="upgrade-card__sprite"><PixelSprite family={upgrade.spriteFamily} level={upgrade.spriteLevel} /></span>
-        <div className="upgrade-card__details">
-          <div className="upgrade-card__top"><span>{upgrade.level}</span>{upgrade.maxed && <b><Check size={13} /> Aktiv</b>}</div>
-          <h3>{upgrade.name}</h3>
-          <p>{upgrade.description}</p>
+        <div className="upgrade-card__facts">
+          {/* Stufenname statt Slot-Name; die Slot-Nummer bleibt als Kennung, weil vier Slots
+              derselben Stufe sonst identisch heißen. */}
+          <h3><span>{upgrade.name}</span>{upgrade.slot && <em>Slot {upgrade.slot.index + 1}</em>}</h3>
           <div className="upgrade-effects" aria-label="Upgrade-Effekt">
-            <div><span>Aktuell</span><strong>{upgrade.currentEffect}</strong></div>
-            <div><span>Nächste Stufe</span><strong>{upgrade.nextEffect}</strong></div>
+            <div><span>Stufe {upgrade.stage}</span><strong>{upgrade.currentEffect}</strong></div>
+            <div><span>Stufe {upgrade.stage + 1}</span><strong>{upgrade.nextEffect}</strong></div>
           </div>
         </div>
+        <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold auf Stufe ${upgrade.stage + 1} verbessern`}>
+          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
+        </button>
       </div>
-      <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name} für ${formatGold(upgrade.cost)} Gold verbessern`}>
-        {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
-      </button>
+      <p className="upgrade-card__description">{upgrade.description}</p>
     </article>
   )
 }
 
 function App() {
   const [state, setState] = useState<GameState>(() => loadGame())
-  const [panel, setPanel] = useState<PanelState | null>(null)
-  const [headerPanel, setHeaderPanel] = useState<'settings' | 'stats' | null>(null)
+  const [panel, setPanel] = useState<UpgradePanelState>(CLOSED_PANEL)
+  const [dockPanel, setDockPanel] = useState<'settings' | 'stats' | null>(null)
   const [resetArmed, setResetArmed] = useState(false)
   const [sound, setSound] = useState(() => localStorage.getItem('vault-run-sound') !== 'off')
   const [goldFlights, setGoldFlights] = useState<GoldFlight[]>([])
@@ -248,6 +256,7 @@ function App() {
     },
   })
   const sceneRef = useRef<HTMLDivElement>(null)
+  const sheetContentRef = useRef<HTMLDivElement>(null)
   const bagButtonRef = useRef<HTMLButtonElement>(null)
   const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
@@ -311,17 +320,17 @@ function App() {
     const current = new Set(affordableKeys)
     const hasNew = affordableKeys.some((key) => !previousAffordable.current.has(key) && !seenUpgradeLevels.has(key))
     previousAffordable.current = current
-    if (!hasNew || panel) return
+    if (!hasNew || panel.open) return
     setUpgradeNoticePulsing(true)
     if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current)
     pulseTimer.current = window.setTimeout(() => setUpgradeNoticePulsing(false), 950)
     return () => {
       if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current)
     }
-  }, [affordableSignature, panel, seenUpgradeLevels])
+  }, [affordableSignature, panel.open, seenUpgradeLevels])
 
-  const acknowledge = (section: SectionId, kind: PanelKind) => {
-    const prefix = kind === 'equipment' ? 'equipment:' : `slot:${SECTION_SLOT_GROUP[section]}:`
+  const acknowledge = (filter: UpgradeFilter) => {
+    const prefix = UPGRADE_FILTER_PREFIX[filter]
     const relevant = affordable.filter((upgrade) => upgrade.key.startsWith(prefix)).map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
     if (relevant.length === 0) return
     setSeenUpgradeLevels((current) => {
@@ -333,9 +342,25 @@ function App() {
     setUpgradeNoticePulsing(false)
   }
 
-  const openPanel = (section: SectionId, kind: PanelKind, focus?: SlotIndex) => {
-    acknowledge(section, kind)
-    setPanel({ section, kind, focus })
+  const openUpgrades = (filter: UpgradeFilter, focusKey?: string) => {
+    acknowledge(filter)
+    setDockPanel(null)
+    setPanel({ filter, focusKey, open: true })
+    // Das Sheet bleibt montiert und behielte sonst die Scrollposition des letzten Filters.
+    if (!focusKey) sheetContentRef.current?.scrollTo({ top: 0 })
+  }
+
+  const closeUpgrades = () => setPanel((current) => ({ ...current, open: false }))
+
+  const openSlotUpgrades = (section: SectionId, index: SlotIndex) => {
+    const group = SECTION_SLOT_GROUP[section]
+    openUpgrades(group, `slot:${group}:${index}`)
+  }
+
+  const openDockPanel = (kind: 'settings' | 'stats') => {
+    closeUpgrades()
+    setResetArmed(false)
+    setDockPanel((current) => (current === kind ? null : kind))
   }
 
   const launchGold = useCallback((value: number, kind: GoldFlight['kind'], preciseValue = false) => {
@@ -410,10 +435,8 @@ function App() {
     || (state.transportEndsAt !== null && state.inTransitGold === 0)
     || (state.expressEndsAt !== null && state.expressGold === 0)
 
-  const unseenFor = (section: SectionId, kind: PanelKind) => {
-    const prefix = kind === 'equipment' ? `equipment:${section === 'mine' ? 'tap' : section === 'bag' ? 'chest' : 'vault'}` : `slot:${SECTION_SLOT_GROUP[section]}:`
-    return affordable.filter((upgrade) => upgrade.key.startsWith(prefix) && !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
-  }
+  const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.key.startsWith(UPGRADE_FILTER_PREFIX[filter]))
+  const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
 
   const handleTap = () => {
     if (playerTravelling || bagFull) return
@@ -464,13 +487,13 @@ function App() {
     localStorage.removeItem(UPGRADE_NOTICE_KEY)
     setSeenUpgradeLevels(new Set())
     setState(resetGame())
-    setPanel(null)
-    setHeaderPanel(null)
+    setPanel(CLOSED_PANEL)
+    setDockPanel(null)
     setResetArmed(false)
   }
 
-  const closeHeaderPanel = () => {
-    setHeaderPanel(null)
+  const closeDockPanel = () => {
+    setDockPanel(null)
     setResetArmed(false)
   }
 
@@ -485,18 +508,13 @@ function App() {
     }
   }
 
-  const panelUpgrades = panel
-    ? panel.kind === 'equipment' ? [getEquipmentUpgrade(state, panel.section)] : getSlotUpgrades(state, panel.section)
-    : []
+  const upgradeGroups = getUpgradeGroups(state, panel.filter)
+  const dockNoticeCount = unseenFor('all').length
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="header-button" onClick={() => setHeaderPanel('settings')} aria-label="Einstellungen öffnen"><Settings size={21} /></button>
         <div className="header-wealth"><strong><PixelCoin /> {formatGold(state.vaultGold)}</strong></div>
-        <div className="header-actions">
-          <button className="header-button" onClick={() => setHeaderPanel('stats')} aria-label="Statistik öffnen"><BarChart3 size={21} /></button>
-        </div>
       </header>
 
       <main className="game-stage" aria-label="Dein Goldreich">
@@ -513,12 +531,9 @@ function App() {
                 <button ref={chestButtonRef} className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'}`} disabled={!chestRevealed || state.threat <= 0} onClick={handleSecure} aria-label={chestRevealed ? `Aufmerksamkeit um ${threatReductionPerClick(state)} senken` : 'Schatztruhe noch nicht erreicht'}>
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
-                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('chest', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('chest', 'equipment')} aria-label="Schatztruhe ausbauen">
-                  <UpgradeIcon /><span>Ausbau</span>
-                </button>
                 <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
               </div>
-              <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('chest', 'slots').length > 0} noticeCount={unseenFor('chest', 'slots').length} onOpen={(index) => openPanel('chest', 'slots', index)} />
+              <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('chest', index)} />
             </div>
           </article>
 
@@ -536,12 +551,9 @@ function App() {
                   {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
-                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('bag', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('bag', 'equipment')} aria-label="Beutel ausbauen">
-                  <UpgradeIcon /><span>Ausbau</span>
-                </button>
                 <SectionProgress fill={percentage(state.chestGold, bagMax)} label="Füllstand des Goldbeutels" amount={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} />
               </div>
-              <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('bag', 'slots').length > 0} noticeCount={unseenFor('bag', 'slots').length} onOpen={(index) => openPanel('bag', 'slots', index)} />
+              <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('bag', index)} />
             </div>
           </article>
 
@@ -558,11 +570,8 @@ function App() {
                   {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
-                <button className={`equipment-button ${upgradeNoticePulsing && unseenFor('mine', 'equipment').length ? 'is-notifying' : ''}`} onClick={() => openPanel('mine', 'equipment')} aria-label="Pickhacke ausbauen">
-                  <UpgradeIcon /><span>Ausbau</span>
-                </button>
               </div>
-              <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('mine', 'slots').length > 0} noticeCount={unseenFor('mine', 'slots').length} onOpen={(index) => openPanel('mine', 'slots', index)} />
+              <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
           </article>
 
@@ -587,32 +596,72 @@ function App() {
         </div>
       </main>
 
-      {panel && (
-        <>
-          <button className="sheet-backdrop" aria-label="Ausbau schließen" onClick={() => setPanel(null)} />
-          <aside className="management-sheet is-open" aria-label={`${SECTION_LABEL[panel.section]} ausbauen`}>
-            <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Ausbau schließen">×</button>
-            <div className="sheet-tabs">
-              <button className={panel.kind === 'equipment' ? 'is-active' : ''} onClick={() => openPanel(panel.section, 'equipment')}>Ausrüstung</button>
-              <button className={panel.kind === 'slots' ? 'is-active' : ''} onClick={() => openPanel(panel.section, 'slots')}>{panel.section === 'mine' ? 'Bergleute' : panel.section === 'bag' ? 'Transporte' : 'Wachen'}</button>
-            </div>
-            <div className="sheet-content">
-              <div className="sheet-heading"><span>{SECTION_LABEL[panel.section].toUpperCase()}</span><h2>{panel.kind === 'equipment' ? `${SECTION_LABEL[panel.section]} ausbauen` : `4 ${panel.section === 'mine' ? 'Bergleute' : panel.section === 'bag' ? 'Transporte' : 'Wachen'}`}</h2><p>Bezahlt wird mit Gold aus der Schatztruhe.</p></div>
-              <div className="upgrade-list">
-                {panelUpgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focus === upgrade.slot?.index} onBuy={handleBuy} />)}
-              </div>
-            </div>
-          </aside>
-        </>
-      )}
+      <nav className="dock" aria-label="Hauptmenü">
+        <div className="dock__inner">
+          <button
+            className={`dock-button ${panel.open ? 'is-active' : ''} ${upgradeNoticePulsing && dockNoticeCount > 0 ? 'is-notifying' : ''}`}
+            onClick={() => (panel.open ? closeUpgrades() : openUpgrades('all'))}
+            aria-expanded={panel.open}
+            aria-label={dockNoticeCount > 0 ? `Ausbau öffnen, ${dockNoticeCount} kaufbare Upgrades` : 'Ausbau öffnen'}
+          >
+            <UpgradeIcon /><span>Ausbau</span>
+            {dockNoticeCount > 0 && <em className="dock-button__badge">{dockNoticeCount}</em>}
+          </button>
+          <button className={`dock-button ${dockPanel === 'stats' ? 'is-active' : ''}`} onClick={() => openDockPanel('stats')} aria-expanded={dockPanel === 'stats'} aria-label="Statistik öffnen">
+            <BarChart3 size={22} aria-hidden="true" /><span>Statistik</span>
+          </button>
+          <button className={`dock-button ${dockPanel === 'settings' ? 'is-active' : ''}`} onClick={() => openDockPanel('settings')} aria-expanded={dockPanel === 'settings'} aria-label="Einstellungen öffnen">
+            <Settings size={22} aria-hidden="true" /><span>Einstellungen</span>
+          </button>
+        </div>
+      </nav>
 
-      {headerPanel && (
-        <div className="header-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeHeaderPanel()}>
+      <button className={`sheet-backdrop ${panel.open ? 'is-open' : ''}`} aria-label="Upgrades schließen" onClick={closeUpgrades} />
+      <aside className={`management-sheet ${panel.open ? 'is-open' : ''}`} aria-labelledby="upgrade-sheet-title">
+        <header className="sheet-header">
+          <div className="sheet-header__top">
+            <h2 id="upgrade-sheet-title">Upgrades</h2>
+            <button className="sheet-close" onClick={closeUpgrades} aria-label="Upgrades schließen">×</button>
+          </div>
+          <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
+            {UPGRADE_FILTERS.map((filter) => {
+              const buyable = affordableIn(filter).length
+              return (
+                <button
+                  key={filter}
+                  role="tab"
+                  aria-selected={panel.filter === filter}
+                  aria-label={buyable > 0 ? `${UPGRADE_FILTER_LABEL[filter]}, ${buyable} bezahlbar` : UPGRADE_FILTER_LABEL[filter]}
+                  className={panel.filter === filter ? 'is-active' : ''}
+                  onClick={() => openUpgrades(filter)}
+                >
+                  {UPGRADE_FILTER_LABEL[filter]}
+                  {buyable > 0 && <b aria-hidden="true" />}
+                </button>
+              )
+            })}
+          </div>
+        </header>
+        <div className="sheet-content" ref={sheetContentRef}>
+          <p className="sheet-hint">Bezahlt wird mit Gold aus der Schatztruhe.</p>
+          {upgradeGroups.map((group) => (
+            <section key={group.category} className="upgrade-group">
+              {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}
+              <div className="upgrade-list">
+                {group.upgrades.map((upgrade) => <UpgradeCard key={upgrade.key} upgrade={upgrade} state={state} focused={panel.focusKey === upgrade.key} onBuy={handleBuy} />)}
+              </div>
+            </section>
+          ))}
+        </div>
+      </aside>
+
+      {dockPanel && (
+        <div className="header-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeDockPanel()}>
           <section className="header-modal" role="dialog" aria-modal="true" aria-labelledby="header-modal-title">
-            <button className="header-modal__close" onClick={closeHeaderPanel} aria-label="Popup schließen">×</button>
+            <button className="header-modal__close" onClick={closeDockPanel} aria-label="Popup schließen">×</button>
             <span className="modal-kicker">VAULT RUN</span>
-            <h2 id="header-modal-title">{headerPanel === 'settings' ? 'Einstellungen' : 'Statistik'}</h2>
-            {headerPanel === 'settings' ? (
+            <h2 id="header-modal-title">{dockPanel === 'settings' ? 'Einstellungen' : 'Statistik'}</h2>
+            {dockPanel === 'settings' ? (
               <div className="settings-list">
                 <button className="settings-toggle" onClick={toggleSound} aria-pressed={sound}>
                   {sound ? <Volume2 size={22} /> : <VolumeX size={22} />}

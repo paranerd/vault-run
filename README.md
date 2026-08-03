@@ -2,7 +2,7 @@
 
 Vault Run ist ein mobile-first Fantasy-Idle-Game in Pixel-Art. Mit einer rostigen Pickhacke beginnt der Spieler Gold zu schürfen, sammelt es zunächst in einem kleinen Beutel und bringt es anschließend in eine sichere Schatztruhe.
 
-Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Unter dem Header teilen sich Truhe, Beutel und Mine von oben nach unten den verfügbaren Platz zu exakt gleichen Teilen. Jeder Abschnitt bündelt seine Aktion, vier Stats-Plätze, den Ausrüstungs-Ausbau und vier einzeln levelbare Spezialisten-Slots.
+Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen Header und Dock-Leiste teilen sich Truhe, Beutel und Mine von oben nach unten den verfügbaren Platz zu exakt gleichen Teilen. Jeder Abschnitt bündelt seine Aktion, vier Stats-Plätze und vier einzeln levelbare Spezialisten-Slots. Die Dock-Leiste am unteren Rand führt zu Ausbau, Statistik und Einstellungen und hält Abstand zu iOS-Home-Bar und runden Displayecken.
 
 ## Kernloop
 
@@ -11,7 +11,7 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Unter dem
 3. Das Gold per zeitlich laufendem Transport zur Schatztruhe bringen.
 4. Bis zu vier Fuhrknechte einzeln anheuern und aufleveln; der erste automatisiert die Fahrten.
 5. Vier Bergleute und vier Wachen unabhängig voneinander verbessern.
-6. Pickhacke, Goldbeutel und Schatztruhe über den eigenen Ausbau-Button jedes Abschnitts aufwerten.
+6. Pickhacke, Goldbeutel und Schatztruhe im Ausbau-Popup unter „Ausrüstung“ aufwerten.
 7. Die Truhe aktiv sichern, um Aufmerksamkeit und Diebstahlrisiko zu senken.
 
 ## Gestaltung
@@ -21,7 +21,9 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Unter dem
 - ruhige Pixelminen-Kulisse und eine code-native 16×16-Pixelmünze für Beträge und Schürfanimationen
 - warme Pergament-, Holz-, Stein- und Goldpalette
 - drei Pixel-Trennstreifen, kompakte 2×2-Raster, harte Pixel-Schatten, gerasterte Fortschrittsbalken und PWA-App-Icon im selben Stil
-- Einstellungen mit Soundsteuerung und doppelter Neustart-Bestätigung sowie eine eigene Statistikübersicht im Header
+- feste Dock-Leiste mit Safe-Zones für Home-Bar und runde Ecken
+- ein einziges Ausbau-Popup, gefiltert nach Ausrüstung, Bergleuten, Transport und Wachen
+- Einstellungen mit Soundsteuerung und doppelter Neustart-Bestätigung sowie eine eigene Statistikübersicht
 
 ## Entwicklung
 

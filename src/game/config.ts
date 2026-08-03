@@ -5,6 +5,8 @@ import type {
   SlotGroup,
   SlotIndex,
   SlotLevels,
+  UpgradeCategory,
+  UpgradeFilter,
   UpgradeView,
 } from './types'
 
@@ -44,10 +46,23 @@ export const SECTION_LABEL: Record<SectionId, string> = {
   chest: 'Truhe',
 }
 
-const SLOT_NAMES: Record<SlotGroup, string> = {
-  miners: 'Bergmann',
-  transporters: 'Fuhrknecht',
-  guards: 'Wache',
+/** Sprechende Stufennamen, parallel zu den Sprite-Stufen; darüber hinaus gilt der letzte Name. */
+const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
+  miners: ['Tagelöhner', 'Grubenknappe', 'Steinbrecher', 'Erzmeister'],
+  transporters: ['Lastenträger', 'Packpferd', 'Goldkarren', 'Prunkkutsche'],
+  guards: ['Eisenschloss', 'Wachhund', 'Wachturm', 'Leibgardist', 'Festungsmauer'],
+}
+
+const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
+  miners: 'Leerer Stollen',
+  transporters: 'Kein Transport',
+  guards: 'Unbewachte Ecke',
+}
+
+export function slotStageName(group: SlotGroup, level: number): string {
+  if (level <= 0) return SLOT_EMPTY_NAME[group]
+  const names = SLOT_STAGE_NAMES[group]
+  return names[Math.min(names.length - 1, level - 1)]
 }
 
 const SLOT_SECTION: Record<SlotGroup, SectionId> = {
@@ -135,9 +150,9 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
   if (section === 'mine') {
     const next = withEquipmentLevel(state, 'tap')
     return {
-      key: 'equipment:tap', section, equipmentId: 'tap', name: visualStage(state.tapLevel) < PICKAXES.length - 1 ? PICKAXES[visualStage(state.tapLevel) + 1] : 'Pickhacke verzaubern',
+      key: 'equipment:tap', section, equipmentId: 'tap', name: PICKAXES[visualStage(state.tapLevel)],
       description: `Jeder Schlag löst danach ${Math.ceil(tapValue(next))} Gold aus dem Fels.`,
-      level: PICKAXES[visualStage(state.tapLevel)], cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
+      stage: state.tapLevel + 1, cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
       currentEffect: `+${Math.ceil(tapValue(state))}`, nextEffect: `+${Math.ceil(tapValue(next))}`,
       spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,
     }
@@ -145,18 +160,18 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
   if (section === 'bag') {
     const next = withEquipmentLevel(state, 'chest')
     return {
-      key: 'equipment:chest', section, equipmentId: 'chest', name: visualStage(state.chestLevel) < BAGS.length - 1 ? BAGS[visualStage(state.chestLevel) + 1] : 'Goldsack verstärken',
+      key: 'equipment:chest', section, equipmentId: 'chest', name: BAGS[visualStage(state.chestLevel)],
       description: 'Mehr frisch geschürftes Gold bis zum nächsten Transport sammeln.',
-      level: BAGS[visualStage(state.chestLevel)], cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
+      stage: state.chestLevel + 1, cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
       currentEffect: effectValue(chestCapacity(state)), nextEffect: effectValue(chestCapacity(next)),
       spriteFamily: 'bag', spriteLevel: state.chestLevel,
     }
   }
   const next = withEquipmentLevel(state, 'vault')
   return {
-    key: 'equipment:vault', section, equipmentId: 'vault', name: visualStage(state.vaultLevel) < TREASURE_CHESTS.length - 1 ? TREASURE_CHESTS[visualStage(state.vaultLevel) + 1] : 'Juwelentruhe erweitern',
+    key: 'equipment:vault', section, equipmentId: 'vault', name: TREASURE_CHESTS[visualStage(state.vaultLevel)],
     description: `Das sichere Schatzlager auf ${effectValue(vaultCapacity(next))} Gold erhöhen.`,
-    level: TREASURE_CHESTS[visualStage(state.vaultLevel)], cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
+    stage: state.vaultLevel + 1, cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
     currentEffect: effectValue(vaultCapacity(state)), nextEffect: effectValue(vaultCapacity(next)),
     spriteFamily: 'chest', spriteLevel: state.vaultLevel,
   }
@@ -190,9 +205,9 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       key: `slot:${group}:${index}`,
       section: SLOT_SECTION[group],
       slot: { group, index },
-      name: `${SLOT_NAMES[group]} ${index + 1}`,
+      name: slotStageName(group, level),
       description,
-      level: level === 0 ? 'Unbesetzt' : `Stufe ${level}`,
+      stage: level,
       currentEffect,
       nextEffect,
       cost: slotUpgradeCost(state, group, index),
@@ -207,4 +222,42 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
 export function getAllUpgrades(state: GameState): UpgradeView[] {
   const sections: SectionId[] = ['mine', 'bag', 'chest']
   return sections.flatMap((section) => [getEquipmentUpgrade(state, section), ...getSlotUpgrades(state, section)])
+}
+
+export const UPGRADE_CATEGORIES: readonly UpgradeCategory[] = ['equipment', 'miners', 'transporters', 'guards']
+export const UPGRADE_FILTERS: readonly UpgradeFilter[] = ['all', ...UPGRADE_CATEGORIES]
+
+export const UPGRADE_FILTER_LABEL: Record<UpgradeFilter, string> = {
+  all: 'Alle',
+  equipment: 'Ausrüstung',
+  miners: 'Bergleute',
+  transporters: 'Transport',
+  guards: 'Wachen',
+}
+
+/** Prefix of every `UpgradeView.key` that belongs to a filter; `all` matches everything. */
+export const UPGRADE_FILTER_PREFIX: Record<UpgradeFilter, string> = {
+  all: '',
+  equipment: 'equipment:',
+  miners: 'slot:miners:',
+  transporters: 'slot:transporters:',
+  guards: 'slot:guards:',
+}
+
+export const SECTION_FILTER: Record<SectionId, UpgradeCategory> = SECTION_SLOT_GROUP
+
+export function getCategoryUpgrades(state: GameState, category: UpgradeCategory): UpgradeView[] {
+  if (category === 'equipment') return [getEquipmentUpgrade(state, 'mine'), getEquipmentUpgrade(state, 'bag'), getEquipmentUpgrade(state, 'chest')]
+  return getSlotUpgrades(state, SLOT_SECTION[category])
+}
+
+export interface UpgradeGroup {
+  category: UpgradeCategory
+  label: string
+  upgrades: UpgradeView[]
+}
+
+export function getUpgradeGroups(state: GameState, filter: UpgradeFilter): UpgradeGroup[] {
+  const categories = filter === 'all' ? UPGRADE_CATEGORIES : [filter]
+  return categories.map((category) => ({ category, label: UPGRADE_FILTER_LABEL[category], upgrades: getCategoryUpgrades(state, category) }))
 }
