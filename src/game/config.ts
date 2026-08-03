@@ -162,13 +162,26 @@ export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 **
 export const RISK_WARNING = 50
 export const RISK_ALERT = 80
 
-/** Risiko-Zuwachs pro Sekunde. Wächst nur, solange etwas in der Schatztruhe liegt, und hängt
-    allein an deren Füllstand — die Diebe zielen auf den Hort, nicht auf den Beutel. Die Wachen
-    greifen über ihre Sicherungen ein, nicht bremsend, sonst zählten sie doppelt. */
+/** Wie stark der Anstieg je Truhenstufe zulegt. Ohne diesen Faktor stand ein fester Deckel von
+    1,05 %/s gegen Wachen, die unbegrenzt weiterwachsen — drei billigste Wachen für 450 Gold
+    stellten das Risiko dauerhaft auf null, und mit ihm den ganzen Diebstahl-Teil des Spiels.
+    Eine Konstante gegen eine unbegrenzte Gegenkraft kann nur einmal ausgehen. */
+export const RISK_PER_VAULT_LEVEL = 0.25
+
+/** Risiko-Zuwachs pro Sekunde. Wächst nur, solange etwas in der Schatztruhe liegt, und hängt am
+    Füllstand — die Diebe zielen auf den Hort, nicht auf den Beutel. Dazu wächst er mit der Größe
+    des Horts: Eine prächtigere Truhe ist ein lohnenderes Ziel, und nur so bleibt der Trupp über
+    das ganze Spiel gefordert statt nach den ersten Käufen überflüssig.
+ *
+ *  Ein Truhenausbau senkt den Druck trotzdem weiterhin sofort: Er verdreifacht die Kapazität,
+ *  der Füllstand fällt also auf gut 40 % und der Anstieg auf knapp 60 % — mehr, als der
+ *  Stufenfaktor von höchstens 25 % dagegenhält.
+ *
+ *  Die Wachen greifen über ihre Sicherungen ein, nicht bremsend, sonst zählten sie doppelt. */
 export const riskGrowth = (state: GameState) => {
   if (state.vaultGold <= 0) return 0
   const fill = Math.min(1, state.vaultGold / vaultCapacity(state))
-  return 0.3 + 0.75 * fill
+  return (0.3 + 0.75 * fill) * (1 + RISK_PER_VAULT_LEVEL * state.vaultLevel)
 }
 
 /** Deckel für Diebstahl während einer Offline-Strecke, gemessen an allem, was auf der Strecke
