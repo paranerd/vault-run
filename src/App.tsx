@@ -259,26 +259,26 @@ const UpgradeCard = memo(function UpgradeCard({ upgrade, affordable, focused, on
   const revealFocused = useCallback((node: HTMLElement | null) => node?.scrollIntoView({ block: 'center' }), [])
   return (
     <article ref={focused ? revealFocused : undefined} className={`upgrade-card upgrade-card--${upgrade.accent} ${focused ? 'is-focused' : ''} ${unowned ? 'is-unowned' : ''}`}>
-      <div className="upgrade-card__head">
-        <span className="upgrade-card__sprite"><PixelSprite family={upgrade.spriteFamily} level={upgrade.spriteLevel} /></span>
-        <div className="upgrade-card__facts">
-          {/* Stufenname statt Slot-Name; die Slot-Nummer bleibt als Kennung, weil vier Slots
-              derselben Stufe sonst identisch heißen. */}
-          <h3><span>{upgrade.name}</span>{upgrade.slot && <em>Slot {upgrade.slot.index + 1}</em>}</h3>
-          {/* Eine Zeile für den Aufstieg selbst: Stufe vorher → nachher, und der neue Rang, sobald
-              der Kauf ihn ändert — der einzige „Vorteil“, den keine Zahl der Tabelle zeigt. */}
-          <p className="upgrade-card__step">
-            Stufe {upgrade.stage} <i aria-hidden="true">→</i> {upgrade.stage + 1}
-            {upgrade.nextName && <b>{upgrade.nextName}</b>}
-          </p>
-          {/* Die eine Zahl der Karte: was der Kauf obendrauf legt. Kein „vorher → nachher“ — der
-              Bestand steht auf der Kachel des Abschnitts, hier zählt nur der Zuwachs. */}
-          <p className="upgrade-card__gain"><strong>{upgrade.gain.amount}</strong> <span>{upgrade.gain.unit}</span></p>
-        </div>
-        <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold auf Stufe ${upgrade.stage + 1} verbessern, bringt ${upgrade.gain.amount} ${upgrade.gain.unit}`}>
-          {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
-        </button>
-      </div>
+      <span className="upgrade-card__sprite"><PixelSprite family={upgrade.spriteFamily} level={upgrade.spriteLevel} /></span>
+      {/* Stufenname statt Slot-Name; die Slot-Nummer bleibt als Kennung, weil vier Slots
+          derselben Stufe sonst identisch heißen. */}
+      <h3><span>{upgrade.name}</span>{upgrade.slot && <em>Slot {upgrade.slot.index + 1}</em>}</h3>
+      {/* Alle Attribute der Einheit als Tabelle: links der Wert von jetzt, rechts der nach dem
+          Kauf, dahinter sein Name. Weil die Spalten über alle Zeilen geteilt sind, stehen die
+          Pfeile exakt untereinander und man liest die Karte in einer Blickachse hinunter. */}
+      <dl className="upgrade-facts">
+        {upgrade.facts.map((entry) => (
+          <div key={entry.label || 'stage'}>
+            <dd className="upgrade-facts__from">{entry.from}</dd>
+            <i aria-hidden="true">→</i>
+            <dd className="upgrade-facts__to">{entry.to}</dd>
+            <dt>{entry.label}</dt>
+          </div>
+        ))}
+      </dl>
+      <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold verbessern: ${upgrade.facts.map((entry) => `${entry.label || 'Stufe'} ${entry.from} wird ${entry.to}`).join(', ')}`}>
+        {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
+      </button>
       {upgrade.hint && <p className="upgrade-card__hint">{upgrade.hint}</p>}
     </article>
   )

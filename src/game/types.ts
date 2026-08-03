@@ -74,14 +74,15 @@ export interface GameState {
   lastOfflineReport?: OfflineReport
 }
 
-/** Was der Kauf zusätzlich einbringt — die eine Zahl, um die es auf einer Upgrade-Karte geht.
-    Bewusst der Zugewinn und nicht „vorher → nachher“: Der Bestand steht ohnehin auf der Kachel
-    des Abschnitts, hier zählt allein, was die Stufe obendrauf legt. */
-export interface UpgradeGain {
-  /** Vorzeichenbehafteter Zuwachs, z. B. „+0,7“. */
-  amount: string
-  /** Einheit dahinter, z. B. „Gold/s“. */
-  unit: string
+/** Eine Zeile der Attributtabelle einer Upgrade-Karte: derselbe Wert vor und nach dem Kauf,
+    dahinter sein Name. Die erste Zeile ist immer die Stufe; ihr Name ist der Rang, den die
+    Einheit danach trägt. */
+export interface UpgradeFact {
+  from: string
+  to: string
+  /** Steht am Zeilenende. Leer, wenn die Zeile für sich spricht — etwa die Stufenzeile einer
+      Einheit, die ihren Rangnamen behält. */
+  label: string
 }
 
 export interface UpgradeView {
@@ -96,8 +97,8 @@ export interface UpgradeView {
   hint?: string
   /** Spielerseitige Stufennummer; die nächste Stufe ist immer `stage + 1`. */
   stage: number
-  /** Was der Kauf einbringt — die eine Zahl der Karte. */
-  gain: UpgradeGain
+  /** Alle Attribute der Einheit, jeweils vorher und nachher. Erste Zeile ist die Stufe. */
+  facts: UpgradeFact[]
   cost: number
   available: boolean
   maxed?: boolean

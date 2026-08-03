@@ -219,19 +219,30 @@ describe('Vault Run engine', () => {
     expect(passiveRate({ ...state, minerLevels: [2, 1, 0, 0] })).toBeCloseTo(minerRate(2) + minerRate(1), 6)
   })
 
-  it('reduces every card to the one number the purchase adds', () => {
+  // Jede Karte führt ihre Attribute als Tabelle: Stufe zuerst, dann jeder Wert vorher und nachher.
+  it('lists every attribute of a card before and after the purchase', () => {
     const state = createInitialState(0)
     const upgrades = [getEquipmentUpgrade(state, 'mine'), ...getSlotUpgrades(state, 'mine')]
     expect(upgrades).toHaveLength(5)
-    expect(upgrades.every((upgrade) => upgrade.gain.amount && upgrade.gain.unit)).toBe(true)
-    expect(upgrades[0].gain).toEqual({ amount: '+1', unit: 'Gold je Schlag' })
-    expect(upgrades[1].gain).toEqual({ amount: '+0,7', unit: 'Gold/s' })
+    expect(upgrades.every((upgrade) => upgrade.facts.every((entry) => entry.from && entry.to))).toBe(true)
+
+    expect(upgrades[0].facts).toEqual([
+      { from: 'Stufe 1', to: 'Stufe 2', label: 'Eiserne Pickhacke' },
+      { from: '1', to: '2', label: 'Gold je Schlag' },
+    ])
+    // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
+    expect(upgrades[1].facts).toEqual([
+      { from: 'Stufe 0', to: 'Stufe 1', label: 'Tagelöhner' },
+      { from: '–', to: `+${formatDecimal(minerRate(1))}`, label: 'Gold/s Förderung' },
+      { from: '–', to: formatDecimal(minerInterval(1)), label: 'Sek. Takt' },
+    ])
   })
 
   // Eine Stufe, die rechnerisch nichts bringt, muss das zeigen — die Karte fordert zum Kauf auf.
   // `tapValue` rundet auf, weshalb Stufe 3 → 4 denselben Wert liefert wie Stufe 2 → 3.
   it('admits it when a level adds nothing at all', () => {
-    expect(getEquipmentUpgrade({ ...createInitialState(0), tapLevel: 2 }, 'mine').gain.amount).toBe('±0')
+    const [, hit] = getEquipmentUpgrade({ ...createInitialState(0), tapLevel: 2 }, 'mine').facts
+    expect(hit.from).toBe(hit.to)
   })
 
   // Der Rangname ist der einzige Vorteil eines Aufstiegs, der in keiner Zahl steckt — und oberhalb
@@ -248,7 +259,7 @@ describe('Vault Run engine', () => {
     const state = { ...createInitialState(0), tapLevel: 4 }
     const upgraded = getEquipmentUpgrade(state, 'mine')
     expect(tapValue(state)).toBe(5)
-    expect(upgraded.gain).toEqual({ amount: '+1', unit: 'Gold je Schlag' })
+    expect(upgraded.facts[1]).toEqual({ from: '5', to: '6', label: 'Gold je Schlag' })
     expect(tap(state).chestGold).toBe(5)
   })
 
@@ -357,22 +368,31 @@ describe('Vault Run engine', () => {
   // stehen deshalb im Gruppenhinweis, nicht auf einer einzelnen Karte.
   it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'chest')[0].gain).toEqual({ amount: `+${formatDecimal(guardRate(1))}`, unit: '%/s Sicherung' })
+    expect(getSlotUpgrades(state, 'chest')[0].facts).toEqual([
+      { from: 'Stufe 0', to: 'Stufe 1', label: 'Eisenschloss' },
+      { from: '–', to: `+${formatDecimal(guardRate(1))}`, label: '%/s Sicherung' },
+      { from: '–', to: formatDecimal(guardInterval(1)), label: 'Sek. Takt' },
+    ])
 
-    // Eine zweite Wache daneben ändert nichts an dieser Zahl — jede sichert für sich.
+    // Eine zweite Wache daneben ändert nichts an diesen Zeilen — jede sichert für sich.
     const guarded = { ...state, guardLevels: [0, 3, 0, 0] as [number, number, number, number] }
-    expect(getSlotUpgrades(guarded, 'chest')[0].gain).toEqual(getSlotUpgrades(state, 'chest')[0].gain)
+    expect(getSlotUpgrades(guarded, 'chest')[0].facts).toEqual(getSlotUpgrades(state, 'chest')[0].facts)
   })
 
   // Bergleute und Fuhrknechte tragen dieselbe Einheit — ihre Karten sind direkt vergleichbar.
   it('measures a transporter in the gold it delivers per second by itself', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'bag')[0].gain).toEqual({ amount: `+${formatDecimal(transporterRate(1))}`, unit: 'Gold/s' })
-    expect(getSlotUpgrades(state, 'mine')[0].gain.unit).toBe('Gold/s')
+    const [, throughput, travel] = getSlotUpgrades(state, 'bag')[0].facts
+    expect(throughput).toEqual({ from: '–', to: `+${formatDecimal(transporterRate(1))}`, label: 'Gold/s Transport' })
+    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterTripSeconds(1)), label: 'Sek. Fahrzeit' })
+    expect(getSlotUpgrades(state, 'mine')[0].facts[1].label).toBe('Gold/s Förderung')
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
-    const gained = transporterRate(4) - transporterRate(3)
-    expect(getSlotUpgrades(staffed, 'bag')[0].gain).toEqual({ amount: `+${formatDecimal(gained)}`, unit: 'Gold/s' })
+    expect(getSlotUpgrades(staffed, 'bag')[0].facts[1]).toEqual({
+      from: `+${formatDecimal(transporterRate(3))}`,
+      to: `+${formatDecimal(transporterRate(4))}`,
+      label: 'Gold/s Transport',
+    })
   })
 
   // Der Kern der Karte: Ihre Zahl steht still, wenn nebenan gekauft wird. Bei den Bergleuten gilt
@@ -386,8 +406,8 @@ describe('Vault Run engine', () => {
     }
     const sections = [['mine', 'miners'], ['bag', 'transporters'], ['chest', 'guards']] as const
     for (const [section, group] of sections) {
-      const before = getSlotUpgrades(state, section)[0].gain
-      const neighbourBought = getSlotUpgrades(withSlotLevel(state, group, 2), section)[0].gain
+      const before = getSlotUpgrades(state, section)[0].facts
+      const neighbourBought = getSlotUpgrades(withSlotLevel(state, group, 2), section)[0].facts
       expect(neighbourBought).toEqual(before)
     }
   })
