@@ -112,9 +112,17 @@ export const transportDuration = (state: GameState) => {
 }
 export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
 
+/** Dauerdurchsatz der automatischen Fuhren. `cargoCapacity` hat einen Boden von 20, ein
+    einzelner Fuhrknecht schleppt also mehr als seine nominelle Kapazität. */
+export const automaticTransportRate = (state: GameState) =>
+  hasAutomaticTransport(state) ? cargoCapacity(state) / transportDuration(state) : 0
+
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
 export const securityLoss = (state: GameState) => Math.max(0.06, 0.3 * 0.86 ** guardStrength(state))
 export const securityRating = (state: GameState) => Math.round((1 - securityLoss(state)) * 100)
+
+/** Anzeigeseitiges Gegenstück zu `threat`: startet bei 100 % und sinkt; bei 0 schlagen die Diebe zu. */
+export const vigilance = (state: GameState) => Math.max(0, 100 - state.threat)
 
 /** Risiko-Zuwachs pro Sekunde. Wächst nur, solange ungesichertes Gold im Beutel liegt, und
     hängt allein am Füllstand — die Wachen greifen jetzt über ihre Sicherungen ein, nicht mehr
