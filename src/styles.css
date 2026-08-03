@@ -162,6 +162,10 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 }
 .stats-grid,.slot-grid { min-width: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 4px; align-self: center; }
 .stats-grid { height: min(134px,88%); }
+/* Die Mine zeigt statt vier Werten nur die Gesamtförderung — eine Kachel über die volle Fläche. */
+.stats-grid--single { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
+.stats-grid--single .stat-tile strong { font-size: clamp(24px,7.5vw,34px); }
+.stats-grid--single .stat-tile > span:not(.stat-tile__icon) { margin-top: 6px; font-size: clamp(10px,2.7vw,13px); }
 .stat-tile {
   min-width: 0;
   min-height: 0;
@@ -422,6 +426,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-divider { height: 19px; }.section-divider span { font-size: 11px; }.section-divider::before,.section-divider::after { height: 3px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
   .stats-grid,.slot-grid { height: min(100px,86%); gap: 2px; }
+  .stats-grid--single .stat-tile strong { font-size: 24px; }
+  .stats-grid--single .stat-tile > span:not(.stat-tile__icon) { margin-top: 3px; font-size: 9px; }
   .stat-tile { padding: 1px; }.stat-tile strong { font-size: 11px; }.stat-tile > span:not(.stat-tile__icon) { margin-top: 1px; font-size: 7px; }.stat-tile__icon { display: none; }
   .section-center { gap: 2px; }
   .section-action { width: 88px; height: 80px; border-width: 2px; box-shadow: 2px 2px 0 #2a160d; }
@@ -437,6 +443,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
   .stats-grid,.slot-grid { max-width: 145px; height: min(145px,84%); gap: 6px; }
   .stat-tile strong { font-size: 15px; }.stat-tile > span:not(.stat-tile__icon) { font-size: 9px; }
+  .stats-grid--single .stat-tile strong { font-size: 38px; }.stats-grid--single .stat-tile > span:not(.stat-tile__icon) { font-size: 14px; }
   .section-action { width: 128px; height: 126px; }.section-action img { width: 86px; height: 86px; }.section-action strong { font-size: 13px; }
   .section-progress { width: 130px; }.section-progress__amount { font-size: 9px; }
   .slot-grid img { width: 64px; height: 64px; }

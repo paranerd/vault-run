@@ -56,6 +56,9 @@ interface UpgradePanelState {
     zum Herüberblenden hat und beim Schließen nach unten ausfahren kann. */
 const CLOSED_PANEL: UpgradePanelState = { filter: 'all', open: false }
 
+/** Fenster, über das die aktive Schürfrate gemittelt wird; danach ebbt sie von selbst ab. */
+const TAP_RATE_WINDOW_MS = 3_000
+
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1_000
@@ -257,6 +260,7 @@ function App() {
   })
   const sceneRef = useRef<HTMLDivElement>(null)
   const sheetContentRef = useRef<HTMLDivElement>(null)
+  const recentTaps = useRef<number[]>([])
   const bagButtonRef = useRef<HTMLButtonElement>(null)
   const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
@@ -438,11 +442,18 @@ function App() {
     || (state.transportEndsAt !== null && state.inTransitGold === 0)
     || (state.expressEndsAt !== null && state.expressGold === 0)
 
+  // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
+  // Ohne Fuhrknecht ruht die Mine während einer manuellen Reise — dann fördert auch niemand.
+  const miningPaused = mainTravelling && !automatic
+  const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
+  const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
+
   const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.key.startsWith(UPGRADE_FILTER_PREFIX[filter]))
   const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
 
   const handleTap = () => {
     if (playerTravelling || bagFull) return
+    recentTaps.current = [...recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS), now]
     const earned = Math.min(tapValue(state), Math.max(0, bagMax - state.chestGold))
     setState((current) => tap(current))
     launchGold(earned, 'coin')
@@ -563,10 +574,8 @@ function App() {
           <article className="game-section game-section--mine">
             <h2 className="section-divider"><span>Mine</span></h2>
             <div className="section-layout">
-              <div className="stats-grid" aria-label="Minenwerte">
-                <StatTile label="Auto / Sek." value={formatFlightGold(passiveRate(state), true)} />
-                <StatTile label="Gold / Klick" value={`+${formatGold(tapValue(state))}`} />
-                <StatTile /><StatTile />
+              <div className="stats-grid stats-grid--single" aria-label="Minenwerte">
+                <StatTile label="Gold / Sek." value={formatGold(Math.round(miningRate))} />
               </div>
               <div className="section-center">
                 <button ref={mineButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={playerTravelling || bagFull} onClick={handleTap} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : `Gold schürfen: ${formatGold(tapValue(state))}`}>
