@@ -25,7 +25,7 @@ export interface OfflineReport {
 }
 
 export interface GameState {
-  schemaVersion: 4
+  schemaVersion: 5
   savedAt: number
   lastTick: number
   chestGold: number
@@ -41,6 +41,11 @@ export interface GameState {
   transporterLevels: SlotLevels
   guardLevels: SlotLevels
   threat: number
+  /** Laufende manuelle Sicherung; blockiert bis `secureEndsAt` alle Aktionen, solange keine Wache automatisiert. */
+  secureStartedAt: number | null
+  secureEndsAt: number | null
+  /** Zeitpunkt der letzten automatischen Sicherung; `null`, solange keine Wache angestellt ist. */
+  lastAutoSecureAt: number | null
   transportStartedAt: number | null
   transportDeliveredAt: number | null
   transportEndsAt: number | null

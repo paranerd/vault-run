@@ -14,21 +14,30 @@ function normalizeLevels(value: unknown): SlotLevels {
   return [0, 1, 2, 3].map((index) => Math.max(0, Math.floor(Number(value[index]) || 0))) as SlotLevels
 }
 
+function timestamp(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
 export function migrateGame(value: unknown): GameState | null {
   if (!value || typeof value !== 'object') return null
   const parsed = value as Record<string, unknown>
   const { tapReadyAt: _legacyTapReadyAt, ...withoutCooldown } = parsed
-  if (parsed.schemaVersion === 4) {
+  const version = Number(parsed.schemaVersion)
+  // Schema 4 kennt die Slot-Reihen bereits und braucht nur die Felder der Wach-Automatik.
+  if (version === 4 || version === 5) {
     return {
       ...withoutCooldown,
-      schemaVersion: 4,
+      schemaVersion: 5,
       minerLevels: normalizeLevels(parsed.minerLevels),
       transporterLevels: normalizeLevels(parsed.transporterLevels),
       guardLevels: normalizeLevels(parsed.guardLevels),
+      secureStartedAt: timestamp(parsed.secureStartedAt),
+      secureEndsAt: timestamp(parsed.secureEndsAt),
+      lastAutoSecureAt: timestamp(parsed.lastAutoSecureAt),
     } as unknown as GameState
   }
 
-  if (![1, 2, 3].includes(Number(parsed.schemaVersion))) return null
+  if (![1, 2, 3].includes(version)) return null
 
   const startedAt = typeof parsed.transportStartedAt === 'number' ? parsed.transportStartedAt : null
   const endsAt = typeof parsed.transportEndsAt === 'number' ? parsed.transportEndsAt : null
@@ -41,7 +50,10 @@ export function migrateGame(value: unknown): GameState | null {
 
   return {
     ...withoutCooldown,
-    schemaVersion: 4,
+    schemaVersion: 5,
+    secureStartedAt: null,
+    secureEndsAt: null,
+    lastAutoSecureAt: null,
     minerLevels: distributeLevels(staffLevel),
     transporterLevels: distributeLevels(transportProgress),
     guardLevels: distributeLevels(securityLevel),

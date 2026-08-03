@@ -112,11 +112,46 @@ export const transportDuration = (state: GameState) => {
 }
 export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
 
+/** Dauerdurchsatz der automatischen Fuhren. `cargoCapacity` hat einen Boden von 20, ein
+    einzelner Fuhrknecht schleppt also mehr als seine nominelle Kapazität. */
+export const automaticTransportRate = (state: GameState) =>
+  hasAutomaticTransport(state) ? cargoCapacity(state) / transportDuration(state) : 0
+
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
 export const securityLoss = (state: GameState) => Math.max(0.06, 0.3 * 0.86 ** guardStrength(state))
-export const securityFactor = (state: GameState) => 1 + guardStrength(state) * 0.6
 export const securityRating = (state: GameState) => Math.round((1 - securityLoss(state)) * 100)
-export const threatReductionPerClick = (state: GameState) => 8 + Math.min(8, guardStrength(state) * 0.5)
+
+/** Anzeigeseitiges Gegenstück zu `threat`: startet bei 100 % und sinkt; bei 0 schlagen die Diebe zu. */
+export const vigilance = (state: GameState) => Math.max(0, 100 - state.threat)
+
+/** Risiko-Zuwachs pro Sekunde. Wächst nur, solange ungesichertes Gold im Beutel liegt, und
+    hängt allein am Füllstand — die Wachen greifen jetzt über ihre Sicherungen ein, nicht mehr
+    bremsend, sonst zählten sie doppelt. */
+export const riskGrowth = (state: GameState) => {
+  if (state.chestGold <= 0) return 0
+  const fill = Math.min(1, state.chestGold / chestCapacity(state))
+  return 0.3 + 0.75 * fill
+}
+
+/** Eine manuelle Sicherung nimmt ein Viertel der vollen Risikoskala. */
+export const MANUAL_SECURE_AMOUNT = 25
+export const SECURE_COOLDOWN_MS = 1_500
+
+export const activeGuards = (state: GameState) => state.guardLevels.filter((level) => level > 0).length
+export const hasAutomaticSecurity = (state: GameState) => activeGuards(state) > 0
+
+/** Takt der automatischen Sicherung: mehr Wachen kürzen ihn, höhere Stufen zusätzlich. */
+export const securingInterval = (state: GameState) => {
+  const active = activeGuards(state)
+  if (active === 0) return 0
+  const experience = guardStrength(state) - active
+  return Math.max(3, 12 / (1 + (active - 1) * 0.2 + experience * 0.12))
+}
+
+/** Risikopunkte, die eine automatische Sicherung abträgt. */
+export const securingPower = (state: GameState) => hasAutomaticSecurity(state) ? 6 + 2 * guardStrength(state) : 0
+
+export const threatReductionPerClick = (_state: GameState) => MANUAL_SECURE_AMOUNT
 
 export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
   switch (id) {

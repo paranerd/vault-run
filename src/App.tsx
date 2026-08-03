@@ -8,35 +8,34 @@ import {
   Eye,
   RotateCcw,
   Settings,
-  ShieldCheck,
   Volume2,
   VolumeX,
 } from 'lucide-react'
 import {
   GOLD_FLIGHT_DURATION_MS,
   SECTION_LABEL,
+  MANUAL_SECURE_AMOUNT,
   SECTION_SLOT_GROUP,
   UPGRADE_FILTERS,
   UPGRADE_FILTER_LABEL,
   UPGRADE_FILTER_PREFIX,
-  automaticTransportAmount,
+  automaticTransportRate,
   chestCapacity,
   getAllUpgrades,
   getUpgradeGroups,
   hasAutomaticTransport,
   passiveRate,
-  securityRating,
   slotVisualLevel,
   tapValue,
-  threatReductionPerClick,
-  transportDuration,
   vaultCapacity,
+  vigilance,
 } from './game/config'
 import {
   advanceGame,
   buyEquipmentUpgrade,
   buySlotUpgrade,
   dismissOfflineReport,
+  isSecuringManually,
   lowerThreat,
   startExpressTransport,
   startTransport,
@@ -58,6 +57,9 @@ const CLOSED_PANEL: UpgradePanelState = { filter: 'all', open: false }
 
 /** Fenster, über das die aktive Schürfrate gemittelt wird; danach ebbt sie von selbst ab. */
 const TAP_RATE_WINDOW_MS = 3_000
+/** Dasselbe für selbst ausgelöste Fuhren. Entspricht der Basis-Reisedauer, sodass lückenlos
+    hintereinander gestartete Reisen die tatsächlich erreichbare Rate ergeben. */
+const TRIP_RATE_WINDOW_MS = 12_000
 
 const UPGRADE_NOTICE_KEY = 'vault-run-seen-upgrade-levels-v2'
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}sprites`
@@ -261,6 +263,7 @@ function App() {
   const sceneRef = useRef<HTMLDivElement>(null)
   const sheetContentRef = useRef<HTMLDivElement>(null)
   const recentTaps = useRef<number[]>([])
+  const recentTrips = useRef<{ at: number; amount: number }[]>([])
   const bagButtonRef = useRef<HTMLButtonElement>(null)
   const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
@@ -436,7 +439,11 @@ function App() {
   const canStartMain = !mainTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
   const canStartExpress = automatic && !expressTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
   const canTransport = automatic ? canStartExpress : canStartMain
-  const transportSeconds = automatic ? transportDuration(state) : 0
+  const securing = state.secureEndsAt !== null
+  const securingBlocks = isSecuringManually(state)
+  const secureProgress = securing
+    ? percentage(now - (state.secureStartedAt ?? now), (state.secureEndsAt ?? now) - (state.secureStartedAt ?? now))
+    : 0
   const chestRevealed = state.tripCount > 0
     || state.vaultGold > 0
     || (state.transportEndsAt !== null && state.inTransitGold === 0)
@@ -445,9 +452,17 @@ function App() {
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
   // Die Kachel zeigt, was tatsächlich ankommt: Ohne Fuhrknecht ruht die Mine während einer
   // manuellen Reise, und bei vollem Beutel verfällt jedes weitere Korn — beides ergibt 0.
-  const miningPaused = (mainTravelling && !automatic) || bagFull
+  const miningPaused = (mainTravelling && !automatic) || bagFull || securingBlocks
   const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
   const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
+
+  // Transportrate nach demselben Muster: automatischer Dauerdurchsatz plus die selbst
+  // ausgelösten Fuhren im Zeitfenster. Ohne Automatik und ohne Klicks steht sie auf 0.
+  const manualTripGold = recentTrips.current
+    .filter((trip) => now - trip.at < TRIP_RATE_WINDOW_MS)
+    .reduce((total, trip) => total + trip.amount, 0)
+  const vaultFull = state.vaultGold + reservedGold >= treasureMax - 0.001
+  const transportRate = vaultFull ? 0 : automaticTransportRate(state) + manualTripGold / (TRIP_RATE_WINDOW_MS / 1_000)
 
   const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.key.startsWith(UPGRADE_FILTER_PREFIX[filter]))
   const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
@@ -467,14 +482,15 @@ function App() {
     const next = automatic ? startExpressTransport(state, Date.now()) : startTransport(state, Date.now())
     const payload = automatic ? next.expressGold : next.inTransitGold
     if (payload <= 0) return
+    recentTrips.current = [...recentTrips.current.filter((trip) => now - trip.at < TRIP_RATE_WINDOW_MS), { at: now, amount: payload }]
     setState(next)
     playTone('trip', sound)
     haptic(18)
   }
 
   const handleSecure = () => {
-    if (state.threat <= 0) return
-    setState((current) => lowerThreat(current))
+    if (state.threat <= 0 || securing) return
+    setState((current) => lowerThreat(current, Date.now()))
     playTone('secure', sound)
     haptic(10)
   }
@@ -537,13 +553,18 @@ function App() {
           <article className="game-section game-section--chest">
             <h2 className="section-divider"><span>Truhe</span></h2>
             <div className="section-layout">
-              <div className="stats-grid" aria-label="Truhenwerte">
-                <StatTile label="Sicherheitsniveau" value={`${securityRating(state)}%`} icon={<ShieldCheck aria-hidden="true" />} />
-                <StatTile label="Risiko / Klick" value={`−${formatGold(threatReductionPerClick(state))}`} />
-                <StatTile /><StatTile />
+              <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
+                <StatTile label="Aufmerksamkeit" value={`${Math.round(vigilance(state))}%`} icon={<Eye aria-hidden="true" />} />
               </div>
               <div className="section-center">
-                <button ref={chestButtonRef} className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'}`} disabled={!chestRevealed || state.threat <= 0} onClick={handleSecure} aria-label={chestRevealed ? `Aufmerksamkeit um ${threatReductionPerClick(state)} senken` : 'Schatztruhe noch nicht erreicht'}>
+                <button
+                  ref={chestButtonRef}
+                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''}`}
+                  disabled={!chestRevealed || state.threat <= 0 || securing}
+                  onClick={handleSecure}
+                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : securing ? `Wird gesichert: ${Math.round(secureProgress)} Prozent` : `Risiko um ${MANUAL_SECURE_AMOUNT} senken`}
+                >
+                  {securing && <i className="section-action__progress" style={{ height: `${secureProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
                 <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
@@ -555,14 +576,11 @@ function App() {
           <article className="game-section game-section--bag">
             <h2 className="section-divider"><span>Beutel</span></h2>
             <div className="section-layout">
-              <div className="stats-grid" aria-label="Beutelwerte">
-                <StatTile label="Aufmerksamkeit" value={`${Math.floor(state.threat)}%`} icon={<Eye aria-hidden="true" />} />
-                <StatTile label="Auto-Menge" value={automatic ? formatGold(automaticTransportAmount(state)) : '–'} />
-                <StatTile label="Auto-Takt" value={automatic ? `${transportSeconds.toLocaleString('de-DE', { maximumFractionDigits: 1 })} s` : 'Manuell'} />
-                <StatTile />
+              <div className="stats-grid stats-grid--single" aria-label="Beutelwerte">
+                <StatTile label="Gold / Sek." value={formatGold(Math.round(transportRate))} />
               </div>
               <div className="section-center">
-                <button ref={bagButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''} ${bagFull && canTransport ? 'is-full' : ''}`} disabled={!canTransport} onClick={handleTransport} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : 'Gold zur Schatztruhe transportieren'}>
+                <button ref={bagButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''} ${bagFull && canTransport && !securingBlocks ? 'is-full' : ''}`} disabled={!canTransport || securingBlocks} onClick={handleTransport} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : 'Gold zur Schatztruhe transportieren'}>
                   {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
@@ -579,7 +597,7 @@ function App() {
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(miningRate))} />
               </div>
               <div className="section-center">
-                <button ref={mineButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={playerTravelling || bagFull} onClick={handleTap} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : `Gold schürfen: ${formatGold(tapValue(state))}`}>
+                <button ref={mineButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={playerTravelling || bagFull || securingBlocks} onClick={handleTap} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : `Gold schürfen: ${formatGold(tapValue(state))}`}>
                   {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
