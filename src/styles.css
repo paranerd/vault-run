@@ -266,7 +266,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 /* Fixer Kopf: Titel mit Schließen-X, darunter die Filter. Nur `.sheet-content` scrollt. */
 .sheet-header { flex: 0 0 auto; display: grid; gap: 10px; padding-bottom: 11px; border-bottom: 3px solid rgba(112,70,41,.34); }
 .sheet-header__top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
-.sheet-header__top h2 { min-width: 0; margin: 0; overflow: hidden; color: #3d2518; font-family: var(--pixel-font); font-size: 28px; font-weight: 400; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-header__top h2 { display: flex; gap: 9px; align-items: center; min-width: 0; margin: 0; overflow: hidden; color: #3d2518; font-family: var(--pixel-font); font-size: 28px; font-weight: 400; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-header__icon { width: 28px; height: 28px; flex: 0 0 auto; object-fit: contain; image-rendering: pixelated; }
 .sheet-close { flex: 0 0 auto; width: 35px; height: 35px; border: 2px solid #6b4327; border-radius: 3px; color: #4e2c1b; background: #d4aa69; box-shadow: 2px 2px 0 rgba(56,30,15,.28); font-size: 24px; line-height: 1; cursor: pointer; }
 /* Alle fünf Filter stehen in einer Zeile: die Chips füllen die Breite komplett aus,
    wachsen und schrumpfen dafür proportional zu ihrer Beschriftung, brechen aber nie um. */
@@ -278,7 +279,6 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .sheet-filters button b { display: inline-block; width: 6px; height: 6px; margin: 0 -9px 0 3px; border-radius: 50%; vertical-align: .5em; background: var(--red); }
 .sheet-filters button.is-active b { background: #ff8a6d; }
 .sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 13px 2px calc(26px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
-.sheet-hint { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.1; }
 .upgrade-group + .upgrade-group { margin-top: 15px; }
 .upgrade-group__title { margin: 0 0 8px; display: flex; gap: 9px; align-items: center; color: #7a4c28; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; letter-spacing: .06em; }
 .upgrade-group__title::after { content: ''; flex: 1; height: 4px; background: repeating-linear-gradient(90deg,#b0844e 0 6px,transparent 6px 10px); }

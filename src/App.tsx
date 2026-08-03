@@ -152,8 +152,8 @@ function PixelGoldPile() {
   )
 }
 
-function UpgradeIcon() {
-  return <img className="dock-button__icon" src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
+function UpgradeIcon({ className = 'dock-button__icon' }: { className?: string }) {
+  return <img className={className} src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
 function StatTile({ label, value, icon }: { label?: string; value?: string; icon?: ReactNode }) {
@@ -330,6 +330,10 @@ function App() {
   }, [affordableSignature, panel.open, seenUpgradeLevels])
 
   const acknowledge = (filter: UpgradeFilter) => {
+    setUpgradeNoticePulsing(false)
+    // „Alle“ ist kein Blick auf eine bestimmte Kategorie — und da der Dock-Button diesen Filter
+    // öffnet, würde ein Abhaken dort schlicht jeden Punkt löschen, bevor etwas angesehen wurde.
+    if (filter === 'all') return
     const prefix = UPGRADE_FILTER_PREFIX[filter]
     const relevant = affordable.filter((upgrade) => upgrade.key.startsWith(prefix)).map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
     if (relevant.length === 0) return
@@ -339,7 +343,6 @@ function App() {
       localStorage.setItem(UPGRADE_NOTICE_KEY, JSON.stringify([...next]))
       return next
     })
-    setUpgradeNoticePulsing(false)
   }
 
   const openUpgrades = (filter: UpgradeFilter, focusKey?: string) => {
@@ -598,6 +601,9 @@ function App() {
 
       <nav className="dock" aria-label="Hauptmenü">
         <div className="dock__inner">
+          <button className={`dock-button ${dockPanel === 'stats' ? 'is-active' : ''}`} onClick={() => openDockPanel('stats')} aria-expanded={dockPanel === 'stats'} aria-label="Statistik öffnen">
+            <BarChart3 size={22} aria-hidden="true" /><span>Statistik</span>
+          </button>
           <button
             className={`dock-button ${panel.open ? 'is-active' : ''} ${upgradeNoticePulsing && dockNoticeCount > 0 ? 'is-notifying' : ''}`}
             onClick={() => (panel.open ? closeUpgrades() : openUpgrades('all'))}
@@ -606,9 +612,6 @@ function App() {
           >
             <UpgradeIcon /><span>Ausbau</span>
             {dockNoticeCount > 0 && <em className="dock-button__badge">{dockNoticeCount}</em>}
-          </button>
-          <button className={`dock-button ${dockPanel === 'stats' ? 'is-active' : ''}`} onClick={() => openDockPanel('stats')} aria-expanded={dockPanel === 'stats'} aria-label="Statistik öffnen">
-            <BarChart3 size={22} aria-hidden="true" /><span>Statistik</span>
           </button>
           <button className={`dock-button ${dockPanel === 'settings' ? 'is-active' : ''}`} onClick={() => openDockPanel('settings')} aria-expanded={dockPanel === 'settings'} aria-label="Einstellungen öffnen">
             <Settings size={22} aria-hidden="true" /><span>Einstellungen</span>
@@ -620,30 +623,30 @@ function App() {
       <aside className={`management-sheet ${panel.open ? 'is-open' : ''}`} aria-labelledby="upgrade-sheet-title">
         <header className="sheet-header">
           <div className="sheet-header__top">
-            <h2 id="upgrade-sheet-title">Upgrades</h2>
+            <h2 id="upgrade-sheet-title"><UpgradeIcon className="sheet-header__icon" />Upgrades</h2>
             <button className="sheet-close" onClick={closeUpgrades} aria-label="Upgrades schließen">×</button>
           </div>
           <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
             {UPGRADE_FILTERS.map((filter) => {
-              const buyable = affordableIn(filter).length
+              // Der Punkt meldet nur noch ungesehene Angebote; „Alle“ bekommt gar keinen.
+              const pending = filter === 'all' ? 0 : unseenFor(filter).length
               return (
                 <button
                   key={filter}
                   role="tab"
                   aria-selected={panel.filter === filter}
-                  aria-label={buyable > 0 ? `${UPGRADE_FILTER_LABEL[filter]}, ${buyable} bezahlbar` : UPGRADE_FILTER_LABEL[filter]}
+                  aria-label={pending > 0 ? `${UPGRADE_FILTER_LABEL[filter]}, ${pending} neu bezahlbar` : UPGRADE_FILTER_LABEL[filter]}
                   className={panel.filter === filter ? 'is-active' : ''}
                   onClick={() => openUpgrades(filter)}
                 >
                   {UPGRADE_FILTER_LABEL[filter]}
-                  {buyable > 0 && <b aria-hidden="true" />}
+                  {pending > 0 && <b aria-hidden="true" />}
                 </button>
               )
             })}
           </div>
         </header>
         <div className="sheet-content" ref={sheetContentRef}>
-          <p className="sheet-hint">Bezahlt wird mit Gold aus der Schatztruhe.</p>
           {upgradeGroups.map((group) => (
             <section key={group.category} className="upgrade-group">
               {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}

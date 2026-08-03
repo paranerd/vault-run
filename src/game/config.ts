@@ -49,8 +49,8 @@ export const SECTION_LABEL: Record<SectionId, string> = {
 /** Sprechende Stufennamen, parallel zu den Sprite-Stufen; darüber hinaus gilt der letzte Name. */
 const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
   miners: ['Tagelöhner', 'Grubenknappe', 'Steinbrecher', 'Erzmeister'],
-  transporters: ['Lastenträger', 'Packpferd', 'Goldkarren', 'Prunkkutsche'],
-  guards: ['Eisenschloss', 'Wachhund', 'Wachturm', 'Leibgardist', 'Festungsmauer'],
+  transporters: ['Läufer', 'Packpferd', 'Schatzkarren', 'Königskutsche'],
+  guards: ['Eisenschloss', 'Wachhund', 'Wachturm', 'Königsgarde', 'Schatzfestung'],
 }
 
 const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
