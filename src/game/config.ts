@@ -66,9 +66,9 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
     Hier steht außerdem alles, was mehrere Slots gemeinsam bewirken: Auf der Karte hätte es keine
     Zahl, die nur zu ihr gehört, und ließe sie sich beim Kauf nebenan ändern. */
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
-  miners: 'Jeder Bergmann fördert für sich, in seinem eigenen Takt. Jede Stufe bringt mehr Gold je Förderung und verkürzt den Takt.',
+  miners: 'Jeder Bergmann fördert für sich, jede Sekunde einmal. Jede Stufe erhöht allein seine Fördermenge.',
   transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigener Fahrzeit. Deine eigene Fuhre läuft unabhängig daneben.',
-  guards: 'Jede Wache sichert für sich, in ihrem eigenen Takt. Jede Stufe senkt zusätzlich den Verlust bei einem Diebeszug um 14 %.',
+  guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Jede Stufe senkt zusätzlich den Verlust bei einem Diebeszug um 14 %.',
 }
 
 export function slotStageName(group: SlotGroup, level: number): string {
@@ -131,8 +131,10 @@ export const MIN_CYCLE_SECONDS = 1
 export const MANUAL_CARGO = 20
 export const MANUAL_TRIP_SECONDS = 12
 
-// --- Bergleute: Menge je Förderung, Takt zwischen zwei Förderungen ---
-export const minerInterval = (level: number) => Math.max(MIN_CYCLE_SECONDS, 3 - 0.5 * (level - 1))
+// --- Bergleute: eine Förderung je Sekunde, die Stufe bestimmt allein die Menge ---
+/** Bergleute arbeiten immer im Sekundentakt. Damit ist ihre Fördermenge zugleich ihre Rate, und
+    die Karte braucht keine Taktzeile — das `/s` an der Menge sagt bereits alles. */
+export const minerInterval = (_level: number) => MIN_CYCLE_SECONDS
 /** Unverändert gegenüber dem stufenlosen Modell — die Rate ist dieselbe, sie kommt jetzt nur in
     Portionen statt als kontinuierlicher Strom. */
 export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
@@ -300,18 +302,19 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     const empty = level === 0
     const slotFacts: UpgradeFact[] = [stageFact(level, changedName(name, slotStageName(group, level + 1)))]
     if (group === 'miners') {
-      slotFacts.push(
-        fact('Förderung', empty ? null : minerRate(level), minerRate(level + 1), '/s', signedRate),
-        fact('Takt', empty ? null : minerInterval(level), minerInterval(level + 1), ' s', effectRate),
-      )
+      // Der Sekundentakt ist bei Bergleuten fest, deshalb steht hier nur die Menge — mit `/s`,
+      // weil Menge und Rate bei einem Takt von einer Sekunde dasselbe sind.
+      slotFacts.push(fact('Förderung', empty ? null : minerRate(level), minerRate(level + 1), '/s', signedRate))
     } else if (group === 'transporters') {
       slotFacts.push(
-        fact('Transport', empty ? null : transporterRate(level), transporterRate(level + 1), '/s', signedRate),
+        fact('Ladung', empty ? null : transporterCapacity(level), transporterCapacity(level + 1), ' Gold', effectGold),
         fact('Fahrzeit', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), ' s', effectRate),
       )
     } else {
+      // „x % alle y s“: was eine Sicherung abträgt und wie oft sie stattfindet. Beides sind die
+      // Eigenschaften der Wache selbst; die Dauerleistung ist ihr Quotient und stünde doppelt da.
       slotFacts.push(
-        fact('Risiko', empty ? null : guardRate(level), guardRate(level + 1), ' %/s', loweringRate),
+        fact('Risiko', empty ? null : guardPower(level), guardPower(level + 1), ' %', loweringRate),
         fact('Takt', empty ? null : guardInterval(level), guardInterval(level + 1), ' s', effectRate),
       )
     }

@@ -197,13 +197,13 @@ describe('Vault Run engine', () => {
     }
   })
 
-  // Menge und Takt verbessern sich beide, und über dem Boden trägt die Menge das Wachstum allein.
-  it('improves both the amount and the cadence of every unit', () => {
+  // Jede Stufe verbessert die Einheit. Bergleute takten fest im Sekundentakt, dort trägt allein
+  // die Menge das Wachstum; Fuhrknechte und Wachen legen bei Menge und Takt zu.
+  it('improves every unit with every level', () => {
     for (let level = 1; level <= 8; level += 1) {
-      expect(minerInterval(level + 1)).toBeLessThanOrEqual(minerInterval(level))
-      // Nur an der Stufe, an der der Taktboden greift, bleibt die Menge gleich — die Rate nicht.
-      expect(minerYield(level + 1)).toBeGreaterThanOrEqual(minerYield(level) - 1e-9)
+      expect(minerInterval(level + 1)).toBe(minerInterval(level))
       expect(minerRate(level + 1)).toBeGreaterThan(minerRate(level))
+      expect(minerYield(level + 1)).toBeGreaterThan(minerYield(level))
       expect(transporterTripSeconds(level + 1)).toBeLessThan(transporterTripSeconds(level))
       expect(transporterCapacity(level + 1)).toBeGreaterThan(transporterCapacity(level))
       expect(guardInterval(level + 1)).toBeLessThan(guardInterval(level))
@@ -231,10 +231,10 @@ describe('Vault Run engine', () => {
       { from: '1', to: '2 Gold', label: 'je Schlag' },
     ])
     // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
+    // Bergleute takten immer im Sekundentakt — ihre Karte braucht deshalb keine Taktzeile.
     expect(upgrades[1].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Tagelöhner' },
       { from: '–', to: `+${formatDecimal(minerRate(1))}/s`, label: 'Förderung' },
-      { from: '–', to: `${formatDecimal(minerInterval(1))} s`, label: 'Takt' },
     ])
   })
 
@@ -368,9 +368,10 @@ describe('Vault Run engine', () => {
   // stehen deshalb im Gruppenhinweis, nicht auf einer einzelnen Karte.
   it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
+    // „x % alle y s“ — was eine Sicherung abträgt und wie oft sie stattfindet.
     expect(getSlotUpgrades(state, 'chest')[0].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Eisenschloss' },
-      { from: '–', to: `-${formatDecimal(guardRate(1))} %/s`, label: 'Risiko' },
+      { from: '–', to: `-${formatDecimal(guardPower(1))} %`, label: 'Risiko' },
       { from: '–', to: `${formatDecimal(guardInterval(1))} s`, label: 'Takt' },
     ])
 
@@ -381,19 +382,18 @@ describe('Vault Run engine', () => {
     expect(getSlotUpgrades(guarded, 'chest')[0].facts).toEqual(getSlotUpgrades(state, 'chest')[0].facts)
   })
 
-  // Bergleute und Fuhrknechte tragen dieselbe Einheit — ihre Karten sind direkt vergleichbar.
-  it('measures a transporter in the gold it delivers per second by itself', () => {
+  // Ein Fuhrknecht nennt, was er trägt und wie lange er dafür braucht — nicht den Quotienten.
+  it('describes a transporter by its load and its travel time', () => {
     const state = createInitialState(0)
-    const [, throughput, travel] = getSlotUpgrades(state, 'bag')[0].facts
-    expect(throughput).toEqual({ from: '–', to: `+${formatDecimal(transporterRate(1))}/s`, label: 'Transport' })
+    const [, load, travel] = getSlotUpgrades(state, 'bag')[0].facts
+    expect(load).toEqual({ from: '–', to: `${formatGold(transporterCapacity(1))} Gold`, label: 'Ladung' })
     expect(travel).toEqual({ from: '–', to: `${formatDecimal(transporterTripSeconds(1))} s`, label: 'Fahrzeit' })
-    expect(getSlotUpgrades(state, 'mine')[0].facts[1].to).toContain('/s')
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
     expect(getSlotUpgrades(staffed, 'bag')[0].facts[1]).toEqual({
-      from: `+${formatDecimal(transporterRate(3))}`,
-      to: `+${formatDecimal(transporterRate(4))}/s`,
-      label: 'Transport',
+      from: formatGold(transporterCapacity(3)),
+      to: `${formatGold(transporterCapacity(4))} Gold`,
+      label: 'Ladung',
     })
   })
 
