@@ -222,14 +222,6 @@ export const UPGRADE_FILTER_LABEL: Record<UpgradeFilter, string> = {
   guards: 'Wachen',
 }
 
-export const UPGRADE_FILTER_TITLE: Record<UpgradeFilter, string> = {
-  all: 'Alle Ausbauten',
-  equipment: 'Pickhacke, Beutel und Truhe',
-  miners: 'Vier Bergleute',
-  transporters: 'Vier Transporte',
-  guards: 'Vier Wachen',
-}
-
 /** Prefix of every `UpgradeView.key` that belongs to a filter; `all` matches everything. */
 export const UPGRADE_FILTER_PREFIX: Record<UpgradeFilter, string> = {
   all: '',

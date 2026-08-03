@@ -19,7 +19,6 @@ import {
   UPGRADE_FILTERS,
   UPGRADE_FILTER_LABEL,
   UPGRADE_FILTER_PREFIX,
-  UPGRADE_FILTER_TITLE,
   automaticTransportAmount,
   chestCapacity,
   getAllUpgrades,
@@ -609,21 +608,26 @@ function App() {
       {panel && (
         <>
           <button className="sheet-backdrop" aria-label="Ausbau schließen" onClick={() => setPanel(null)} />
-          <aside className="management-sheet is-open" aria-label="Ausbau">
-            <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Ausbau schließen">×</button>
-            <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
-              {UPGRADE_FILTERS.map((filter) => {
-                const buyable = affordableIn(filter).length
-                return (
-                  <button key={filter} role="tab" aria-selected={panel.filter === filter} className={panel.filter === filter ? 'is-active' : ''} onClick={() => openUpgrades(filter)}>
-                    {UPGRADE_FILTER_LABEL[filter]}
-                    {buyable > 0 && <b aria-label={`${buyable} bezahlbar`}>{buyable}</b>}
-                  </button>
-                )
-              })}
-            </div>
+          <aside className="management-sheet is-open" aria-labelledby="upgrade-sheet-title">
+            <header className="sheet-header">
+              <div className="sheet-header__top">
+                <h2 id="upgrade-sheet-title">Upgrades</h2>
+                <button className="sheet-close" onClick={() => setPanel(null)} aria-label="Upgrades schließen">×</button>
+              </div>
+              <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
+                {UPGRADE_FILTERS.map((filter) => {
+                  const buyable = affordableIn(filter).length
+                  return (
+                    <button key={filter} role="tab" aria-selected={panel.filter === filter} className={panel.filter === filter ? 'is-active' : ''} onClick={() => openUpgrades(filter)}>
+                      {UPGRADE_FILTER_LABEL[filter]}
+                      {buyable > 0 && <b aria-label={`${buyable} bezahlbar`}>{buyable}</b>}
+                    </button>
+                  )
+                })}
+              </div>
+            </header>
             <div className="sheet-content">
-              <div className="sheet-heading"><span>AUSBAU</span><h2>{UPGRADE_FILTER_TITLE[panel.filter]}</h2><p>Bezahlt wird mit Gold aus der Schatztruhe.</p></div>
+              <p className="sheet-hint">Bezahlt wird mit Gold aus der Schatztruhe.</p>
               {upgradeGroups.map((group) => (
                 <section key={group.category} className="upgrade-group">
                   {upgradeGroups.length > 1 && <h3 className="upgrade-group__title">{group.label}</h3>}

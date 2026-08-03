@@ -256,19 +256,22 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   background: linear-gradient(rgba(99,56,26,.035) 1px,transparent 1px) 0 0/100% 7px,#ecd19b;
   box-shadow: 0 -6px 0 rgba(25,12,7,.45);
 }
-.sheet-close { position: absolute; z-index: 3; top: 11px; right: 14px; width: 35px; height: 35px; border: 2px solid #6b4327; border-radius: 3px; color: #4e2c1b; background: #d4aa69; box-shadow: 2px 2px 0 rgba(56,30,15,.28); font-size: 24px; line-height: 1; cursor: pointer; }
+/* Fixer Kopf: Titel mit Schließen-X, darunter die Filter. Nur `.sheet-content` scrollt. */
+.sheet-header { flex: 0 0 auto; display: grid; gap: 10px; padding-bottom: 11px; border-bottom: 3px solid rgba(112,70,41,.34); }
+.sheet-header__top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.sheet-header__top h2 { min-width: 0; margin: 0; overflow: hidden; color: #3d2518; font-family: var(--pixel-font); font-size: 28px; font-weight: 400; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-close { flex: 0 0 auto; width: 35px; height: 35px; border: 2px solid #6b4327; border-radius: 3px; color: #4e2c1b; background: #d4aa69; box-shadow: 2px 2px 0 rgba(56,30,15,.28); font-size: 24px; line-height: 1; cursor: pointer; }
 /* Alle fünf Filter bleiben sichtbar: die Chips brechen um, statt seitlich wegzuscrollen. */
-.sheet-filters { flex: 0 0 auto; width: calc(100% - 48px); display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border: 2px solid #704629; border-radius: 4px; background: #c79c61; }
+.sheet-filters { width: 100%; display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border: 2px solid #704629; border-radius: 4px; background: #c79c61; }
 .sheet-filters button { flex: 0 0 auto; min-height: 31px; padding: 0 8px; display: flex; gap: 5px; align-items: center; border: 0; border-radius: 2px; color: #67462f; background: transparent; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; white-space: nowrap; cursor: pointer; }
 .sheet-filters button.is-active { color: #fff0c5; background: #694026; box-shadow: inset 2px 2px rgba(30,14,8,.22); }
 .sheet-filters button b { min-width: 16px; height: 16px; padding: 0 3px; display: grid; place-items: center; border-radius: 2px; color: #fff2c8; background: var(--red); font-size: 11px; font-weight: 400; line-height: 1; }
-.sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 2px 26px; overscroll-behavior: contain; }
+.sheet-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 13px 2px 26px; overscroll-behavior: contain; }
+.sheet-hint { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.1; }
 .upgrade-group + .upgrade-group { margin-top: 15px; }
 .upgrade-group__title { margin: 0 0 8px; display: flex; gap: 9px; align-items: center; color: #7a4c28; font-family: var(--pixel-font); font-size: 15px; font-weight: 400; letter-spacing: .06em; }
 .upgrade-group__title::after { content: ''; flex: 1; height: 4px; background: repeating-linear-gradient(90deg,#b0844e 0 6px,transparent 6px 10px); }
-.sheet-heading > span,.modal-kicker { color: #865027; font-family: var(--pixel-font); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
-.sheet-heading h2 { margin: 3px 0; color: #3d2518; font-family: var(--pixel-font); font-size: 24px; font-weight: 700; }
-.sheet-heading p { margin: 0 0 11px; color: var(--muted); font-size: 15px; line-height: 1.1; }
+.modal-kicker { color: #865027; font-family: var(--pixel-font); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
 .upgrade-list { display: grid; gap: 10px; }
 .upgrade-card { position: relative; min-height: 143px; padding: 12px 10px 12px 13px; display: grid; grid-template-columns: minmax(0,1fr) 72px; gap: 10px; align-items: center; border: 2px solid #74492c; border-radius: 5px; background: #f8e2b3; box-shadow: 3px 3px 0 rgba(69,37,18,.24),inset 2px 2px rgba(255,251,220,.4); }
 .upgrade-card::before { content: ''; position: absolute; top: 9px; bottom: 9px; left: 0; width: 5px; background: var(--gold-deep); }
