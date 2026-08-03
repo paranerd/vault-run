@@ -261,9 +261,10 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .sheet-header__top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .sheet-header__top h2 { min-width: 0; margin: 0; overflow: hidden; color: #3d2518; font-family: var(--pixel-font); font-size: 28px; font-weight: 400; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .sheet-close { flex: 0 0 auto; width: 35px; height: 35px; border: 2px solid #6b4327; border-radius: 3px; color: #4e2c1b; background: #d4aa69; box-shadow: 2px 2px 0 rgba(56,30,15,.28); font-size: 24px; line-height: 1; cursor: pointer; }
-/* Alle fünf Filter stehen in einer Zeile: die Chips schrumpfen notfalls, brechen aber nie um. */
+/* Alle fünf Filter stehen in einer Zeile: die Chips füllen die Breite komplett aus,
+   wachsen und schrumpfen dafür proportional zu ihrer Beschriftung, brechen aber nie um. */
 .sheet-filters { width: 100%; display: flex; flex-wrap: nowrap; gap: 3px; padding: 3px; border: 2px solid #704629; border-radius: 4px; background: #c79c61; }
-.sheet-filters button { position: relative; flex: 0 1 auto; min-width: 0; min-height: 31px; padding: 0 8px; overflow: hidden; border: 0; border-radius: 2px; color: #67462f; background: transparent; font-family: var(--pixel-font); font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.sheet-filters button { position: relative; flex: 1 1 auto; min-width: 0; min-height: 31px; padding: 0 8px; overflow: hidden; border: 0; border-radius: 2px; color: #67462f; background: rgba(255,240,200,.2); font-family: var(--pixel-font); font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .sheet-filters button.is-active { color: #fff0c5; background: #694026; box-shadow: inset 2px 2px rgba(30,14,8,.22); }
 /* Punkt statt Zahl, absolut in der Innenabstands-Ecke: die Chip-Breite bleibt dadurch konstant. */
 .sheet-filters button b { position: absolute; top: 3px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
