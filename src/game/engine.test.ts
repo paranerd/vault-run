@@ -3,29 +3,35 @@ import {
   GOLD_FLIGHT_DURATION_MS,
   MANUAL_CARGO,
   MANUAL_SECURE_AMOUNT,
+  MANUAL_TRIP_SECONDS,
   OFFLINE_THEFT_SHARE,
   SECURE_COOLDOWN_MS,
-  automaticTransportAmount,
+  automaticTransportRate,
   chestCapacity,
   getAllUpgrades,
+  guardInterval,
   getEquipmentUpgrade,
   getSlotUpgrades,
   getUpgradeGroups,
+  minerInterval,
   passiveRate,
+  transporterTripSeconds,
   riskGrowth,
-  securingInterval,
-  securingPower,
+  guardPower,
+  guardRate,
+  minerRate,
+  minerYield,
   securingRate,
   securityLoss,
   slotVisualLevel,
   slotUpgradeCost,
   tapValue,
-  transportCargo,
   transporterCapacity,
+  transporterRate,
   vaultCapacity,
   withSlotLevel,
 } from './config'
-import { formatGold } from './format'
+import { formatDecimal, formatGold } from './format'
 import {
   advanceGame,
   buyEquipmentUpgrade,
@@ -33,7 +39,6 @@ import {
   createInitialState,
   isSecuringManually,
   lowerThreat,
-  startExpressTransport,
   startTransport,
   tap,
 } from './engine'
@@ -46,21 +51,21 @@ describe('Vault Run engine', () => {
     state = startTransport(state, 0)
 
     expect(state.chestGold).toBe(0)
-    expect(state.inTransitGold).toBe(10)
+    expect(state.playerTrip?.gold).toBe(10)
     expect(state.vaultGold).toBe(0)
 
     state = advanceGame(state, GOLD_FLIGHT_DURATION_MS - 1)
-    expect(state.inTransitGold).toBe(10)
+    expect(state.playerTrip?.gold).toBe(10)
     expect(state.vaultGold).toBe(0)
 
     state = advanceGame(state, GOLD_FLIGHT_DURATION_MS)
-    expect(state.inTransitGold).toBe(0)
+    expect(state.playerTrip?.gold).toBe(0)
     expect(state.vaultGold).toBe(10)
-    expect(state.transportEndsAt).toBe(12_000)
+    expect(state.playerTrip?.endsAt).toBe(MANUAL_TRIP_SECONDS * 1_000)
 
-    state = advanceGame(state, 12_000)
+    state = advanceGame(state, MANUAL_TRIP_SECONDS * 1_000)
     expect(state.tripCount).toBe(1)
-    expect(state.transportEndsAt).toBeNull()
+    expect(state.playerTrip).toBeNull()
   })
 
   it('pauses mining while the player transports gold without a transporter', () => {
@@ -89,40 +94,41 @@ describe('Vault Run engine', () => {
     expect(state.chestGold).toBe(2)
   })
 
-  it('runs automated and manual express transports together after hiring a transporter', () => {
+  // Jeder Fuhrknecht lädt seine eigene Ladung, die eigene Fuhre kommt daneben obendrauf.
+  it('sends every transporter on its own trip beside the player', () => {
     let state = createInitialState(0)
-    state.transporterLevels = [1, 1, 0, 0]
-    state.chestGold = 40
+    state.transporterLevels = [1, 2, 0, 0]
+    state.chestGold = 200
     state = startTransport(state, 0)
-    state = startExpressTransport(state, 0)
+    expect(state.playerTrip?.gold).toBe(MANUAL_CARGO)
 
-    expect(state.inTransitGold).toBe(24)
-    expect(state.expressGold).toBe(16)
-    state = advanceGame(state, 12_000)
-    expect(state.vaultGold).toBe(40)
-    expect(state.tripCount).toBe(2)
+    state = advanceGame(state, 1)
+    expect(state.transporterTrips[0]?.gold).toBeCloseTo(transporterCapacity(1), 6)
+    expect(state.transporterTrips[1]?.gold).toBeCloseTo(transporterCapacity(2), 6)
+    expect(state.transporterTrips[2]).toBeNull()
+    // Jede Fuhre hat ihre eigene Dauer — die stärkere ist schneller zurück.
+    expect(state.transporterTrips[1]!.endsAt).toBeLessThan(state.transporterTrips[0]!.endsAt)
   })
 
-  it('credits an express load on animation arrival without ending its cooldown', () => {
+  it('credits a load on animation arrival without ending its trip', () => {
     let state = createInitialState(0)
-    state.transporterLevels = [1, 0, 0, 0]
     state.chestGold = 20
-    state = startExpressTransport(state, 0)
-    const cooldownEndsAt = state.expressEndsAt
+    state = startTransport(state, 0)
+    const endsAt = state.playerTrip?.endsAt
 
     state = advanceGame(state, GOLD_FLIGHT_DURATION_MS - 1)
     expect(state.vaultGold).toBe(0)
 
     state = advanceGame(state, GOLD_FLIGHT_DURATION_MS)
-    expect(state.vaultGold).toBe(20)
-    expect(state.expressEndsAt).toBe(cooldownEndsAt)
+    expect(state.vaultGold).toBe(MANUAL_CARGO)
+    expect(state.playerTrip?.endsAt).toBe(endsAt)
   })
 
-  it('blocks manual mining while the player runs an express transport', () => {
+  it('blocks manual mining while the player is on the road', () => {
     let state = createInitialState(0)
     state.transporterLevels = [1, 0, 0, 0]
     state.chestGold = 20
-    state = startExpressTransport(state, 0)
+    state = startTransport(state, 0)
 
     const tapped = tap(state)
     expect(tapped).toBe(state)
@@ -178,25 +184,39 @@ describe('Vault Run engine', () => {
     const state = createInitialState(0)
     expect(chestCapacity({ ...state, chestLevel: 1 })).toBeGreaterThan(chestCapacity(state))
     expect(vaultCapacity({ ...state, vaultLevel: 1 })).toBeGreaterThan(vaultCapacity(state))
-    const staffed = { ...state, transporterLevels: [1, 1, 0, 0] as [number, number, number, number] }
-    expect(automaticTransportAmount(staffed)).toBe(24)
-    expect(transportCargo(staffed)).toBeGreaterThan(transportCargo(state))
+    expect(transporterCapacity(2)).toBeGreaterThan(transporterCapacity(1))
   })
 
-  // Die eigene Fuhre steht neben dem Gespann, nicht darunter: Sie bleibt bei ihrer Tragkraft,
-  // während die Fuhrknechte ausschließlich ihre eigenen Ladungen summieren. Als beides ein
-  // gemeinsamer Boden war, deckte die Tragkraft die ersten Stufen ab — sie brachten nichts.
-  it('keeps the carried load apart from the team the transporters pull', () => {
-    const state = createInitialState(0)
-    expect(transportCargo(state)).toBe(MANUAL_CARGO)
-
-    const single = { ...state, transporterLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    expect(transportCargo(single)).toBe(transporterCapacity(1))
-    for (let level = 1; level < 5; level += 1) {
-      const team = { ...state, transporterLevels: [level, 0, 0, 0] as [number, number, number, number] }
-      const upgraded = withSlotLevel(team, 'transporters', 0)
-      expect(transportCargo(upgraded) - transportCargo(team)).toBeCloseTo(transporterCapacity(level + 1) - transporterCapacity(level), 6)
+  // Kein Takt im Spiel läuft schneller als eine Sekunde. Das deckelt zugleich die Animationen:
+  // Bei vollem Ausbau liefern höchstens zwölf Einheiten je Sekunde je einmal.
+  it('never lets a unit cycle faster than once a second', () => {
+    for (let level = 1; level <= 40; level += 1) {
+      expect(minerInterval(level)).toBeGreaterThanOrEqual(1)
+      expect(transporterTripSeconds(level)).toBeGreaterThanOrEqual(1)
+      expect(guardInterval(level)).toBeGreaterThanOrEqual(1)
     }
+  })
+
+  // Menge und Takt verbessern sich beide, und über dem Boden trägt die Menge das Wachstum allein.
+  it('improves both the amount and the cadence of every unit', () => {
+    for (let level = 1; level <= 8; level += 1) {
+      expect(minerInterval(level + 1)).toBeLessThanOrEqual(minerInterval(level))
+      // Nur an der Stufe, an der der Taktboden greift, bleibt die Menge gleich — die Rate nicht.
+      expect(minerYield(level + 1)).toBeGreaterThanOrEqual(minerYield(level) - 1e-9)
+      expect(minerRate(level + 1)).toBeGreaterThan(minerRate(level))
+      expect(transporterTripSeconds(level + 1)).toBeLessThan(transporterTripSeconds(level))
+      expect(transporterCapacity(level + 1)).toBeGreaterThan(transporterCapacity(level))
+      expect(guardInterval(level + 1)).toBeLessThan(guardInterval(level))
+      expect(guardPower(level + 1)).toBeGreaterThan(guardPower(level))
+    }
+  })
+
+  // Eine Gruppe ist nichts als die Summe ihrer Einheiten — kein Trupp-Bonus, kein Sammel-Teiler.
+  it('adds up a group from its units and nothing else', () => {
+    const state = { ...createInitialState(0), transporterLevels: [3, 1, 0, 0] as [number, number, number, number], guardLevels: [2, 1, 0, 0] as [number, number, number, number] }
+    expect(automaticTransportRate(state)).toBeCloseTo(transporterRate(3) + transporterRate(1), 6)
+    expect(securingRate(state)).toBeCloseTo(guardRate(2) + guardRate(1), 6)
+    expect(passiveRate({ ...state, minerLevels: [2, 1, 0, 0] })).toBeCloseTo(minerRate(2) + minerRate(1), 6)
   })
 
   it('reduces every card to the one number the purchase adds', () => {
@@ -244,7 +264,7 @@ describe('Vault Run engine', () => {
     const securing = lowerThreat(state, 0)
     expect(isSecuringManually(securing)).toBe(true)
     expect(tap(securing).chestGold).toBe(40)
-    expect(startTransport(securing, 10).transportEndsAt).toBeNull()
+    expect(startTransport(securing, 10).playerTrip).toBeNull()
     expect(lowerThreat(securing, 10).threat).toBe(securing.threat)
 
     const released = advanceGame(securing, SECURE_COOLDOWN_MS + 1)
@@ -258,9 +278,10 @@ describe('Vault Run engine', () => {
     expect(securing.secureEndsAt).not.toBeNull()
     expect(isSecuringManually(securing)).toBe(false)
 
-    const interval = securingInterval(guarded) * 1_000
+    // Beide Wachen takten für sich; nach dem Takt der ersten ist genau deren Beitrag abgetragen.
+    const interval = guardInterval(1) * 1_000
     const ticked = advanceGame(guarded, interval + 10)
-    expect(ticked.threat).toBeCloseTo(60 - securingPower(guarded), 5)
+    expect(ticked.threat).toBeCloseTo(60 - 2 * guardPower(1), 5)
   })
 
   it('keeps a guarded treasury safe across a long offline stretch', () => {
@@ -281,11 +302,14 @@ describe('Vault Run engine', () => {
   })
 
   it('leaves the bag and the shipment on the road untouched by a raid', () => {
-    const state = { ...createInitialState(0), vaultGold: 400, chestGold: 40, inTransitGold: 25, threat: 95 }
+    let state = { ...createInitialState(0), vaultGold: 400, chestGold: 65, threat: 95 }
+    state = startTransport(state, 0)
+    const carried = state.playerTrip?.gold ?? 0
+    expect(carried).toBe(MANUAL_CARGO)
+
     const robbed = advanceGame(state, 30_000)
     expect(robbed.theftCount).toBe(1)
-    expect(robbed.chestGold).toBe(40)
-    expect(robbed.inTransitGold).toBe(25)
+    expect(robbed.chestGold).toBe(45)
   })
 
   it('builds no risk at all before the first delivery reaches the treasury', () => {
@@ -331,22 +355,24 @@ describe('Vault Run engine', () => {
   // Die Wachen-Karte nennt die Punkte, die der Trupp je Sicherung zusätzlich abträgt — dieselbe
   // Einheit, in der die Risikokachel steigt. Takt und Schadensdeckel gehören dem ganzen Trupp und
   // stehen deshalb im Gruppenhinweis, nicht auf einer einzelnen Karte.
-  it('measures a guard in the risk points the troop gains per securing', () => {
+  it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'chest')[0].gain).toEqual({ amount: '+8', unit: 'Punkte je Sicherung' })
+    expect(getSlotUpgrades(state, 'chest')[0].gain).toEqual({ amount: `+${formatDecimal(guardRate(1))}`, unit: '%/s Sicherung' })
 
-    const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
-    expect(getSlotUpgrades(guarded, 'chest')[0].gain).toEqual({ amount: '+2', unit: 'Punkte je Sicherung' })
+    // Eine zweite Wache daneben ändert nichts an dieser Zahl — jede sichert für sich.
+    const guarded = { ...state, guardLevels: [0, 3, 0, 0] as [number, number, number, number] }
+    expect(getSlotUpgrades(guarded, 'chest')[0].gain).toEqual(getSlotUpgrades(state, 'chest')[0].gain)
   })
 
-  // Ein Fuhrknecht bringt genau seine eigene Ladung ein — vom ersten an und ohne tote Stufe.
-  it('measures a transporter in the load it carries itself', () => {
+  // Bergleute und Fuhrknechte tragen dieselbe Einheit — ihre Karten sind direkt vergleichbar.
+  it('measures a transporter in the gold it delivers per second by itself', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'bag')[0].gain).toEqual({ amount: `+${formatGold(transporterCapacity(1))}`, unit: 'Gold je Fuhre' })
+    expect(getSlotUpgrades(state, 'bag')[0].gain).toEqual({ amount: `+${formatDecimal(transporterRate(1))}`, unit: 'Gold/s' })
+    expect(getSlotUpgrades(state, 'mine')[0].gain.unit).toBe('Gold/s')
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
-    const gained = transporterCapacity(4) - transporterCapacity(3)
-    expect(getSlotUpgrades(staffed, 'bag')[0].gain).toEqual({ amount: `+${formatGold(gained)}`, unit: 'Gold je Fuhre' })
+    const gained = transporterRate(4) - transporterRate(3)
+    expect(getSlotUpgrades(staffed, 'bag')[0].gain).toEqual({ amount: `+${formatDecimal(gained)}`, unit: 'Gold/s' })
   })
 
   // Der Kern der Karte: Ihre Zahl steht still, wenn nebenan gekauft wird. Bei den Bergleuten gilt
@@ -420,6 +446,41 @@ describe('Vault Run engine', () => {
     expect(getAllUpgrades(busy)).toEqual(getAllUpgrades(levelled))
   })
 
+  // Diskrete Takte müssen dasselbe ergeben, egal ob man zusieht oder acht Stunden wegbleibt.
+  // Nachgeholt wird in ganzen Takten, deshalb darf hier kein Korn Unterschied entstehen.
+  it('credits the same gold whether the player watches or stays away', () => {
+    const base = {
+      ...createInitialState(0),
+      minerLevels: [3, 2, 0, 0] as [number, number, number, number],
+      transporterLevels: [2, 1, 0, 0] as [number, number, number, number],
+      chestLevel: 6,
+      vaultLevel: 6,
+    }
+    const inOneGo = advanceGame(base, 600_000)
+    let stepwise = base
+    for (let at = 100; at <= 600_000; at += 100) stepwise = advanceGame(stepwise, at)
+
+    expect(stepwise.lifetimeGold).toBeCloseTo(inOneGo.lifetimeGold, 4)
+    expect(stepwise.vaultGold).toBeCloseTo(inOneGo.vaultGold, 4)
+  })
+
+  // Zwölf eigenständige Takte dürfen die Rückkehr nicht ausbremsen: Der Nachlauf über acht Stunden
+  // läuft beim Laden und blockiert dabei den ersten Frame.
+  it('catches up on a full eight-hour absence without stalling the load', () => {
+    const full = {
+      ...createInitialState(0),
+      minerLevels: [8, 8, 8, 8] as [number, number, number, number],
+      transporterLevels: [8, 8, 8, 8] as [number, number, number, number],
+      guardLevels: [8, 8, 8, 8] as [number, number, number, number],
+      chestLevel: 12,
+      vaultLevel: 14,
+    }
+    const start = performance.now()
+    const returned = advanceGame(full, 8 * 60 * 60 * 1_000, true)
+    expect(performance.now() - start).toBeLessThan(2_000)
+    expect(returned.lastOfflineReport?.delivered ?? 0).toBeGreaterThan(0)
+  })
+
   it('skips work and keeps its identity while the game lies dormant', () => {
     const dormant = createInitialState(0)
     const ticked = advanceGame(dormant, 10_000)
@@ -429,8 +490,11 @@ describe('Vault Run engine', () => {
     // als Förderung gutgeschrieben.
     expect(ticked.lastTick).toBe(10_000)
 
+    // Der frisch angestellte Bergmann beginnt seinen Takt jetzt, nicht rückwirkend: Nach einem
+    // vollen Takt liegt genau eine Portion im Beutel, vorher nichts.
     const hired = { ...ticked, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    expect(advanceGame(hired, 11_000).chestGold).toBeCloseTo(passiveRate(hired), 5)
+    expect(advanceGame(hired, 10_000 + minerInterval(1) * 1_000 - 1).chestGold).toBe(0)
+    expect(advanceGame(hired, 10_000 + minerInterval(1) * 1_000).chestGold).toBeCloseTo(minerYield(1), 5)
   })
 
   it('keeps advancing once anything is actually in motion', () => {
@@ -441,7 +505,7 @@ describe('Vault Run engine', () => {
     expect(advanceGame(banked, 1_000).threat).toBeGreaterThan(0)
 
     const carrying = { ...createInitialState(0), transporterLevels: [1, 0, 0, 0] as [number, number, number, number], chestGold: 20 }
-    expect(advanceGame(carrying, 1_000).transportStartedAt).not.toBeNull()
+    expect(advanceGame(carrying, 1_000).transporterTrips[0]).not.toBeNull()
   })
 
   it('migrates schema-3 progress into the new four-slot model', () => {
@@ -459,7 +523,7 @@ describe('Vault Run engine', () => {
       guardLevels: undefined,
     }
     const migrated = migrateGame(legacy)
-    expect(migrated?.schemaVersion).toBe(5)
+    expect(migrated?.schemaVersion).toBe(6)
     expect(migrated?.minerLevels).toEqual([2, 1, 1, 1])
     expect(migrated?.transporterLevels).toEqual([1, 1, 1, 1])
     expect(migrated?.guardLevels).toEqual([1, 1, 1, 0])

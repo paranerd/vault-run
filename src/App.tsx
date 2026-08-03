@@ -28,6 +28,7 @@ import {
   getAllUpgrades,
   getUpgradeGroups,
   hasAutomaticTransport,
+  minerYield,
   passiveRate,
   slotVisualLevel,
   tapValue,
@@ -38,9 +39,9 @@ import {
   buyEquipmentUpgrade,
   buySlotUpgrade,
   dismissOfflineReport,
+  goldInTransit,
   isSecuringManually,
   lowerThreat,
-  startExpressTransport,
   startTransport,
   tap,
 } from './game/engine'
@@ -293,6 +294,7 @@ function App() {
   const [goldFlights, setGoldFlights] = useState<GoldFlight[]>([])
   const [seenUpgradeLevels, setSeenUpgradeLevels] = useState(loadSeenUpgradeLevels)
   const [upgradeNoticePulsing, setUpgradeNoticePulsing] = useState(false)
+  const [guardPulse, setGuardPulse] = useState(false)
   const [updateInstalling, setUpdateInstalling] = useState(false)
   const [alerts, setAlerts] = useState<GameEvent[]>([])
   /** Höchste bereits gesichtete Ereignis-ID; `null`, bis der geladene Spielstand quittiert ist. */
@@ -316,8 +318,13 @@ function App() {
   const mineButtonRef = useRef<HTMLButtonElement>(null)
   const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
-  const lastMainTransportStart = useRef(state.transportStartedAt)
-  const lastExpressTransportStart = useRef(state.expressStartedAt)
+  /** Je Slot der zuletzt gesehene Takt bzw. Fuhrbeginn. Weil kein Takt schneller als eine Sekunde
+      läuft und die Anzeige zehnmal pro Sekunde nachsieht, entgeht ihr keine einzige Ankunft —
+      jede Änderung ist genau eine Lieferung und damit genau eine Animation. */
+  const seenMinerBeats = useRef<(number | null)[]>([...state.minerBeats])
+  const seenGuardBeats = useRef<(number | null)[]>([...state.guardBeats])
+  const seenTransporterStarts = useRef<(number | null)[]>(state.transporterTrips.map((trip) => trip?.startedAt ?? null))
+  const lastPlayerTripStart = useRef(state.playerTrip?.startedAt ?? null)
   const previousAffordable = useRef(new Set<string>())
   const pulseTimer = useRef<number | null>(null)
   const liveState = useRef(state)
@@ -482,29 +489,45 @@ function App() {
     }])
   }, [])
 
+  // Jede Förderung eines Bergmanns ist ein eigener Goldflug mit seiner eigenen Menge. Der frühere
+  // Sekundentakt mittelte alle vier zu einer Münze zusammen; jetzt sieht man, wer wann liefert.
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      const current = liveState.current
-      const rate = passiveRate(current)
-      const miningPaused = current.transportEndsAt !== null && !hasAutomaticTransport(current)
-      const freeBagSpace = Math.max(0, chestCapacity(current) - current.chestGold)
-      const animatedAmount = Math.min(rate, freeBagSpace)
-      if (!miningPaused && animatedAmount > 0) launchGold(animatedAmount, 'coin', true)
-    }, 1_000)
-    return () => window.clearInterval(timer)
-  }, [launchGold])
+    const beats = state.minerBeats
+    if (document.visibilityState === 'visible') {
+      beats.forEach((beat, index) => {
+        const level = state.minerLevels[index]
+        if (beat !== null && beat !== seenMinerBeats.current[index] && level > 0) launchGold(minerYield(level), 'coin', true)
+      })
+    }
+    seenMinerBeats.current = [...beats]
+  }, [state.minerBeats, state.minerLevels, launchGold])
 
+  // Dasselbe für die Fuhren: je losfahrendem Fuhrknecht ein eigener Goldhaufen, dazu die eigene.
   useEffect(() => {
-    if (state.transportStartedAt !== null && state.transportStartedAt !== lastMainTransportStart.current && state.inTransitGold > 0) {
-      launchGold(state.inTransitGold, 'pile')
+    state.transporterTrips.forEach((trip, index) => {
+      const started = trip?.startedAt ?? null
+      if (trip && started !== null && started !== seenTransporterStarts.current[index] && trip.gold > 0) {
+        launchGold(trip.gold, 'pile')
+      }
+      seenTransporterStarts.current[index] = started
+    })
+    const playerStart = state.playerTrip?.startedAt ?? null
+    if (state.playerTrip && playerStart !== lastPlayerTripStart.current && state.playerTrip.gold > 0) {
+      launchGold(state.playerTrip.gold, 'pile')
     }
-    if (state.expressStartedAt !== null && state.expressStartedAt !== lastExpressTransportStart.current && state.expressGold > 0) {
-      launchGold(state.expressGold, 'pile')
-    }
-    lastMainTransportStart.current = state.transportStartedAt
-    lastExpressTransportStart.current = state.expressStartedAt
-  }, [state.transportStartedAt, state.expressStartedAt, state.inTransitGold, state.expressGold, launchGold])
+    lastPlayerTripStart.current = playerStart
+  }, [state.transporterTrips, state.playerTrip, launchGold])
+
+  // Eine Sicherung ist ein Ereignis wie eine Ankunft und bekommt darum auch eines: Die Truhe
+  // zuckt kurz, sobald irgendeine Wache Punkte abgetragen hat.
+  useEffect(() => {
+    const fired = state.guardBeats.some((beat, index) => beat !== null && beat !== seenGuardBeats.current[index])
+    seenGuardBeats.current = [...state.guardBeats]
+    if (!fired || document.visibilityState !== 'visible') return
+    setGuardPulse(true)
+    const timer = window.setTimeout(() => setGuardPulse(false), 360)
+    return () => window.clearTimeout(timer)
+  }, [state.guardBeats])
 
   // Nur Warnungen werden eingeblendet — ein Diebeszug und die volle Truhe verlangen eine Reaktion.
   // Lieferungen und Käufe zeigen ihre Wirkung ohnehin selbst und liefen als Dauerfeuer.
@@ -529,27 +552,20 @@ function App() {
   const treasureMax = vaultCapacity(state)
   const bagFull = state.chestGold >= bagMax - 0.001
   const automatic = hasAutomaticTransport(state)
-  const mainTravelling = state.transportEndsAt !== null
-  const expressTravelling = state.expressEndsAt !== null
-  const playerTravelling = automatic ? expressTravelling : mainTravelling
-  const playerTransportStartedAt = automatic ? state.expressStartedAt : state.transportStartedAt
-  const playerTransportEndsAt = automatic ? state.expressEndsAt : state.transportEndsAt
-  const playerTransportProgress = playerTravelling
-    ? percentage(now - (playerTransportStartedAt ?? now), (playerTransportEndsAt ?? now) - (playerTransportStartedAt ?? now))
+  // Der Beutel-Button zeigt ausschließlich die eigene Fuhre. Die Fuhrknechte fahren jeder für
+  // sich und melden sich über ihre eigenen Goldhaufen, nicht über diesen einen Balken.
+  const playerTravelling = state.playerTrip !== null
+  const playerTransportProgress = state.playerTrip
+    ? percentage(now - state.playerTrip.startedAt, state.playerTrip.endsAt - state.playerTrip.startedAt)
     : 100
-  const reservedGold = state.inTransitGold + state.expressGold
-  const canStartMain = !mainTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
-  const canStartExpress = automatic && !expressTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
-  const canTransport = automatic ? canStartExpress : canStartMain
+  const reservedGold = goldInTransit(state)
+  const canTransport = !playerTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
   const securing = state.secureEndsAt !== null
   const securingBlocks = isSecuringManually(state)
   const secureProgress = securing
     ? percentage(now - (state.secureStartedAt ?? now), (state.secureEndsAt ?? now) - (state.secureStartedAt ?? now))
     : 0
-  const chestRevealed = state.tripCount > 0
-    || state.vaultGold > 0
-    || (state.transportEndsAt !== null && state.inTransitGold === 0)
-    || (state.expressEndsAt !== null && state.expressGold === 0)
+  const chestRevealed = state.tripCount > 0 || state.vaultGold > 0 || reservedGold > 0
 
   // Steigende Anzeige: 0 % ist ruhig, 100 % ist der Diebeszug. Ab `RISK_WARNING` färbt sich die
   // Kachel, ab `RISK_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Schlag.
@@ -560,7 +576,7 @@ function App() {
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
   // Die Kachel zeigt, was tatsächlich ankommt: Ohne Fuhrknecht ruht die Mine während einer
   // manuellen Reise, und bei vollem Beutel verfällt jedes weitere Korn — beides ergibt 0.
-  const miningPaused = (mainTravelling && !automatic) || bagFull || securingBlocks
+  const miningPaused = (playerTravelling && !automatic) || bagFull || securingBlocks
   const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
   const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
 
@@ -587,8 +603,8 @@ function App() {
 
   const handleTransport = () => {
     if (!canTransport) return
-    const next = automatic ? startExpressTransport(state, Date.now()) : startTransport(state, Date.now())
-    const payload = automatic ? next.expressGold : next.inTransitGold
+    const next = startTransport(state, Date.now())
+    const payload = next.playerTrip?.gold ?? 0
     if (payload <= 0) return
     recentTrips.current = [...recentTrips.current.filter((trip) => now - trip.at < TRIP_RATE_WINDOW_MS), { at: now, amount: payload }]
     setState(next)
@@ -676,7 +692,7 @@ function App() {
               <div className="section-center">
                 <button
                   ref={chestButtonRef}
-                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''} ${riskAlarming ? 'is-alarming' : ''}`}
+                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''} ${riskAlarming ? 'is-alarming' : ''} ${guardPulse ? 'is-secured' : ''}`}
                   disabled={!chestRevealed || state.threat <= 0 || securing}
                   onClick={handleSecure}
                   aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : securing ? `Wird gesichert: ${Math.round(secureProgress)} Prozent` : `Risiko um ${MANUAL_SECURE_AMOUNT} senken, aktuell ${Math.round(risk)} Prozent`}

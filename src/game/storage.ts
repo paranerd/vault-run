@@ -1,5 +1,5 @@
-import { advanceGame, createInitialState } from './engine'
-import type { GameState, SlotLevels } from './types'
+import { advanceGame, createInitialState, emptyBeats, emptyTrips } from './engine'
+import type { GameState, SlotBeats, SlotLevels, SlotTrips, Trip } from './types'
 
 const SAVE_KEY = 'vault-run-save-v1'
 
@@ -18,23 +18,76 @@ function timestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+/** Schema 6 kennt keine gemeinsame Fuhre mehr, sondern eine je Einheit. Gold, das beim Wechsel
+    noch auf der Straße lag, wandert zurück in den Beutel: Es dort abzulegen ist die einzige
+    Variante, bei der weder etwas verschwindet noch ungeprüft in der Truhe auftaucht. */
+function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, unknown>): GameState {
+  const {
+    inTransitGold: _inTransit, transportStartedAt: _started, transportDeliveredAt: _delivered,
+    transportEndsAt: _ends, expressGold: _express, expressStartedAt: _expressStarted,
+    expressDeliveredAt: _expressDelivered, expressEndsAt: _expressEnds, ...withoutConvoy
+  } = base
+  const stranded = (Number(parsed.inTransitGold) || 0) + (Number(parsed.expressGold) || 0)
+  return {
+    ...withoutConvoy,
+    schemaVersion: 6,
+    chestGold: (Number(parsed.chestGold) || 0) + stranded,
+    minerLevels: normalizeLevels(parsed.minerLevels),
+    transporterLevels: normalizeLevels(parsed.transporterLevels),
+    guardLevels: normalizeLevels(parsed.guardLevels),
+    secureStartedAt: timestamp(parsed.secureStartedAt),
+    secureEndsAt: timestamp(parsed.secureEndsAt),
+    minerBeats: emptyBeats(),
+    guardBeats: emptyBeats(),
+    transporterTrips: emptyTrips(),
+    playerTrip: null,
+  } as unknown as GameState
+}
+
+function normalizeBeats(value: unknown): SlotBeats {
+  if (!Array.isArray(value)) return emptyBeats()
+  return [0, 1, 2, 3].map((index) => timestamp(value[index])) as SlotBeats
+}
+
+function normalizeTrip(value: unknown): Trip | null {
+  if (!value || typeof value !== 'object') return null
+  const trip = value as Record<string, unknown>
+  const startedAt = timestamp(trip.startedAt)
+  const deliveredAt = timestamp(trip.deliveredAt)
+  const endsAt = timestamp(trip.endsAt)
+  if (startedAt === null || deliveredAt === null || endsAt === null) return null
+  return { gold: Math.max(0, Number(trip.gold) || 0), startedAt, deliveredAt, endsAt }
+}
+
+function normalizeTrips(value: unknown): SlotTrips {
+  if (!Array.isArray(value)) return emptyTrips()
+  return [0, 1, 2, 3].map((index) => normalizeTrip(value[index])) as SlotTrips
+}
+
 export function migrateGame(value: unknown): GameState | null {
   if (!value || typeof value !== 'object') return null
   const parsed = value as Record<string, unknown>
   const { tapReadyAt: _legacyTapReadyAt, ...withoutCooldown } = parsed
   const version = Number(parsed.schemaVersion)
-  // Schema 4 kennt die Slot-Reihen bereits und braucht nur die Felder der Wach-Automatik.
-  if (version === 4 || version === 5) {
+  // Ein Spielstand, der die eigenen Takte schon kennt, behält seine laufenden Fuhren.
+  if (version === 6) {
     return {
       ...withoutCooldown,
-      schemaVersion: 5,
+      schemaVersion: 6,
       minerLevels: normalizeLevels(parsed.minerLevels),
       transporterLevels: normalizeLevels(parsed.transporterLevels),
       guardLevels: normalizeLevels(parsed.guardLevels),
       secureStartedAt: timestamp(parsed.secureStartedAt),
       secureEndsAt: timestamp(parsed.secureEndsAt),
-      lastAutoSecureAt: timestamp(parsed.lastAutoSecureAt),
+      minerBeats: normalizeBeats(parsed.minerBeats),
+      guardBeats: normalizeBeats(parsed.guardBeats),
+      transporterTrips: normalizeTrips(parsed.transporterTrips),
+      playerTrip: normalizeTrip(parsed.playerTrip),
     } as unknown as GameState
+  }
+  // Schema 4 und 5 kennen die Slot-Reihen bereits; ihnen fehlt nur der eigene Takt je Einheit.
+  if (version === 4 || version === 5) {
+    return withUnitCycles(withoutCooldown, parsed)
   }
 
   if (![1, 2, 3].includes(version)) return null
@@ -48,23 +101,21 @@ export function migrateGame(value: unknown): GameState | null {
     + (Number(parsed.convoyLevel) || 0)
   const securityLevel = Number(parsed.securityLevel) || 0
 
-  return {
-    ...withoutCooldown,
-    schemaVersion: 5,
-    secureStartedAt: null,
-    secureEndsAt: null,
-    lastAutoSecureAt: null,
-    minerLevels: distributeLevels(staffLevel),
-    transporterLevels: distributeLevels(transportProgress),
-    guardLevels: distributeLevels(securityLevel),
-    transportDeliveredAt: typeof parsed.transportDeliveredAt === 'number'
-      ? parsed.transportDeliveredAt
-      : startedAt !== null && endsAt !== null ? startedAt + (endsAt - startedAt) / 2 : null,
-    expressGold: Number(parsed.expressGold) || 0,
-    expressStartedAt: typeof parsed.expressStartedAt === 'number' ? parsed.expressStartedAt : null,
-    expressDeliveredAt: typeof parsed.expressDeliveredAt === 'number' ? parsed.expressDeliveredAt : null,
-    expressEndsAt: typeof parsed.expressEndsAt === 'number' ? parsed.expressEndsAt : null,
-  } as unknown as GameState
+  // Die alten Sammelstufen werden gleichmäßig auf die vier Slots verteilt; anschließend läuft der
+  // Spielstand durch dieselbe Umstellung auf eigene Takte wie Schema 4 und 5.
+  return withUnitCycles(
+    {
+      ...withoutCooldown,
+      secureStartedAt: null,
+      secureEndsAt: null,
+    },
+    {
+      ...parsed,
+      minerLevels: distributeLevels(staffLevel),
+      transporterLevels: distributeLevels(transportProgress),
+      guardLevels: distributeLevels(securityLevel),
+    },
+  )
 }
 
 export function loadGame(now = Date.now()): GameState {

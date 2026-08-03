@@ -66,9 +66,9 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
     Hier steht außerdem alles, was mehrere Slots gemeinsam bewirken: Auf der Karte hätte es keine
     Zahl, die nur zu ihr gehört, und ließe sie sich beim Kauf nebenan ändern. */
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
-  miners: 'Bergleute schürfen ohne Klicks. Jeder Stollen fördert für sich, unabhängig von den anderen.',
-  transporters: 'Fuhrknechte fahren ohne Zutun; deine eigene Fuhre bleibt daneben jederzeit möglich. Alle ziehen gemeinsam an einer Ladung, und jede Stufe verkürzt zugleich die Fahrzeit.',
-  guards: 'Wachen wirken als Trupp: Ihre gesammelten Punkte werden in festem Takt vom Risiko abgetragen. Jede Stufe verkürzt zusätzlich den Takt und senkt den Verlust bei einem Diebeszug um 14 %.',
+  miners: 'Jeder Bergmann fördert für sich, in seinem eigenen Takt. Jede Stufe bringt mehr Gold je Förderung und verkürzt den Takt.',
+  transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigener Fahrzeit. Deine eigene Fuhre läuft unabhängig daneben.',
+  guards: 'Jede Wache sichert für sich, in ihrem eigenen Takt. Jede Stufe senkt zusätzlich den Verlust bei einem Diebeszug um 14 %.',
 }
 
 export function slotStageName(group: SlotGroup, level: number): string {
@@ -107,38 +107,44 @@ export const slotVisualLevel = (group: SlotGroup, level: number) => {
 }
 
 export const tapValue = (state: GameState) => Math.ceil(1.42 ** state.tapLevel)
-export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
-export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
 export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
-/** Was der Spieler selbst auf dem Rücken zur Truhe trägt. Eine eigene Größe und ausdrücklich
-    keine Untergrenze der Fuhrknechte: Die eigene Fuhr steht neben dem Gespann, so wie der eigene
-    Schlag neben den Bergleuten steht. Als das ein gemeinsamer Boden war, deckte die eigene
-    Tragkraft die ersten Fuhrknecht-Stufen mit ab — sie kosteten Gold und brachten nichts. */
-export const MANUAL_CARGO = 20
+/** Jede Einheit im Spiel — Bergmann, Fuhrknecht, Wache — arbeitet nach demselben Muster: eine
+    eigene **Menge** in einem eigenen **Takt**, unabhängig von allen anderen. Nichts wird über eine
+    Gruppe verrechnet, es gibt keine gemeinsame Fuhre und keinen Trupp-Bonus. Der Durchsatz einer
+    Gruppe ist schlicht die Summe ihrer Einheiten, und der Zuwachs eines Aufstiegs hängt nur an der
+    Einheit, die aufsteigt.
+ *
+ *  Kein Takt läuft schneller als eine Sekunde. Das hält die Ankünfte einzeln sichtbar, statt sie
+ *  zu einem Flimmern zu verschmelzen, und deckelt zugleich die Zahl der Animationen: Bei vollem
+ *  Ausbau liefern höchstens zwölf Einheiten je Sekunde je einmal. Oberhalb des Bodens trägt
+ *  ausschließlich die Menge das weitere Wachstum. */
+export const MIN_CYCLE_SECONDS = 1
 
+/** Was der Spieler selbst auf dem Rücken zur Truhe trägt, und wie lange er dafür braucht. Eine
+    eigene Größe neben den Fuhrknechten, so wie der eigene Schlag neben den Bergleuten steht. */
+export const MANUAL_CARGO = 20
+export const MANUAL_TRIP_SECONDS = 12
+
+// --- Bergleute: Menge je Förderung, Takt zwischen zwei Förderungen ---
+export const minerInterval = (level: number) => Math.max(MIN_CYCLE_SECONDS, 3 - 0.5 * (level - 1))
+/** Unverändert gegenüber dem stufenlosen Modell — die Rate ist dieselbe, sie kommt jetzt nur in
+    Portionen statt als kontinuierlicher Strom. */
+export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
+export const minerYield = (level: number) => level === 0 ? 0 : minerRate(level) * minerInterval(level)
+export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
+
+// --- Fuhrknechte: Ladung je Fahrt, Dauer einer Fahrt ---
 export const activeTransporters = (state: GameState) => state.transporterLevels.filter((level) => level > 0).length
 export const hasAutomaticTransport = (state: GameState) => activeTransporters(state) > 0
 export const transporterCapacity = (level: number) => level === 0 ? 0 : 12 * 1.55 ** (level - 1)
-export const automaticTransportAmount = (state: GameState) => state.transporterLevels.reduce((total, level) => total + transporterCapacity(level), 0)
-
-/** Die Ladung der Fuhre, die gerade fährt: ohne Fuhrknecht die eigene, sonst die des Gespanns.
-    Auch die Eilfuhre lädt das Gespann voll — sie ist dasselbe Gespann, nur angetrieben. */
-export const transportCargo = (state: GameState) =>
-  hasAutomaticTransport(state) ? automaticTransportAmount(state) : MANUAL_CARGO
-
-export const transportDuration = (state: GameState) => {
-  const active = activeTransporters(state)
-  if (active === 0) return 12
-  const experience = totalLevels(state.transporterLevels) - active
-  return Math.max(3, 12 / (1 + (active - 1) * 0.18 + experience * 0.12))
-}
-export const expressDuration = (state: GameState) => Math.max(2, transportDuration(state) * 0.6)
-
-/** Dauerdurchsatz der automatischen Fuhren — die Ladung des Gespanns je Fahrt. */
+/** 12 s auf Stufe 1, gegen den Boden von 1 s hin immer kürzer. Der Faktor ist so gewählt, dass die
+    Fahrzeit über die ersten acht Stufen denselben Bogen nimmt wie früher die gemeinsame Fuhre. */
+export const transporterTripSeconds = (level: number) => Math.max(MIN_CYCLE_SECONDS, 12 / (1 + (level - 1) * 0.45))
+export const transporterRate = (level: number) => level === 0 ? 0 : transporterCapacity(level) / transporterTripSeconds(level)
 export const automaticTransportRate = (state: GameState) =>
-  hasAutomaticTransport(state) ? automaticTransportAmount(state) / transportDuration(state) : 0
+  state.transporterLevels.reduce((total, level) => total + transporterRate(level), 0)
 
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
 
@@ -171,23 +177,18 @@ export const SECURE_COOLDOWN_MS = 1_500
 export const activeGuards = (state: GameState) => state.guardLevels.filter((level) => level > 0).length
 export const hasAutomaticSecurity = (state: GameState) => activeGuards(state) > 0
 
-/** Takt der automatischen Sicherung: mehr Wachen kürzen ihn, höhere Stufen zusätzlich. */
-export const securingInterval = (state: GameState) => {
-  const active = activeGuards(state)
-  if (active === 0) return 0
-  const experience = guardStrength(state) - active
-  return Math.max(3, 12 / (1 + (active - 1) * 0.2 + experience * 0.12))
-}
+// --- Wachen: Risikopunkte je Sicherung, Takt zwischen zwei Sicherungen ---
+/** Punkte, die **diese** Wache je Sicherung abträgt — kein Trupp-Wert mehr. Der frühere Sockel von
+    6 Punkten gehörte dem Trupp als Ganzem; je Wache gezählt hätte er sich mit jedem Posten
+    vervielfacht. Er steckt deshalb kleiner in jeder einzelnen Wache. */
+export const guardPower = (level: number) => level === 0 ? 0 : 4 + 2 * level
+export const guardInterval = (level: number) => Math.max(MIN_CYCLE_SECONDS, 12 / (1 + (level - 1) * 0.35))
+export const guardRate = (level: number) => level === 0 ? 0 : guardPower(level) / guardInterval(level)
 
-/** Risikopunkte, die eine automatische Sicherung abträgt. */
-export const securingPower = (state: GameState) => hasAutomaticSecurity(state) ? 6 + 2 * guardStrength(state) : 0
-
-/** Dauerleistung des Trupps in Risikopunkten pro Sekunde — dieselbe Einheit wie `riskGrowth`,
-    damit Kachel und Wachen-Karte direkt gegeneinander lesbar sind. */
+/** Summe aller Wachen in Risikopunkten pro Sekunde — dieselbe Einheit wie `riskGrowth`, damit
+    Kachel und Wachen-Karte direkt gegeneinander lesbar sind. */
 export const securingRate = (state: GameState) =>
-  hasAutomaticSecurity(state) ? securingPower(state) / securingInterval(state) : 0
-
-export const threatReductionPerClick = (_state: GameState) => MANUAL_SECURE_AMOUNT
+  state.guardLevels.reduce((total, level) => total + guardRate(level), 0)
 
 export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
   switch (id) {
@@ -273,15 +274,14 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     const next = withSlotLevel(state, group, index)
     const name = slotStageName(group, level)
 
-    // Jede Karte zeigt genau eine Zahl: den Zuwachs, den dieser Kauf bringt. Der Bestand steht
-    // ohnehin auf der Kachel des Abschnitts. Gemessen wird am Slot selbst, damit die Zahl stehen
-    // bleibt, wenn nebenan gekauft wird — Fördermenge und Ladung sind rein slot-eigen, die
-    // Sicherungskraft ist zumindest additiv und wächst je Stufe um denselben Betrag.
+    // Jede Karte zeigt genau eine Zahl: den Zuwachs dieser Einheit. Weil jede Einheit für sich
+    // arbeitet, ist das immer ihr eigener Durchsatz — Menge geteilt durch Takt. Die Zahl hängt an
+    // keinem anderen Slot und steht deshalb still, wenn nebenan gekauft wird.
     const slotGain = group === 'miners'
       ? gain(minerRate(level), minerRate(level + 1), 'Gold/s', effectRate)
       : group === 'transporters'
-        ? gain(transporterCapacity(level), transporterCapacity(level + 1), 'Gold je Fuhre', effectGold)
-        : gain(securingPower(state), securingPower(next), 'Punkte je Sicherung', effectValue)
+        ? gain(transporterRate(level), transporterRate(level + 1), 'Gold/s', effectRate)
+        : gain(guardRate(level), guardRate(level + 1), '%/s Sicherung', effectRate)
 
     return {
       key: `slot:${group}:${index}`,

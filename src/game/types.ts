@@ -24,13 +24,29 @@ export interface OfflineReport {
   stolen: number
 }
 
+/** Eine Fuhre, die gerade unterwegs ist — die eines Fuhrknechts oder die des Spielers selbst.
+    `deliveredAt` ist der Moment, in dem das Gold in der Truhe landet (Ende der Flug-Animation),
+    `endsAt` der Moment, in dem der Träger zurück und wieder abfahrbereit ist. */
+export interface Trip {
+  gold: number
+  startedAt: number
+  deliveredAt: number
+  endsAt: number
+}
+
+/** Je Slot eine laufende Fuhre oder `null`. */
+export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
+/** Je Slot der Zeitpunkt der letzten eigenen Lieferung bzw. Sicherung; `null`, solange der Slot
+    noch nicht getaktet hat. Daraus ergibt sich der nächste Takt, und die Anzeige erkennt daran
+    eine frische Lieferung. */
+export type SlotBeats = [number | null, number | null, number | null, number | null]
+
 export interface GameState {
-  schemaVersion: 5
+  schemaVersion: 6
   savedAt: number
   lastTick: number
   chestGold: number
   vaultGold: number
-  inTransitGold: number
   lifetimeGold: number
   lostGold: number
   stolenGold: number
@@ -44,15 +60,13 @@ export interface GameState {
   /** Laufende manuelle Sicherung; blockiert bis `secureEndsAt` alle Aktionen, solange keine Wache automatisiert. */
   secureStartedAt: number | null
   secureEndsAt: number | null
-  /** Zeitpunkt der letzten automatischen Sicherung; `null`, solange keine Wache angestellt ist. */
-  lastAutoSecureAt: number | null
-  transportStartedAt: number | null
-  transportDeliveredAt: number | null
-  transportEndsAt: number | null
-  expressGold: number
-  expressStartedAt: number | null
-  expressDeliveredAt: number | null
-  expressEndsAt: number | null
+  /** Letzte Förderung je Bergmann und letzte Sicherung je Wache. */
+  minerBeats: SlotBeats
+  guardBeats: SlotBeats
+  /** Die vier Fuhren der Fuhrknechte, jede für sich unterwegs. */
+  transporterTrips: SlotTrips
+  /** Die Fuhre, die der Spieler selbst trägt — unabhängig von allen Fuhrknechten. */
+  playerTrip: Trip | null
   tripCount: number
   theftCount: number
   eventSequence: number
