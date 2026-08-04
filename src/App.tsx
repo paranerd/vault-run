@@ -246,13 +246,31 @@ function useCountUp(target: number, format: (value: number) => string) {
   return label
 }
 
-/** Der Kopf trägt nur noch die eine Zahl, um die es geht: das Vermögen. Wie voll die Truhe dabei
-    ist, steht dort, wo die Truhe steht — als eigene Leiste unter dem Räuber.
-    Eigene Komponente, damit die Zwischenschritte des Zählers nur diese Zahl neu rendern und nicht
-    die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
-const HeaderWealth = memo(function HeaderWealth({ gold }: { gold: number }) {
+/** Der Kopf trägt den Truhenstand und darunter, wie voll die Truhe damit ist. Die Grenze selbst
+    steht nicht mehr hier, sondern unter der Truhe im Abschnitt — der Balken sagt ohnehin, wie weit
+    es noch ist, und die Zahl daneben machte aus dem Kopf eine Rechenaufgabe.
+    Eigene Komponente, damit die Zwischenschritte des Zählers nur diesen Block neu rendern und
+    nicht die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
+const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: number; capacity: number }) {
   const label = useCountUp(gold, formatFullGold)
-  return <div className="header-wealth"><strong><PixelCoin /> {label}</strong></div>
+  const fill = capacity > 0 ? Math.max(0, Math.min(100, (gold / capacity) * 100)) : 0
+  const tone = meterTone(fill)
+  return (
+    <div className={`header-wealth ${tone ? `is-${tone}` : ''}`}>
+      <strong><PixelCoin /> {label}</strong>
+      <span
+        className="header-wealth__bar"
+        role="progressbar"
+        aria-label="Füllstand der Schatztruhe"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(fill)}
+        style={{ '--vault-fill': `${fill}%` } as CSSProperties}
+      >
+        <i aria-hidden="true" />
+      </span>
+    </div>
+  )
 })
 
 function StatTile({ label, value, icon, tone }: { label?: string; value?: string; icon?: ReactNode; tone?: 'warning' | 'alert' }) {
@@ -273,9 +291,10 @@ function meterTone(fill: number): 'warning' | 'alert' | undefined {
   return undefined
 }
 
-/** Eine Abschnittsleiste. Ohne `marker` bleibt sie eine reine Leiste — die zweite Zeile eines
-    Abschnitts läuft schmaler und ohne Figur, damit auf einen Blick klar ist, welche der beiden
-    Leisten die des Abschnitts ist und welche ihr beigestellt. */
+/** Die Leiste eines Abschnitts. Sie zeigt nur noch sich selbst: Die Figur sagt, worum es geht,
+    die Füllung wie weit es ist, die Farbe wie dringend. Beschriftung und Prozentzahl standen
+    links und rechts daneben und drängten die Leiste in die Mitte zusammen — für Vorleseprogramme
+    bleiben beide erhalten, sichtbar ist nur noch die Leiste. */
 function SectionMeter({
   fill,
   label,
@@ -285,34 +304,31 @@ function SectionMeter({
   fill: number
   label: string
   value: string
-  marker?: 'robber' | 'gold' | 'exhaustion'
+  marker: 'robber' | 'gold' | 'exhaustion'
 }) {
   const safeFill = Math.max(0, Math.min(100, fill))
   const tone = meterTone(safeFill)
   return (
     <h2
-      className={`section-meter ${marker ? `section-meter--${marker}` : 'section-meter--plain'} ${tone ? `is-${tone}` : ''}`}
+      className={`section-meter section-meter--${marker} ${tone ? `is-${tone}` : ''}`}
       style={{ '--meter-fill': `${safeFill}%` } as CSSProperties}
     >
+      <span className="sr-only">{label}</span>
       <span className="section-meter__progress" role="progressbar" aria-label={`${label}: ${value}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(safeFill)}>
         <i className="section-meter__fill" aria-hidden="true">
-          {marker && <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" draggable={false} />}
+          <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" draggable={false} />
         </i>
       </span>
-      <span className="section-meter__label">{label}</span>
-      <strong>{value}</strong>
     </h2>
   )
 }
 
-/** Der Füllstand der Schatztruhe als zweite Leiste des Truhen-Abschnitts. Sie zählt mit demselben
-    Schrittzähler hoch wie die Zahl im Kopf, damit eine ankommende Fuhre an beiden Stellen
-    dieselbe Bewegung macht. */
-const VaultFillMeter = memo(function VaultFillMeter({ gold, capacity }: { gold: number; capacity: number }) {
-  const label = useCountUp(gold, formatFullGold)
-  const fill = capacity > 0 ? Math.max(0, Math.min(100, (gold / capacity) * 100)) : 0
-  return <SectionMeter fill={fill} label="Gold" value={`${label} / ${formatFullGold(capacity)}`} />
-})
+/** Die Zeile unter einem Aktions-Button: die Grenze, gegen die er arbeitet. Truhe und Beutel
+    tragen ihr Fassungsvermögen, die Mine den Ertrag eines Schlags — die eine Zahl, die den Knopf
+    daneben beschreibt und die sonst nur auf seiner Upgrade-Karte steht. */
+function SectionCaption({ children }: { children: ReactNode }) {
+  return <div className="section-caption">{children}</div>
+}
 
 function SlotGrid({
   section,
@@ -804,16 +820,13 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <HeaderWealth gold={state.vaultGold} />
+        <HeaderWealth gold={state.vaultGold} capacity={treasureMax} />
       </header>
 
       <main className="game-stage" aria-label="Dein Goldreich">
         <div className="game-sections" ref={sceneRef}>
           <article className="game-section game-section--chest">
-            <div className="section-meters">
-              <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
-              <VaultFillMeter gold={state.vaultGold} capacity={treasureMax} />
-            </div>
+            <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
                 <StatTile label="Verlust / Diebstahl" value={`${formatDecimal(securityLoss(state) * 100)}%`} icon={<ShieldAlert aria-hidden="true" />} />
@@ -829,6 +842,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
+                <SectionCaption>{formatFullGold(treasureMax)}</SectionCaption>
               </div>
               <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('chest', index)} />
             </div>
@@ -845,6 +859,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
+                <SectionCaption>{formatFullGold(bagMax)}</SectionCaption>
               </div>
               <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('bag', index)} />
             </div>
@@ -861,6 +876,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
+                <SectionCaption>{formatFullGold(tapValue(state))} / Schlag</SectionCaption>
               </div>
               <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>

@@ -27,6 +27,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Für Vorleseprogramme da, für das Auge nicht: die Beschriftungen der Abschnittsleisten. */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 html, body, #root { width: 100%; min-width: 320px; height: 100%; margin: 0; overflow: hidden; }
 button { font: inherit; -webkit-tap-highlight-color: transparent; }
 button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
@@ -59,10 +61,25 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
     #54321f;
   box-shadow: 0 4px 0 rgba(24,12,7,.45), inset 0 -2px rgba(255,227,150,.08);
 }
-/* Der Kopf trägt nur das Vermögen. Wie voll die Truhe damit ist, steht als eigene Leiste im
-   Truhen-Abschnitt — dort, wo auch die Truhe selbst steht. */
-.header-wealth { min-width: 0; font-family: var(--pixel-font); line-height: 1; text-align: center; }
+/* Der Truhenstand und darunter, wie voll die Truhe damit ist — die Grenze selbst steht unter der
+   Truhe im Abschnitt. */
+.header-wealth { min-width: 0; display: grid; gap: 5px; justify-items: center; font-family: var(--pixel-font); line-height: 1; text-align: center; }
 .header-wealth strong { display: inline-flex; gap: 7px; align-items: center; max-width: 100%; overflow: hidden; color: #ffe18a; font-size: clamp(21px,6vw,29px); text-overflow: ellipsis; white-space: nowrap; text-shadow: 2px 2px #2b170e; }
+.header-wealth__bar {
+  position: relative;
+  width: min(100%, 268px);
+  height: 9px;
+  overflow: hidden;
+  border: 2px solid #2d180f;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,236,180,.05) 0 6px,transparent 6px 9px),
+    #3c2518;
+  box-shadow: 0 2px 0 #25130b, inset 0 0 0 1px #795033;
+}
+.header-wealth__bar i { position: absolute; inset: 0 auto 0 0; width: var(--vault-fill); background: repeating-linear-gradient(90deg,#d99d30 0 7px,#f5c84d 7px 12px,#ae671d 12px 15px); box-shadow: inset 0 2px rgba(255,239,159,.36), inset 0 -2px rgba(77,38,14,.3); transition: width .1s linear; }
+/* Dieselbe Ampel wie in den Abschnitten: Eine Truhe kurz vor dem Rand nimmt keine Fuhre mehr an. */
+.header-wealth.is-warning .header-wealth__bar i { background: repeating-linear-gradient(90deg,#ba5e24 0 7px,#df7d2c 7px 12px,#8e3819 12px 15px); }
+.header-wealth.is-alert .header-wealth__bar i { background: repeating-linear-gradient(90deg,#9f3224 0 7px,#d0442d 7px 12px,#722016 12px 15px); }
 .pixel-coin { width: 20px; height: 20px; flex: 0 0 auto; image-rendering: pixelated; }
 .dock {
   position: relative;
@@ -118,10 +135,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: 0 0 28px rgba(17,8,4,.42);
 }
 
-/* Die Kopfzeile eines Abschnitts ist so hoch, wie ihre Leisten es verlangen: eine im Regelfall,
-   zwei in der Truhe. */
 .game-section { position: relative; min-height: 0; display: grid; grid-template-rows: auto minmax(0,1fr); overflow: hidden; }
-.section-meters { display: grid; }
 .game-section + .game-section { border-top: 3px solid #352016; }
 .game-section--mine { background: linear-gradient(rgba(55,31,17,.07),rgba(55,31,17,.16)), #a87945; }
 .game-section--bag { background: linear-gradient(rgba(221,178,100,.08),rgba(69,40,22,.08)), #bb8d55; }
@@ -143,14 +157,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   min-width: 0;
   height: 30px;
   margin: 0;
-  display: grid;
-  /* Die beiden Randspalten sind gleich breit (`1fr` teilt den Rest zu gleichen Teilen), damit die
-     Leiste in der Mittelspalte exakt auf der Mittelachse des Abschnitts sitzt — und zwar in allen
-     drei Abschnitten auf derselben, egal wie lang Beschriftung und Wert ausfallen. Feste, ungleiche
-     Randspalten verschoben sie um deren halbe Differenz nach außen. */
-  grid-template-columns: minmax(84px,1fr) minmax(0,360px) minmax(84px,1fr);
-  gap: 8px;
+  /* Ohne Beschriftung und Prozentzahl an den Rändern trägt die Zeile nur die Leiste — die sitzt
+     damit von selbst auf der Mittelachse des Abschnitts und bekommt die ganze Breite. */
+  display: flex;
   align-items: center;
+  justify-content: center;
   overflow: hidden;
   padding: 0 8px;
   color: #ffefb8;
@@ -164,11 +175,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-meter__progress {
   position: relative;
   z-index: 1;
-  grid-column: 2;
-  grid-row: 1;
   width: min(100%, 360px);
   height: 15px;
-  justify-self: center;
   border: 2px solid #2d180f;
   background:
     repeating-linear-gradient(90deg,rgba(255,236,180,.05) 0 6px,transparent 6px 9px),
@@ -193,20 +201,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-meter--exhaustion .section-meter__fill { background: repeating-linear-gradient(90deg,#c37625 0 7px,#dc8b2e 7px 12px,#934418 12px 15px); }
 .section-meter.is-warning .section-meter__fill { background: repeating-linear-gradient(90deg,#ba5e24 0 7px,#df7d2c 7px 12px,#8e3819 12px 15px); }
 .section-meter.is-alert .section-meter__fill { background: repeating-linear-gradient(90deg,#9f3224 0 7px,#d0442d 7px 12px,#722016 12px 15px); }
-/* Die Prozentzahl trägt denselben Stand wie ihre Leiste — sie ist an jeder Stelle des Bildschirms
-   ablesbar, auch wo die Füllung selbst gerade unter dem Marker verschwindet. */
-.section-meter.is-warning strong { color: var(--meter-warning); }
-.section-meter.is-alert strong { color: var(--meter-alert); }
-.section-meter__label,.section-meter strong { position: relative; z-index: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-meter__label { grid-column: 1; grid-row: 1; width: 100%; font-size: 15px; font-weight: 700; letter-spacing: .08em; }
-.section-meter strong { grid-column: 3; grid-row: 1; width: 100%; font-size: 14px; font-weight: 400; font-variant-numeric: tabular-nums; text-align: right; }
 .section-meter__marker { position: absolute; z-index: 2; top: 50%; right: 0; width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; transform: translate(50%,-50%); filter: drop-shadow(2px 2px 0 rgba(35,17,9,.6)); }
-/* Die beigestellte Leiste: schmaler, ohne Figur und mit einer trennenden Kante nach oben — die
-   Leiste mit der Figur bleibt die des Abschnitts, diese hier gehört ihr bei. */
-.section-meter--plain { height: 21px; background: linear-gradient(90deg, transparent 0 7px, rgba(255,230,166,.06) 7px 10px, transparent 10px 21px), #4d2f19; box-shadow: inset 0 -3px #2c1710, inset 0 2px 0 rgba(30,15,8,.45); }
-.section-meter--plain .section-meter__progress { height: 11px; }
-.section-meter--plain .section-meter__label { font-size: 12px; }
-.section-meter--plain strong { font-size: 12px; }
 .section-meter--gold .section-meter__marker { width: 34px; height: 34px; }
 .section-meter--exhaustion .section-meter__marker { width: 33px; height: 33px; }
 
@@ -260,9 +255,10 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .stat-tile__icon { height: 13px; margin-bottom: 2px; color: #74502f; }
 .stat-tile__icon svg { width: 13px; height: 13px; }
 
-/* Seit der Füllstand der Truhe im Kopf steht, trägt keine Spalte mehr eine Zeile unter ihrem
-   Button — alle drei Aktionen sitzen mittig in ihrer Reihe. */
-.section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+/* Jede der drei Spalten trägt eine Zeile unter ihrem Button — die Buttons bleiben damit
+   untereinander auf derselben Linie. */
+.section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.section-caption { max-width: 100%; overflow: hidden; color: #43291a; font-family: var(--pixel-font); font-size: 15px; line-height: 1.05; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .section-action {
   position: relative;
   overflow: hidden;
@@ -560,8 +556,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .dock-button__icon { width: 19px; height: 19px; }
   .dock-button svg { width: 19px; height: 19px; }
   .dock-button { font-size: 12px; gap: 2px; }
-  .section-meter { height: 24px; grid-template-columns: minmax(66px,1fr) minmax(0,360px) minmax(66px,1fr); gap: 5px; padding: 0 5px; }
-  .section-meter--plain { height: 18px; }.section-meter--plain .section-meter__progress { height: 9px; }.section-meter--plain .section-meter__label,.section-meter--plain strong { font-size: 9.5px; }.section-meter__progress { height: 12px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
+  .section-meter { height: 24px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
+  .section-caption { font-size: 13px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
   .section-layout { --stat-block: min(112px, 88%); }
   .stats-grid,.slot-grid { gap: 2px; }
@@ -578,8 +574,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 
 @media (min-width: 760px) {
   .topbar { padding-right: 22px; padding-left: 22px; }
-  .section-meter { height: 34px; grid-template-columns: minmax(112px,1fr) minmax(0,360px) minmax(112px,1fr); gap: 12px; }
-  .section-meter--plain { height: 24px; }.section-meter--plain .section-meter__progress { height: 13px; }.section-meter--plain .section-meter__label,.section-meter--plain strong { font-size: 14px; }.section-meter__progress { height: 17px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
+  .section-meter { height: 34px; }.section-meter__progress { height: 17px; }.section-meter__marker { width: 44px; height: 44px; }
+  .section-caption { font-size: 17px; }
   .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
   .section-layout { --stat-block: min(168px, 86%); }
   .stats-grid,.slot-grid { max-width: 145px; gap: 6px; }
