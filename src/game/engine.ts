@@ -1,5 +1,6 @@
 import {
   GOLD_FLIGHT_DURATION_MS,
+  EXHAUSTION_BREAK_MS,
   MANUAL_CARGO,
   MANUAL_SECURE_AMOUNT,
   MANUAL_TRIP_SECONDS,
@@ -8,6 +9,8 @@ import {
   SECURE_COOLDOWN_MS,
   chestCapacity,
   equipmentUpgradeCost,
+  exhaustionPerTap,
+  exhaustionRecoveryRate,
   guardInterval,
   guardPower,
   hasAutomaticSecurity,
@@ -33,7 +36,7 @@ export const emptyTrips = (): SlotTrips => [null, null, null, null]
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 6,
+    schemaVersion: 7,
     savedAt: now,
     lastTick: now,
     chestGold: 0,
@@ -47,6 +50,8 @@ export function createInitialState(now = Date.now()): GameState {
     minerLevels: [0, 0, 0, 0],
     transporterLevels: [0, 0, 0, 0],
     guardLevels: [0, 0, 0, 0],
+    exhaustion: 0,
+    exhaustedUntil: null,
     threat: 0,
     secureStartedAt: null,
     secureEndsAt: null,
@@ -114,11 +119,14 @@ export function goldInTransit(state: GameState): number {
     weiter, sobald ihm ein Fuhrknecht die Strecke abnimmt — vorher ruht mit ihm das ganze Reich. */
 export const isPlayerTravelling = (state: GameState): boolean => state.playerTrip !== null
 
-export function tap(state: GameState): GameState {
+export function tap(state: GameState, now = Date.now()): GameState {
   if (isPlayerBusy(state)) return state
   if (state.chestGold >= chestCapacity(state)) return state
+  if (state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
+  next.exhaustion = Math.min(100, next.exhaustion + exhaustionPerTap(next))
+  if (next.exhaustion >= 100) next.exhaustedUntil = now + EXHAUSTION_BREAK_MS
   return next
 }
 
@@ -281,7 +289,18 @@ function nextBeat(state: GameState): number {
     consider(state.playerTrip.endsAt)
   }
   if (state.secureEndsAt !== null) consider(state.secureEndsAt)
+  if (state.exhaustedUntil !== null) consider(state.exhaustedUntil)
   return earliest
+}
+
+/** Erholung läuft unabhängig davon, womit Spieler oder Reich gerade beschäftigt sind. Wird die
+    Leiste voll, bleibt sie für die kurze Zwangspause fest bei 100 und fällt erst danach wieder. */
+function recoverExhaustion(state: GameState, from: number, to: number): void {
+  if (state.exhaustion <= 0 || to <= from) return
+  const recoveryStarts = state.exhaustedUntil === null ? from : Math.max(from, state.exhaustedUntil)
+  const seconds = Math.max(0, to - recoveryStarts) / 1_000
+  if (seconds > 0) state.exhaustion = Math.max(0, state.exhaustion - seconds * exhaustionRecoveryRate(state))
+  if (state.exhaustedUntil !== null && to >= state.exhaustedUntil) state.exhaustedUntil = null
 }
 
 /** Diebeszug auf die Schatztruhe. `budget` deckelt die Beute (Offline-Strecke); ist es
@@ -327,6 +346,7 @@ function isDormant(state: GameState): boolean {
     && state.transporterTrips.every((trip) => trip === null)
     && state.secureEndsAt === null
     && state.threat <= 0
+    && state.exhaustion <= 0
     && state.vaultGold <= 0
     && !(hasAutomaticTransport(state) && state.chestGold > 0)
 }
@@ -376,6 +396,7 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
     const dt = Math.max(0, nextCursor - cursor) / 1000
 
     state.threat += dt * riskGrowth(state)
+    recoverExhaustion(state, cursor, nextCursor)
     if (state.vaultGold > 0 && state.threat >= 100) stolenOffline += runTheft(state, remainingTheftBudget(), report)
 
     cursor = nextCursor

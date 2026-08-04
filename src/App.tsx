@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import {
   GOLD_FLIGHT_DURATION_MS,
+  EXHAUSTION_WARNING,
   SECTION_LABEL,
   MANUAL_SECURE_AMOUNT,
   RISK_ALERT,
@@ -30,6 +31,7 @@ import {
   hasAutomaticTransport,
   minerYield,
   passiveRate,
+  securityLoss,
   slotVisualLevel,
   tapValue,
   vaultCapacity,
@@ -215,6 +217,35 @@ function SectionProgress({ fill, label, amount, muted = false }: { fill: number;
       </div>
       {amount && <div className="section-progress__amount">{amount}</div>}
     </div>
+  )
+}
+
+function SectionMeter({
+  fill,
+  label,
+  value,
+  marker,
+  tone,
+}: {
+  fill: number
+  label: string
+  value: string
+  marker: 'robber' | 'gold' | 'exhaustion'
+  tone?: 'warning' | 'alert'
+}) {
+  const safeFill = Math.max(0, Math.min(100, fill))
+  return (
+    <h2
+      className={`section-meter section-meter--${marker} ${tone ? `is-${tone}` : ''}`}
+      style={{ '--meter-fill': `${safeFill}%` } as CSSProperties}
+    >
+      <span className="section-meter__progress" role="progressbar" aria-label={`${label}: ${value}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(safeFill)}>
+        <i className="section-meter__fill" aria-hidden="true" />
+        <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" aria-hidden="true" draggable={false} />
+      </span>
+      <span className="section-meter__label">{label}</span>
+      <strong>{value}</strong>
+    </h2>
   )
 }
 
@@ -589,6 +620,7 @@ function App() {
   const risk = Math.min(100, state.threat)
   const riskTone = risk >= RISK_ALERT ? 'alert' : risk >= RISK_WARNING ? 'warning' : undefined
   const riskAlarming = chestRevealed && risk >= RISK_ALERT && !playerBusy
+  const exhausted = state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)
 
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
   // Die Kachel misst das Reich, nicht die Hände des Spielers: Ohne Fuhrknecht ruht die Mine während
@@ -611,10 +643,10 @@ function App() {
   const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
 
   const handleTap = () => {
-    if (playerBusy || bagFull) return
+    if (playerBusy || bagFull || exhausted) return
     recentTaps.current = [...recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS), now]
     const earned = Math.min(tapValue(state), Math.max(0, bagMax - state.chestGold))
-    setState((current) => tap(current))
+    setState((current) => tap(current, now))
     launchGold(earned, 'coin')
     playTone('coin', sound)
     haptic(haptics, 8)
@@ -703,10 +735,10 @@ function App() {
       <main className="game-stage" aria-label="Dein Goldreich">
         <div className="game-sections" ref={sceneRef}>
           <article className="game-section game-section--chest">
-            <h2 className="section-divider"><span>Truhe</span></h2>
+            <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" tone={riskTone} />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
-                <StatTile label="Risiko" value={`${Math.round(risk)}%`} icon={<ShieldAlert aria-hidden="true" />} tone={riskTone} />
+                <StatTile label="Verlust / Diebstahl" value={`${formatDecimal(securityLoss(state) * 100)}%`} icon={<ShieldAlert aria-hidden="true" />} />
               </div>
               <div className="section-center">
                 <button
@@ -726,7 +758,7 @@ function App() {
           </article>
 
           <article className="game-section game-section--bag">
-            <h2 className="section-divider"><span>Beutel</span></h2>
+            <SectionMeter fill={percentage(state.chestGold, bagMax)} label="Beutel" value={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} marker="gold" />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Beutelwerte">
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(transportRate))} />
@@ -736,20 +768,19 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
-                <SectionProgress fill={percentage(state.chestGold, bagMax)} label="Füllstand des Goldbeutels" amount={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} />
               </div>
               <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('bag', index)} />
             </div>
           </article>
 
           <article className="game-section game-section--mine">
-            <h2 className="section-divider"><span>Mine</span></h2>
+            <SectionMeter fill={state.exhaustion} label="Mine" value={`${Math.round(state.exhaustion)}%`} marker="exhaustion" tone={exhausted ? 'alert' : state.exhaustion >= EXHAUSTION_WARNING ? 'warning' : undefined} />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Minenwerte">
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(miningRate))} />
               </div>
               <div className="section-center">
-                <button ref={mineButtonRef} className={`section-action ${playerBusy ? 'is-progressing' : ''}`} disabled={playerBusy || bagFull} onClick={handleTap} aria-label={playerBusy ? busyLabel : `Gold schürfen: ${formatGold(tapValue(state))}`}>
+                <button ref={mineButtonRef} className={`section-action ${playerBusy ? 'is-progressing' : ''} ${exhausted ? 'is-exhausted' : ''}`} disabled={playerBusy || bagFull || exhausted} onClick={handleTap} aria-label={playerBusy ? busyLabel : exhausted ? 'Erschöpft: kurze Pause' : `Gold schürfen: ${formatGold(tapValue(state))}`}>
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>

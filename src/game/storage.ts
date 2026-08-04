@@ -30,7 +30,7 @@ function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, un
   const stranded = (Number(parsed.inTransitGold) || 0) + (Number(parsed.expressGold) || 0)
   return {
     ...withoutConvoy,
-    schemaVersion: 6,
+    schemaVersion: 7,
     chestGold: (Number(parsed.chestGold) || 0) + stranded,
     minerLevels: normalizeLevels(parsed.minerLevels),
     transporterLevels: normalizeLevels(parsed.transporterLevels),
@@ -41,6 +41,8 @@ function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, un
     guardBeats: emptyBeats(),
     transporterTrips: emptyTrips(),
     playerTrip: null,
+    exhaustion: 0,
+    exhaustedUntil: null,
   } as unknown as GameState
 }
 
@@ -69,11 +71,11 @@ export function migrateGame(value: unknown): GameState | null {
   const parsed = value as Record<string, unknown>
   const { tapReadyAt: _legacyTapReadyAt, ...withoutCooldown } = parsed
   const version = Number(parsed.schemaVersion)
-  // Ein Spielstand, der die eigenen Takte schon kennt, behält seine laufenden Fuhren.
-  if (version === 6) {
+  // Schema 6 kennt die eigenen Takte bereits; Schema 7 ergänzt die Erschöpfung.
+  if (version === 6 || version === 7) {
     return {
       ...withoutCooldown,
-      schemaVersion: 6,
+      schemaVersion: 7,
       minerLevels: normalizeLevels(parsed.minerLevels),
       transporterLevels: normalizeLevels(parsed.transporterLevels),
       guardLevels: normalizeLevels(parsed.guardLevels),
@@ -83,6 +85,8 @@ export function migrateGame(value: unknown): GameState | null {
       guardBeats: normalizeBeats(parsed.guardBeats),
       transporterTrips: normalizeTrips(parsed.transporterTrips),
       playerTrip: normalizeTrip(parsed.playerTrip),
+      exhaustion: version === 7 ? Math.max(0, Math.min(100, Number(parsed.exhaustion) || 0)) : 0,
+      exhaustedUntil: version === 7 ? timestamp(parsed.exhaustedUntil) : null,
     } as unknown as GameState
   }
   // Schema 4 und 5 kennen die Slot-Reihen bereits; ihnen fehlt nur der eigene Takt je Einheit.

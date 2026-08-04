@@ -42,7 +42,7 @@ export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
 export type SlotBeats = [number | null, number | null, number | null, number | null]
 
 export interface GameState {
-  schemaVersion: 6
+  schemaVersion: 7
   savedAt: number
   lastTick: number
   chestGold: number
@@ -56,6 +56,10 @@ export interface GameState {
   minerLevels: SlotLevels
   transporterLevels: SlotLevels
   guardLevels: SlotLevels
+  /** Erschöpfung des Spielers von 0–100. Nur eigene Schläge erhöhen sie. */
+  exhaustion: number
+  /** Bei 100 % bleibt die Erschöpfung bis zu diesem Zeitpunkt stehen; erst danach erholt sie sich. */
+  exhaustedUntil: number | null
   threat: number
   /** Laufende manuelle Sicherung; blockiert bis `secureEndsAt` alle Aktionen, solange keine Wache automatisiert. */
   secureStartedAt: number | null
