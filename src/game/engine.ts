@@ -28,7 +28,7 @@ import {
 } from './config'
 import type { EquipmentUpgradeId, GameEvent, GameState, OfflineReport, SlotBeats, SlotGroup, SlotIndex, SlotTrips, Trip } from './types'
 
-const STEP_MS = 500
+const STEP_MS = 100
 const SLOTS = [0, 1, 2, 3] as const
 
 export const emptyBeats = (): SlotBeats => [null, null, null, null]
@@ -238,7 +238,12 @@ function runMiners(state: GameState, cursor: number, report?: OfflineReport): vo
       continue
     }
     const interval = minerInterval(level) * 1_000
-    if (state.minerBeats[index] === null) state.minerBeats[index] = cursor
+    // Wer neu anfängt — frisch angestellt oder nach der Ruhe am vollen Beutel —, hängt sich in den
+    // laufenden Takt der Uhr ein, statt seinen eigenen bei der Sekunde des Wiederanlaufs zu
+    // beginnen. Sonst hinge die Phase daran, wann der Tick den freien Beutel bemerkt: Zusehen
+    // schaut alle 100 ms nach, die Offline-Strecke in Schritten von bis zu 500 ms, und über zehn
+    // Minuten Ruhe-und-weiter passte in den einen Lauf ein Takt mehr als in den anderen.
+    if (state.minerBeats[index] === null) state.minerBeats[index] = Math.floor(cursor / interval) * interval
     while (cursor >= (state.minerBeats[index] as number) + interval) {
       // Füllt eine frühere Förderung dieses Durchlaufs den Beutel, ruht auch der Rest der Takte —
       // und der fällige Takt verfällt mit ihnen, statt als Rückstand liegen zu bleiben.

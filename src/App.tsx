@@ -323,11 +323,17 @@ function SectionMeter({
   )
 }
 
-/** Die Zeile unter einem Aktions-Button: die Grenze, gegen die er arbeitet. Truhe und Beutel
-    tragen ihr Fassungsvermögen, die Mine den Ertrag eines Schlags — die eine Zahl, die den Knopf
-    daneben beschreibt und die sonst nur auf seiner Upgrade-Karte steht. */
-function SectionCaption({ children }: { children: ReactNode }) {
-  return <div className="section-caption">{children}</div>
+/** Die Zeilen unter einem Aktions-Button: die Größe, gegen die er arbeitet, und ihr Name darüber.
+    Truhe und Beutel tragen ihr Fassungsvermögen, die Mine den Ertrag eines Schlags — Zahlen, die
+    den Knopf daneben beschreiben und sonst nur auf seiner Upgrade-Karte stehen. Der Name steht
+    oben und klein: Er ändert sich nie, die Zahl unter ihm bei jedem Ausbau. */
+function SectionCaption({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="section-caption">
+      <span>{label}</span>
+      <strong>{children}</strong>
+    </div>
+  )
 }
 
 function SlotGrid({
@@ -842,7 +848,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
-                <SectionCaption>{formatFullGold(treasureMax)}</SectionCaption>
+                <SectionCaption label="Kapazität">{formatFullGold(treasureMax)}</SectionCaption>
               </div>
               <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('chest', index)} />
             </div>
@@ -859,7 +865,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
-                <SectionCaption>{formatFullGold(bagMax)}</SectionCaption>
+                <SectionCaption label="Kapazität">{formatFullGold(bagMax)}</SectionCaption>
               </div>
               <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('bag', index)} />
             </div>
@@ -876,7 +882,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
-                <SectionCaption>{formatFullGold(tapValue(state))} / Schlag</SectionCaption>
+                <SectionCaption label="Fördermenge">{formatFullGold(tapValue(state))} / Schlag</SectionCaption>
               </div>
               <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
