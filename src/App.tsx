@@ -491,12 +491,16 @@ function App() {
 
   // Jede Förderung eines Bergmanns ist ein eigener Goldflug mit seiner eigenen Menge. Der frühere
   // Sekundentakt mittelte alle vier zu einer Münze zusammen; jetzt sieht man, wer wann liefert.
+  // Ein Takt ohne Vorgänger ist keine Förderung, sondern ein Anfang: So beginnt der frisch
+  // angeheuerte Bergmann, und so nimmt einer nach der Ruhe seine Arbeit wieder auf. Er fliegt
+  // deshalb nicht — sonst zeigte die Mine eine Münze, die im Beutel nie ankommt.
   useEffect(() => {
     const beats = state.minerBeats
     if (document.visibilityState === 'visible') {
       beats.forEach((beat, index) => {
+        const seen = seenMinerBeats.current[index]
         const level = state.minerLevels[index]
-        if (beat !== null && beat !== seenMinerBeats.current[index] && level > 0) launchGold(minerYield(level), 'coin', true)
+        if (beat !== null && seen !== null && beat !== seen && level > 0) launchGold(minerYield(level), 'coin', true)
       })
     }
     seenMinerBeats.current = [...beats]

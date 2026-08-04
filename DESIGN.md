@@ -99,6 +99,10 @@ Daraus folgt die Eigenschaft, an der die ganze Anzeige hängt: Der Zuwachs einer
 
 Nachgeholt wird immer in ganzen Takten. Eine durchschlafene Nacht ergibt deshalb exakt dieselbe Menge wie durchgehendes Zusehen, und das Nachrechnen einer vollen Acht-Stunden-Strecke bei Maximalausbau bleibt im Bereich weniger hundert Millisekunden.
 
+**Eine ruhende Einheit hält keinen Takt.** Die Mine ruht, sobald der Beutel voll ist — und ohne Fuhrknecht zusätzlich, solange der Spieler selbst unterwegs ist oder von Hand sichert. Ein Bergmann verliert dabei seinen Takt und beginnt ihn neu, sobald es weitergeht. Das ist der Unterschied zwischen *ruhen* und *später nachholen*: Liefe die Uhr während der Ruhe weiter, stünde jede stillgelegte Sekunde danach als fällige Förderung an und käme in einem Schwall auf einmal. Ein stehengelassener Takt wäre außerdem der einzige Weg, auf dem die Tick-Schleife einen fälligen Zeitpunkt hinter ihrem eigenen Cursor fände und nicht mehr von der Stelle käme.
+
+Der volle Beutel bremst die Förderung damit wirklich, statt sie in den Verlust laufen zu lassen: Die letzte Förderung füllt ihn bis zum Rand auf, was in dieser einen Portion darüber hinausgeht, ist der Überlauf, den der Zeitdruck des Beutels vorsieht. Alles Weitere wartet auf die nächste Fuhre — die Mine fördert nicht stundenlang an einem vollen Beutel vorbei.
+
 ## Diebstahl und Schutz
 
 Diebstahl findet aktiv und offline statt und greift ausschließlich die **Schatztruhe** an. Gold im Beutel und Ladung unterwegs sind zu kleine Beute, um jemanden zu interessieren — Diebe überfallen Schatzkammern, keine Gürteltaschen.

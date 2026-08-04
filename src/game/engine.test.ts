@@ -77,6 +77,101 @@ describe('Vault Run engine', () => {
     expect(state.chestGold).toBe(0)
   })
 
+  // Der Beutel ist die Grenze der Förderung. Ein Bergmann, der in den vollen Beutel weiterschlägt,
+  // fördert ausschließlich in den Verlust — über eine Nacht ein Vielfaches des Beutels an Gold,
+  // das nie irgendwo ankommt.
+  it('rests the mine while the bag is full', () => {
+    const state = { ...createInitialState(0), minerLevels: [2, 1, 0, 0] as [number, number, number, number] }
+    const filled = advanceGame(state, 60_000)
+    expect(filled.chestGold).toBeCloseTo(chestCapacity(state), 5)
+
+    const later = advanceGame(filled, 60 * 60_000)
+    expect(later.chestGold).toBeCloseTo(chestCapacity(state), 5)
+    expect(later.lifetimeGold).toBeCloseTo(filled.lifetimeGold, 5)
+    expect(later.lostGold).toBeCloseTo(filled.lostGold, 5)
+    // Ohne Takt keine Animation: Die ruhende Mine meldet keine Förderung mehr.
+    expect(later.minerBeats).toEqual([null, null, null, null])
+  })
+
+  // Ruht die ganze Mine am vollen Beutel und ist sonst nichts in Bewegung, ist der Tick leer wie
+  // vor der ersten Anstellung — dann darf er auch dieselbe Referenz zurückgeben.
+  it('lies dormant while a full bag rests the whole mine', () => {
+    const state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    const filled = advanceGame(state, 5 * 60_000)
+    expect(filled.chestGold).toBeCloseTo(chestCapacity(state), 5)
+    expect(filled.minerBeats).toEqual([null, null, null, null])
+
+    const ticked = advanceGame(filled, 5 * 60_000 + 10_000)
+    expect(ticked).toBe(filled)
+    expect(ticked.lastTick).toBe(5 * 60_000 + 10_000)
+
+    // Und die Ruhe endet, sobald eine Fuhre Platz schafft — ohne die Ruhezeit nachzuholen.
+    const room = { ...ticked, chestGold: ticked.chestGold - MANUAL_CARGO }
+    const resumed = advanceGame(room, 5 * 60_000 + 10_000 + minerInterval(1) * 1_000)
+    expect(resumed.chestGold).toBeCloseTo(chestCapacity(state) - MANUAL_CARGO + minerYield(1), 5)
+  })
+
+  // „Ruht“ heißt nicht „holt später nach“: Nach der Ruhe beginnt ein Bergmann seinen Takt neu,
+  // statt jede stillgelegte Sekunde in einem Schwall zu liefern.
+  it('starts a fresh cycle after the bag makes room again instead of catching up', () => {
+    const state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    const capacity = chestCapacity(state)
+    const idle = advanceGame({ ...state, chestGold: capacity }, 10 * 60_000)
+    expect(idle.chestGold).toBeCloseTo(capacity, 5)
+
+    // Eine Fuhre schafft Platz. Danach steht genau eine Portion an — nach einem vollen Takt, nicht
+    // zehn Minuten Ruhe auf einen Schlag.
+    const room = { ...idle, chestGold: capacity - MANUAL_CARGO }
+    const beat = minerInterval(1) * 1_000
+    expect(advanceGame(room, 10 * 60_000 + beat - 1).chestGold).toBeCloseTo(capacity - MANUAL_CARGO, 5)
+    expect(advanceGame(room, 10 * 60_000 + beat).chestGold).toBeCloseTo(capacity - MANUAL_CARGO + minerYield(1), 5)
+  })
+
+  // Dasselbe für die Ruhe während einer eigenen Fuhre: Wer ohne Fuhrknecht selbst unterwegs ist,
+  // hält die Mine an — und findet bei der Rückkehr keine aufgestaute Förderung vor.
+  //
+  // Ein ruhender Bergmann darf dabei keinen fälligen Takt behalten: `nextBeat` meldete sonst einen
+  // Zeitpunkt hinter dem Cursor, die Schleife käme nicht mehr von der Stelle und das Spiel bliebe
+  // stehen. Dieser Test läuft in genau diesem Fall nicht durch, sondern gar nicht mehr.
+  it('banks nothing while the mine rests during the player trip', () => {
+    let state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    state = advanceGame(state, 5_000)
+    expect(state.chestGold).toBeCloseTo(5 * minerYield(1), 5)
+
+    const travelling = startTransport(state, 5_000)
+    expect(travelling.minerBeats[0]).not.toBeNull()
+
+    const returned = advanceGame(travelling, 5_000 + MANUAL_TRIP_SECONDS * 1_000)
+    expect(returned.playerTrip).toBeNull()
+    expect(returned.chestGold).toBe(0)
+  })
+
+  // Dieselbe Ruhe während einer Sicherung von Hand — auch sie legt das ganze Reich still.
+  it('banks nothing while the mine rests during a manual securing', () => {
+    const mining = advanceGame({ ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number], threat: 50 }, 5_000)
+    const securing = lowerThreat(mining, 5_000)
+    expect(isSecuringManually(securing)).toBe(true)
+
+    const held = advanceGame(securing, 5_000 + SECURE_COOLDOWN_MS - 1)
+    expect(held.chestGold).toBeCloseTo(mining.chestGold, 5)
+    expect(held.minerBeats).toEqual([null, null, null, null])
+
+    // Und auch nach der Freigabe steht nichts nach: Der Takt beginnt neu.
+    const released = advanceGame(held, 5_000 + SECURE_COOLDOWN_MS)
+    expect(released.chestGold).toBeCloseTo(mining.chestGold, 5)
+  })
+
+  // Eine durchschlafene Nacht ohne Transport füllt den Beutel und lässt es dabei bewenden: Was
+  // darüber hinaus verloren geht, ist die eine Portion, die den Beutel bis zum Rand aufgefüllt hat.
+  it('loses no more than the topping-up portion across a night without transport', () => {
+    const state = { ...createInitialState(0), minerLevels: [3, 3, 3, 3] as [number, number, number, number] }
+    const returned = advanceGame(state, 8 * 60 * 60 * 1_000, true)
+
+    expect(returned.chestGold).toBeCloseTo(chestCapacity(state), 5)
+    expect(returned.lostGold).toBeLessThanOrEqual(minerYield(3))
+    expect(returned.lastOfflineReport?.earned).toBeCloseTo(chestCapacity(state), 5)
+  })
+
   it('does not produce or count losses when tapping a full bag', () => {
     const state = createInitialState(0)
     state.chestGold = chestCapacity(state)
