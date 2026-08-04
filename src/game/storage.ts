@@ -39,11 +39,22 @@ function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, un
     secureEndsAt: timestamp(parsed.secureEndsAt),
     minerBeats: emptyBeats(),
     guardBeats: emptyBeats(),
+    minerCarry: [0, 0, 0, 0],
     transporterTrips: emptyTrips(),
     playerTrip: null,
     exhaustion: 0,
     exhaustedUntil: null,
   } as unknown as GameState
+}
+
+/** Der angebrochene Fund je Bergmann. Ältere Spielstände kennen ihn nicht — dort steht jeder
+    Bergmann am Anfang seines nächsten Goldstücks, was genau der Null entspricht. */
+function normalizeCarry(value: unknown): SlotLevels {
+  if (!Array.isArray(value)) return [0, 0, 0, 0]
+  return [0, 1, 2, 3].map((index) => {
+    const carry = Number(value[index])
+    return Number.isFinite(carry) && carry > 0 ? carry % 1 : 0
+  }) as SlotLevels
 }
 
 function normalizeBeats(value: unknown): SlotBeats {
@@ -83,6 +94,7 @@ export function migrateGame(value: unknown): GameState | null {
       secureEndsAt: timestamp(parsed.secureEndsAt),
       minerBeats: normalizeBeats(parsed.minerBeats),
       guardBeats: normalizeBeats(parsed.guardBeats),
+      minerCarry: normalizeCarry(parsed.minerCarry),
       transporterTrips: normalizeTrips(parsed.transporterTrips),
       playerTrip: normalizeTrip(parsed.playerTrip),
       exhaustion: version === 7 ? Math.max(0, Math.min(100, Number(parsed.exhaustion) || 0)) : 0,

@@ -48,7 +48,34 @@ import {
 } from './engine'
 import { migrateGame } from './storage'
 
+/** Was `ticks` Takte eines Bergmanns im Beutel ergeben. In den Beutel gehen nur ganze Goldstücke;
+    der Bruchteil bleibt am Fels liegen und geht in den nächsten Takt ein. Über die Takte hinweg
+    ist die Summe darum immer der abgerundete Ertrag der Rate. */
+const mined = (level: number, ticks: number) => Math.floor(ticks * minerYield(level))
+
 describe('Vault Run engine', () => {
+  // Ein Bergmann fördert 0,65 je Takt und schickt trotzdem nie Bruchteile in den Beutel: Der erste
+  // Takt legt nichts hinein, der zweite ein ganzes Stück, der dritte wieder eines — und was liegen
+  // bleibt, ist beim nächsten Mal wieder dabei.
+  it('sends only whole gold from the mine into the bag', () => {
+    const state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    const beat = minerInterval(1) * 1_000
+    const banked = [1, 2, 3, 4, 5, 6].map((ticks) => advanceGame(state, ticks * beat).chestGold)
+
+    expect(banked).toEqual([0, 1, 1, 2, 3, 3])
+    expect(banked.every(Number.isInteger)).toBe(true)
+
+    // Der angebrochene Fund bleibt im Zustand stehen — sonst verlöre ihn jeder Neustart.
+    const afterOne = advanceGame(state, beat)
+    expect(afterOne.minerCarry[0]).toBeCloseTo(minerYield(1), 5)
+    expect(afterOne.chestGold).toBe(0)
+
+    // Und über viele Takte hinweg bleibt die Rate erhalten: Was ganzzahlig wird, ist die einzelne
+    // Portion, nicht die Fördermenge.
+    const long = advanceGame(state, 70 * beat)
+    expect(long.lifetimeGold).toBe(mined(1, 70))
+  })
+
   it('moves gold from the bag into the treasure chest in a timed trip', () => {
     let state = createInitialState(0)
     for (let index = 0; index < 10; index += 1) state = tap(state)
@@ -112,7 +139,10 @@ describe('Vault Run engine', () => {
     // Und die Ruhe endet, sobald eine Fuhre Platz schafft — ohne die Ruhezeit nachzuholen.
     const room = { ...ticked, chestGold: ticked.chestGold - MANUAL_CARGO }
     const resumed = advanceGame(room, 5 * 60_000 + 10_000 + minerInterval(1) * 1_000)
-    expect(resumed.chestGold).toBeCloseTo(chestCapacity(state) - MANUAL_CARGO + minerYield(1), 5)
+    // Angerechnet wird der Takt mitsamt dem Fund, der seit der Ruhe am Fels liegt — ins Beutel
+    // wandert davon nur, was zusammen ein ganzes Goldstück ergibt.
+    const portion = Math.floor(room.minerCarry[0] + minerYield(1))
+    expect(resumed.chestGold).toBeCloseTo(chestCapacity(state) - MANUAL_CARGO + portion, 5)
   })
 
   // „Ruht“ heißt nicht „holt später nach“: Nach der Ruhe beginnt ein Bergmann seinen Takt neu,
@@ -128,7 +158,9 @@ describe('Vault Run engine', () => {
     const room = { ...idle, chestGold: capacity - MANUAL_CARGO }
     const beat = minerInterval(1) * 1_000
     expect(advanceGame(room, 10 * 60_000 + beat - 1).chestGold).toBeCloseTo(capacity - MANUAL_CARGO, 5)
-    expect(advanceGame(room, 10 * 60_000 + beat).chestGold).toBeCloseTo(capacity - MANUAL_CARGO + minerYield(1), 5)
+    // Zwei Takte ergeben zusammen das erste ganze Goldstück — und nur dieses eine, nicht die zehn
+    // Minuten Ruhe davor.
+    expect(advanceGame(room, 10 * 60_000 + 2 * beat).chestGold).toBeCloseTo(capacity - MANUAL_CARGO + mined(1, 2), 5)
   })
 
   // Dasselbe für die Ruhe während einer eigenen Fuhre: Wer ohne Fuhrknecht selbst unterwegs ist,
@@ -140,7 +172,7 @@ describe('Vault Run engine', () => {
   it('banks nothing while the mine rests during the player trip', () => {
     let state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
     state = advanceGame(state, 5_000)
-    expect(state.chestGold).toBeCloseTo(5 * minerYield(1), 5)
+    expect(state.chestGold).toBeCloseTo(mined(1, 5), 5)
 
     const travelling = startTransport(state, 5_000)
     expect(travelling.minerBeats[0]).not.toBeNull()
@@ -438,8 +470,11 @@ describe('Vault Run engine', () => {
     expect(ticked.threat).toBeCloseTo(60 - 2 * guardPower(1), 5)
 
     // Und die Mine fördert während der Sicherung durch — stillgelegt wird sie nur ohne Wachen.
-    const mining = { ...guarded, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    expect(advanceGame(lowerThreat(mining, 0), minerInterval(1) * 1_000).chestGold).toBeCloseTo(minerYield(1), 5)
+    // Der Bergmann steht auf Stufe 3, damit schon sein erster Takt ein ganzes Goldstück ergibt und
+    // die Förderung noch innerhalb der laufenden Sicherung im Beutel ankommt.
+    const mining = { ...guarded, minerLevels: [3, 0, 0, 0] as [number, number, number, number] }
+    expect(minerInterval(3) * 1_000).toBeLessThan(SECURE_COOLDOWN_MS)
+    expect(advanceGame(lowerThreat(mining, 0), minerInterval(3) * 1_000).chestGold).toBeCloseTo(mined(3, 1), 5)
   })
 
   // Der Spieler ist eine Person: Was er tut, tut er mit beiden Händen. Jede laufende Aktion sperrt
@@ -718,11 +753,13 @@ describe('Vault Run engine', () => {
     // als Förderung gutgeschrieben.
     expect(ticked.lastTick).toBe(10_000)
 
-    // Der frisch angestellte Bergmann beginnt seinen Takt jetzt, nicht rückwirkend: Nach einem
-    // vollen Takt liegt genau eine Portion im Beutel, vorher nichts.
+    // Der frisch angestellte Bergmann beginnt seinen Takt jetzt, nicht rückwirkend: Vor dem ersten
+    // vollen Takt hat er nichts gefördert, und danach steht genau seine eigene Förderung an — nicht
+    // die zehn ruhenden Sekunden davor.
     const hired = { ...ticked, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    expect(advanceGame(hired, 10_000 + minerInterval(1) * 1_000 - 1).chestGold).toBe(0)
-    expect(advanceGame(hired, 10_000 + minerInterval(1) * 1_000).chestGold).toBeCloseTo(minerYield(1), 5)
+    const beat = minerInterval(1) * 1_000
+    expect(advanceGame(hired, 10_000 + beat - 1).minerCarry[0]).toBe(0)
+    expect(advanceGame(hired, 10_000 + 2 * beat).chestGold).toBeCloseTo(mined(1, 2), 5)
   })
 
   it('keeps advancing once anything is actually in motion', () => {

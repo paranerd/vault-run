@@ -116,7 +116,13 @@ export const exhaustionPerTap = (state: GameState) => Math.max(1.5, 6 * 0.9 ** s
 /** 20 Punkte pro Sekunde ergeben die abgestimmten fünf Sekunden von 100 auf 0. */
 export const exhaustionRecoveryRate = (_state: GameState) => 20
 export const EXHAUSTION_BREAK_MS = 750
-export const EXHAUSTION_WARNING = 70
+
+/** Ein voller Balken ist in jedem Abschnitt dasselbe: der Punkt, an dem gehandelt werden muss.
+    Risiko, Beutel und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
+    dann überall dasselbe, statt dass jeder Abschnitt sein eigenes „bald" hätte. */
+export const METER_WARNING = 75
+export const METER_ALERT = 90
+
 export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
@@ -164,9 +170,8 @@ export const guardStrength = (state: GameState) => totalLevels(state.guardLevels
     Beutel-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt einer Tasche. */
 export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 ** guardStrength(state))
 
-/** Ab hier färbt sich die Risikokachel; ab `RISK_ALERT` pulsiert zusätzlich die Sicherung. */
-export const RISK_WARNING = 50
-export const RISK_ALERT = 80
+/** Ab `METER_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Diebeszug. */
+export const RISK_ALERT = METER_ALERT
 
 /** Wie stark der Anstieg je Truhenstufe zulegt. Ohne diesen Faktor stand ein fester Deckel von
     1,05 %/s gegen Wachen, die unbegrenzt weiterwachsen — drei billigste Wachen für 450 Gold
