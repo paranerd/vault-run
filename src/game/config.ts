@@ -111,6 +111,12 @@ export const slotVisualLevel = (group: SlotGroup, level: number) => {
 }
 
 export const tapValue = (state: GameState) => Math.ceil(1.42 ** state.tapLevel)
+/** Rund 17 schnelle Schläge auf der Startstufe. Jede Pickhackenstufe senkt die Belastung. */
+export const exhaustionPerTap = (state: GameState) => Math.max(1.5, 6 * 0.9 ** state.tapLevel)
+/** 20 Punkte pro Sekunde ergeben die abgestimmten fünf Sekunden von 100 auf 0. */
+export const exhaustionRecoveryRate = (_state: GameState) => 20
+export const EXHAUSTION_BREAK_MS = 750
+export const EXHAUSTION_WARNING = 70
 export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
@@ -265,6 +271,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       facts: [
         stageFact(state.tapLevel + 1, changedName(name, PICKAXES[visualStage(state.tapLevel + 1)])),
         fact('je Schlag', tapValue(state), tapValue(next), ' Gold', effectValue),
+        fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), ' %', effectRate),
       ],
       stage: state.tapLevel + 1, cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
       spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,

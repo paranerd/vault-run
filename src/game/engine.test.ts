@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EXHAUSTION_BREAK_MS,
   GOLD_FLIGHT_DURATION_MS,
   MANUAL_CARGO,
   MANUAL_SECURE_AMOUNT,
@@ -8,6 +9,8 @@ import {
   SECURE_COOLDOWN_MS,
   automaticTransportRate,
   chestCapacity,
+  exhaustionPerTap,
+  exhaustionRecoveryRate,
   getAllUpgrades,
   guardInterval,
   getEquipmentUpgrade,
@@ -190,6 +193,49 @@ describe('Vault Run engine', () => {
     expect(state.chestGold).toBe(2)
   })
 
+  it('forces a short break only after exhaustion reaches 100 percent', () => {
+    let state = createInitialState(0)
+    const safeTaps = Math.floor(99 / exhaustionPerTap(state))
+    for (let index = 0; index < safeTaps; index += 1) state = tap(state, 0)
+
+    expect(state.exhaustion).toBeLessThan(100)
+    expect(state.exhaustedUntil).toBeNull()
+
+    state = tap(state, 0)
+    expect(state.exhaustion).toBe(100)
+    expect(state.exhaustedUntil).toBe(EXHAUSTION_BREAK_MS)
+    expect(tap(state, EXHAUSTION_BREAK_MS - 1)).toBe(state)
+
+    const breakOver = advanceGame(state, EXHAUSTION_BREAK_MS)
+    expect(breakOver.exhaustion).toBe(100)
+    expect(breakOver.exhaustedUntil).toBeNull()
+
+    const recovering = advanceGame(breakOver, EXHAUSTION_BREAK_MS + 500)
+    expect(recovering.exhaustion).toBeCloseTo(100 - exhaustionRecoveryRate(state) * 0.5, 5)
+    expect(tap(recovering, EXHAUSTION_BREAK_MS + 500)).not.toBe(recovering)
+  })
+
+  it('starts recovering immediately when the player stops before 100 percent', () => {
+    let state = createInitialState(0)
+    for (let index = 0; index < 16; index += 1) state = tap(state, 0)
+    expect(state.exhaustion).toBe(96)
+    expect(advanceGame(state, 500).exhaustion).toBe(86)
+  })
+
+  it('makes each pickaxe level less exhausting and recovers while offline', () => {
+    const base = createInitialState(0)
+    const improved = { ...base, tapLevel: 1 }
+    expect(exhaustionPerTap(improved)).toBeLessThan(exhaustionPerTap(base))
+    expect(getEquipmentUpgrade(base, 'mine').facts[2]).toEqual({
+      from: formatDecimal(exhaustionPerTap(base)),
+      to: `${formatDecimal(exhaustionPerTap(improved))} %`,
+      label: 'Erschöpfung',
+    })
+
+    const tired = { ...base, exhaustion: 60 }
+    expect(advanceGame(tired, 10_000, true).exhaustion).toBe(0)
+  })
+
   // Jeder Fuhrknecht lädt seine eigene Ladung, die eigene Fuhre kommt daneben obendrauf.
   it('sends every transporter on its own trip beside the player', () => {
     let state = createInitialState(0)
@@ -325,6 +371,7 @@ describe('Vault Run engine', () => {
     expect(upgrades[0].facts).toEqual([
       { from: 'Stufe 1', to: 'Stufe 2', label: 'Eiserne Pickhacke' },
       { from: '1', to: '2 Gold', label: 'je Schlag' },
+      { from: '6', to: '5,4 %', label: 'Erschöpfung' },
     ])
     // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
     // Bergleute takten immer im Sekundentakt — ihre Karte braucht deshalb keine Taktzeile.
@@ -704,7 +751,7 @@ describe('Vault Run engine', () => {
       guardLevels: undefined,
     }
     const migrated = migrateGame(legacy)
-    expect(migrated?.schemaVersion).toBe(6)
+    expect(migrated?.schemaVersion).toBe(7)
     expect(migrated?.minerLevels).toEqual([2, 1, 1, 1])
     expect(migrated?.transporterLevels).toEqual([1, 1, 1, 1])
     expect(migrated?.guardLevels).toEqual([1, 1, 1, 0])
