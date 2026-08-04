@@ -324,9 +324,10 @@ function SectionMeter({
 }
 
 /** Die Zeilen unter einem Aktions-Button: die Größe, gegen die er arbeitet, und ihr Name darüber.
-    Truhe und Beutel tragen ihr Fassungsvermögen, die Mine den Ertrag eines Schlags — Zahlen, die
-    den Knopf daneben beschreiben und sonst nur auf seiner Upgrade-Karte stehen. Der Name steht
-    oben und klein: Er ändert sich nie, die Zahl unter ihm bei jedem Ausbau. */
+    Truhe und Beutel tragen ihr Fassungsvermögen, die Mine den Ertrag eines Schlags als `+x` —
+    Zahlen, die den Knopf daneben beschreiben und sonst nur auf seiner Upgrade-Karte stehen. Das
+    Plus sagt, was der Druck auf den Knopf bringt; die Bezugsgröße „je Schlag“ ist der Knopf selbst.
+    Der Name steht oben und klein: Er ändert sich nie, die Zahl unter ihm bei jedem Ausbau. */
 function SectionCaption({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="section-caption">
@@ -882,7 +883,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
-                <SectionCaption label="Fördermenge">{formatFullGold(tapValue(state))} / Schlag</SectionCaption>
+                <SectionCaption label="Fördermenge">+{formatFullGold(tapValue(state))}</SectionCaption>
               </div>
               <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
