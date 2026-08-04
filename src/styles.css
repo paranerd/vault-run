@@ -135,7 +135,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   height: 30px;
   margin: 0;
   display: grid;
-  grid-template-columns: auto minmax(0,1fr) auto;
+  grid-template-columns: 58px minmax(0,360px) 98px;
+  justify-content: center;
   gap: 8px;
   align-items: center;
   overflow: hidden;
@@ -176,9 +177,9 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-meter.is-warning .section-meter__fill { background: repeating-linear-gradient(90deg,#ba5e24 0 7px,#df7d2c 7px 12px,#8e3819 12px 15px); }
 .section-meter.is-alert .section-meter__fill { background: repeating-linear-gradient(90deg,#9f3224 0 7px,#d0442d 7px 12px,#722016 12px 15px); }
 .section-meter__label,.section-meter strong { position: relative; z-index: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-meter__label { grid-column: 1; grid-row: 1; font-size: 15px; font-weight: 700; letter-spacing: .08em; }
-.section-meter strong { grid-column: 3; grid-row: 1; font-size: 14px; font-weight: 400; }
-.section-meter__marker { position: absolute; z-index: 2; top: 50%; left: clamp(17px,var(--meter-fill),calc(100% - 17px)); width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; transform: translate(-50%,-50%); filter: drop-shadow(2px 2px 0 rgba(35,17,9,.6)); transition: left .85s ease-in-out; }
+.section-meter__label { grid-column: 1; grid-row: 1; width: 100%; font-size: 15px; font-weight: 700; letter-spacing: .08em; }
+.section-meter strong { grid-column: 3; grid-row: 1; width: 100%; font-size: 14px; font-weight: 400; font-variant-numeric: tabular-nums; text-align: right; }
+.section-meter__marker { position: absolute; z-index: 2; top: 50%; right: 0; width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; transform: translate(50%,-50%); filter: drop-shadow(2px 2px 0 rgba(35,17,9,.6)); }
 .section-meter--gold .section-meter__marker { width: 34px; height: 34px; }
 .section-meter--exhaustion .section-meter__marker { width: 33px; height: 33px; }
 
@@ -539,7 +540,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .dock-button svg { width: 19px; height: 19px; }
   .dock-button { font-size: 12px; gap: 2px; }
   .game-section { grid-template-rows: 24px minmax(0,1fr); }
-  .section-meter { height: 24px; gap: 5px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
+  .section-meter { height: 24px; grid-template-columns: 46px minmax(0,360px) 82px; gap: 5px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
   .section-layout { --stat-block: min(112px, 88%); }
   .stats-grid,.slot-grid { gap: 2px; }
@@ -558,7 +559,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 @media (min-width: 760px) {
   .topbar { padding-right: 22px; padding-left: 22px; }
   .game-section { grid-template-rows: 34px minmax(0,1fr); }
-  .section-meter { height: 34px; gap: 12px; }.section-meter__progress { height: 17px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
+  .section-meter { height: 34px; grid-template-columns: 76px minmax(0,360px) 128px; gap: 12px; }.section-meter__progress { height: 17px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
   .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
   .section-layout { --stat-block: min(168px, 86%); }
   .stats-grid,.slot-grid { max-width: 145px; gap: 6px; }

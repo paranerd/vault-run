@@ -240,8 +240,9 @@ function SectionMeter({
       style={{ '--meter-fill': `${safeFill}%` } as CSSProperties}
     >
       <span className="section-meter__progress" role="progressbar" aria-label={`${label}: ${value}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(safeFill)}>
-        <i className="section-meter__fill" aria-hidden="true" />
-        <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" aria-hidden="true" draggable={false} />
+        <i className="section-meter__fill" aria-hidden="true">
+          <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" draggable={false} />
+        </i>
       </span>
       <span className="section-meter__label">{label}</span>
       <strong>{value}</strong>
