@@ -135,7 +135,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   height: 30px;
   margin: 0;
   display: grid;
-  grid-template-columns: minmax(0,1fr) auto;
+  grid-template-columns: auto minmax(0,1fr) auto;
   gap: 8px;
   align-items: center;
   overflow: hidden;
@@ -148,19 +148,39 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   font-family: var(--pixel-font);
   text-shadow: 2px 2px #2c170d;
 }
-.section-meter__progress { position: absolute; z-index: 0; inset: 0; }
-.section-meter__fill { position: absolute; z-index: 0; inset: 2px auto 3px 0; width: var(--meter-fill); background: linear-gradient(90deg,rgba(217,148,43,.35),rgba(255,211,82,.62)); box-shadow: inset -3px 0 rgba(255,238,143,.22); transition: width .18s linear; }
-.section-meter--chest .section-meter__fill,.section-meter--robber .section-meter__fill { background: linear-gradient(90deg,rgba(125,74,35,.3),rgba(180,65,37,.64)); }
-.section-meter--exhaustion .section-meter__fill { background: linear-gradient(90deg,rgba(210,135,39,.35),rgba(202,70,35,.72)); }
-.section-meter.is-warning .section-meter__fill { background: linear-gradient(90deg,rgba(190,107,35,.42),rgba(224,110,38,.76)); }
-.section-meter.is-alert .section-meter__fill { background: linear-gradient(90deg,rgba(176,61,32,.48),rgba(210,55,31,.88)); }
+.section-meter__progress {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
+  width: min(100%, 360px);
+  height: 15px;
+  justify-self: center;
+  border: 2px solid #2d180f;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,236,180,.05) 0 6px,transparent 6px 9px),
+    #3c2518;
+  box-shadow: 0 2px 0 #25130b, inset 0 0 0 1px #795033;
+}
+.section-meter__fill {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: var(--meter-fill);
+  background: repeating-linear-gradient(90deg,#d99d30 0 7px,#f5c84d 7px 12px,#ae671d 12px 15px);
+  box-shadow: inset 0 2px rgba(255,239,159,.36), inset 0 -2px rgba(77,38,14,.3);
+  transition: width .85s ease-in-out;
+}
+.section-meter--chest .section-meter__fill,.section-meter--robber .section-meter__fill { background: repeating-linear-gradient(90deg,#91452b 0 7px,#bd5934 7px 12px,#71301f 12px 15px); }
+.section-meter--exhaustion .section-meter__fill { background: repeating-linear-gradient(90deg,#c37625 0 7px,#dc8b2e 7px 12px,#934418 12px 15px); }
+.section-meter.is-warning .section-meter__fill { background: repeating-linear-gradient(90deg,#ba5e24 0 7px,#df7d2c 7px 12px,#8e3819 12px 15px); }
+.section-meter.is-alert .section-meter__fill { background: repeating-linear-gradient(90deg,#9f3224 0 7px,#d0442d 7px 12px,#722016 12px 15px); }
 .section-meter__label,.section-meter strong { position: relative; z-index: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-meter__label { font-size: 15px; font-weight: 700; letter-spacing: .08em; }
-.section-meter strong { font-size: 14px; font-weight: 400; }
-.section-meter__marker { position: absolute; z-index: 2; top: 50%; left: clamp(17px,var(--meter-fill),calc(100% - 17px)); width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; transform: translate(-50%,-50%); filter: drop-shadow(2px 2px 0 rgba(35,17,9,.6)); transition: left .24s cubic-bezier(.22,.74,.3,1); }
+.section-meter__label { grid-column: 1; grid-row: 1; font-size: 15px; font-weight: 700; letter-spacing: .08em; }
+.section-meter strong { grid-column: 3; grid-row: 1; font-size: 14px; font-weight: 400; }
+.section-meter__marker { position: absolute; z-index: 2; top: 50%; left: clamp(17px,var(--meter-fill),calc(100% - 17px)); width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; transform: translate(-50%,-50%); filter: drop-shadow(2px 2px 0 rgba(35,17,9,.6)); transition: left .85s ease-in-out; }
 .section-meter--gold .section-meter__marker { width: 34px; height: 34px; }
 .section-meter--exhaustion .section-meter__marker { width: 33px; height: 33px; }
-.section-meter--robber .section-meter__marker { animation: robber-run .34s steps(2,end) infinite; }
 
 .section-layout {
   position: relative;
@@ -481,7 +501,6 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 @keyframes bag-full-pulse { 50% { filter: drop-shadow(0 0 8px rgba(255,218,92,.95)) brightness(1.08); } }
 @keyframes risk-alarm-pulse { 50% { filter: drop-shadow(0 0 9px rgba(214,58,32,.95)) brightness(1.06); } }
 @keyframes exhaustion-pulse { 50% { filter: grayscale(.35) drop-shadow(0 0 7px rgba(214,72,39,.9)); } }
-@keyframes robber-run { 50% { margin-top: -2px; } }
 @keyframes alert-in {
   0% { opacity: 0; transform: translateY(-7px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -520,7 +539,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .dock-button svg { width: 19px; height: 19px; }
   .dock-button { font-size: 12px; gap: 2px; }
   .game-section { grid-template-rows: 24px minmax(0,1fr); }
-  .section-meter { height: 24px; padding: 0 5px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
+  .section-meter { height: 24px; gap: 5px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
   .section-layout { --stat-block: min(112px, 88%); }
   .stats-grid,.slot-grid { gap: 2px; }
@@ -539,7 +558,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 @media (min-width: 760px) {
   .topbar { padding-right: 22px; padding-left: 22px; }
   .game-section { grid-template-rows: 34px minmax(0,1fr); }
-  .section-meter { height: 34px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
+  .section-meter { height: 34px; gap: 12px; }.section-meter__progress { height: 17px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
   .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
   .section-layout { --stat-block: min(168px, 86%); }
   .stats-grid,.slot-grid { max-width: 145px; gap: 6px; }
