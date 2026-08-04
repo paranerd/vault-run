@@ -200,6 +200,58 @@ function UpgradeIcon({ className = 'dock-button__icon' }: { className?: string }
   return <img className={className} src={`${SPRITE_ROOT}/upgrade.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
+/** Der Truhenwert im Kopf zählt zu seinem neuen Stand hoch, statt auf ihn zu springen: Eine
+    angekommene Fuhre von fünf Gold läuft als 20 → 21 → 22 → 23 → 24 → 25 durch. Die Zahl ist die
+    einzige bleibende Rückmeldung auf eine Ankunft — ein Sprung ist vorbei, bevor der Blick oben
+    ist, und lässt offen, wie viel gerade eingetroffen ist.
+    Ein Schritt pro Zahl, aber gedeckelt: Der Sprung von eintausend auf zweitausend darf nicht
+    minutenlang durchlaufen, und eine einzelne Münze soll nicht als Zucken aufblitzen. */
+const COUNT_UP_STEP_MS = 110
+const COUNT_UP_MIN_MS = 240
+const COUNT_UP_MAX_MS = 900
+
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+function useCountUp(target: number, format: (value: number) => string) {
+  const shown = useRef(target)
+  const [label, setLabel] = useState(() => format(target))
+
+  useEffect(() => {
+    const from = shown.current
+    const distance = target - from
+    if (distance === 0) return
+    if (prefersReducedMotion()) {
+      shown.current = target
+      setLabel(format(target))
+      return
+    }
+
+    const steps = Math.abs(Math.round(target) - Math.round(from))
+    const duration = Math.min(COUNT_UP_MAX_MS, Math.max(COUNT_UP_MIN_MS, steps * COUNT_UP_STEP_MS))
+    const startedAt = performance.now()
+    // Der Zähler hält bewusst einen eigenen Wert: Die Beschriftung wird als Zeichenkette gesetzt,
+    // sodass React alle Zwischenbilder verwirft, in denen sich an der Anzeige nichts ändert.
+    let frame = requestAnimationFrame(function step(now) {
+      const progress = Math.min(1, (now - startedAt) / duration)
+      shown.current = progress === 1 ? target : from + distance * progress
+      setLabel(format(shown.current))
+      if (progress < 1) frame = requestAnimationFrame(step)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [target, format])
+
+  return label
+}
+
+/** Eigene Komponente, damit die Zwischenschritte des Zählers nur diese eine Zahl neu rendern
+    und nicht die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
+const HeaderWealth = memo(function HeaderWealth({ gold }: { gold: number }) {
+  const label = useCountUp(gold, formatGold)
+  return <div className="header-wealth"><strong><PixelCoin /> {label}</strong></div>
+})
+
 function StatTile({ label, value, icon, tone }: { label?: string; value?: string; icon?: ReactNode; tone?: 'warning' | 'alert' }) {
   return (
     <div className={`stat-tile ${label ? '' : 'is-empty'} ${tone ? `is-${tone}` : ''}`} aria-hidden={!label || undefined}>
@@ -730,7 +782,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="header-wealth"><strong><PixelCoin /> {formatGold(state.vaultGold)}</strong></div>
+        <HeaderWealth gold={state.vaultGold} />
       </header>
 
       <main className="game-stage" aria-label="Dein Goldreich">
