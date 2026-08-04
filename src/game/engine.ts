@@ -101,9 +101,9 @@ export function isSecuringManually(state: GameState): boolean {
     nicht gleichzeitig Wache und schlägt nicht nebenbei Gold aus dem Fels.
  *
  *  Der Schlag mit der Pickhacke sperrt darum nichts — er dauert keine Zeit. Gesperrt wird immer
- *  von der Aktion, die läuft: der eigenen Fuhre und der Sicherung von Hand. Beide behalten dabei
- *  ihre eigene Wirkung auf das Reich: Ob die Mine dabei mitruht, hängt an Fuhrknechten und Wachen,
- *  nicht daran, dass der Spieler gerade die Hände voll hat. */
+ *  von der Aktion, die läuft: der eigenen Fuhre und der Sicherung von Hand. Das sagt ausschließlich
+ *  etwas über **ihn**: Seine Bergleute fördern weiter, während er unterwegs ist. Nur die Sicherung
+ *  von Hand legt zusätzlich das Reich still, und auch das nur, solange keine Wache sie übernimmt. */
 export function isPlayerBusy(state: GameState): boolean {
   return state.playerTrip !== null || state.secureEndsAt !== null
 }
@@ -115,10 +115,6 @@ export function goldInTransit(state: GameState): number {
   const carried = state.transporterTrips.reduce((total, trip) => total + (trip?.gold ?? 0), 0)
   return carried + (state.playerTrip?.gold ?? 0)
 }
-
-/** Der Spieler ist selbst unterwegs und kann deshalb nicht schürfen. Seine Bergleute arbeiten
-    weiter, sobald ihm ein Fuhrknecht die Strecke abnimmt — vorher ruht mit ihm das ganze Reich. */
-export const isPlayerTravelling = (state: GameState): boolean => state.playerTrip !== null
 
 export function tap(state: GameState, now = Date.now()): GameState {
   if (isPlayerBusy(state)) return state
@@ -402,10 +398,10 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
 
   let cursor = state.lastTick
   while (cursor < target) {
-    // Solange der Spieler selbst und ohne Fuhrknecht unterwegs ist, ruht das ganze Reich —
-    // dann steht auch die Mine still. Sobald einer die Strecke übernimmt, fördert sie weiter.
-    const paused = isSecuringManually(state) || (isPlayerTravelling(state) && !hasAutomaticTransport(state))
-    if (paused) {
+    // Die Bergleute fördern durch, während der Spieler selbst zur Truhe geht: Angestellte legen
+    // die Hacke nicht weg, weil ihr Dienstherr einen Sack trägt. Gesperrt ist allein sein eigener
+    // Schlag, und den sperrt `tap` für sich.
+    if (isSecuringManually(state)) {
       restMiners(state)
     } else {
       runMiners(state, cursor, report)
@@ -429,7 +425,7 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
   }
   // Ein letzter Durchlauf auf dem Zielzeitpunkt: Was genau jetzt fällig ist, soll auch jetzt
   // gutgeschrieben werden und nicht erst beim nächsten Tick.
-  if (isSecuringManually(state) || (isPlayerTravelling(state) && !hasAutomaticTransport(state))) {
+  if (isSecuringManually(state)) {
     restMiners(state)
   } else {
     runMiners(state, target, report)
