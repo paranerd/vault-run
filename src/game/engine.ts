@@ -28,7 +28,7 @@ import {
 } from './config'
 import type { EquipmentUpgradeId, GameEvent, GameState, OfflineReport, SlotBeats, SlotGroup, SlotIndex, SlotTrips, Trip } from './types'
 
-const STEP_MS = 500
+const STEP_MS = 100
 const SLOTS = [0, 1, 2, 3] as const
 
 export const emptyBeats = (): SlotBeats => [null, null, null, null]
@@ -57,6 +57,7 @@ export function createInitialState(now = Date.now()): GameState {
     secureEndsAt: null,
     minerBeats: emptyBeats(),
     guardBeats: emptyBeats(),
+    minerCarry: [0, 0, 0, 0],
     transporterTrips: emptyTrips(),
     playerTrip: null,
     tripCount: 0,
@@ -237,7 +238,12 @@ function runMiners(state: GameState, cursor: number, report?: OfflineReport): vo
       continue
     }
     const interval = minerInterval(level) * 1_000
-    if (state.minerBeats[index] === null) state.minerBeats[index] = cursor
+    // Wer neu anfängt — frisch angestellt oder nach der Ruhe am vollen Beutel —, hängt sich in den
+    // laufenden Takt der Uhr ein, statt seinen eigenen bei der Sekunde des Wiederanlaufs zu
+    // beginnen. Sonst hinge die Phase daran, wann der Tick den freien Beutel bemerkt: Zusehen
+    // schaut alle 100 ms nach, die Offline-Strecke in Schritten von bis zu 500 ms, und über zehn
+    // Minuten Ruhe-und-weiter passte in den einen Lauf ein Takt mehr als in den anderen.
+    if (state.minerBeats[index] === null) state.minerBeats[index] = Math.floor(cursor / interval) * interval
     while (cursor >= (state.minerBeats[index] as number) + interval) {
       // Füllt eine frühere Förderung dieses Durchlaufs den Beutel, ruht auch der Rest der Takte —
       // und der fällige Takt verfällt mit ihnen, statt als Rückstand liegen zu bleiben.
@@ -246,9 +252,24 @@ function runMiners(state: GameState, cursor: number, report?: OfflineReport): vo
         break
       }
       state.minerBeats[index] = (state.minerBeats[index] as number) + interval
-      storeGold(state, minerYield(level), report)
+      mineWholeGold(state, index, level, report)
     }
   }
+}
+
+/** Ein Bergmann schickt nur ganze Goldstücke in den Beutel. Fördert er 0,7 je Takt, kommt im
+    ersten Takt nichts an, im zweiten eines (0,4 bleiben liegen), im dritten wieder eines (0,1
+    bleiben liegen) — die Rate stimmt über die Takte hinweg auf den Bruchteil genau, nur ist der
+    Beutel keine Kommazahl mehr. Der Rest steht im Zustand und übersteht damit Pause und
+    Spielstand: Ohne ihn wäre der angebrochene Fund bei jedem Neuladen verloren. */
+function mineWholeGold(state: GameState, index: SlotIndex, level: number, report?: OfflineReport): number {
+  const carried = state.minerCarry[index] + minerYield(level)
+  const whole = Math.floor(carried)
+  // Der Rest wird auf sechs Stellen gerundet: Ohne das sammeln sich die Ungenauigkeiten der
+  // Fließkommaarithmetik über tausende Takte zu einem sichtbaren Versatz gegenüber der Rate.
+  state.minerCarry[index] = Math.round((carried - whole) * 1e6) / 1e6
+  if (whole <= 0) return 0
+  return storeGold(state, whole, report)
 }
 
 /** Dasselbe für die Wachen — jede trägt ihre eigenen Punkte in ihrem eigenen Takt ab. */

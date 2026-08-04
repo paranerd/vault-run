@@ -100,10 +100,6 @@ const effectGold = (value: number) => formatGold(value)
 const visualStage = (level: number) => Math.min(3, Math.max(0, level))
 const effectValue = (value: number) => formatInteger(Math.floor(value))
 const effectRate = (value: number) => formatDecimal(value)
-/** Beiträge zu einer Summe tragen ihr Vorzeichen: Was hier steht, kommt zum Gesamtwert hinzu.
-    Eine Wache trägt umgekehrt ab — sie senkt das Risiko und schreibt deshalb ein Minus. */
-const signedRate = (value: number) => `+${formatDecimal(value)}`
-const loweringRate = (value: number) => `-${formatDecimal(value)}`
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
@@ -116,7 +112,13 @@ export const exhaustionPerTap = (state: GameState) => Math.max(1.5, 6 * 0.9 ** s
 /** 20 Punkte pro Sekunde ergeben die abgestimmten fünf Sekunden von 100 auf 0. */
 export const exhaustionRecoveryRate = (_state: GameState) => 20
 export const EXHAUSTION_BREAK_MS = 750
-export const EXHAUSTION_WARNING = 70
+
+/** Ein voller Balken ist in jedem Abschnitt dasselbe: der Punkt, an dem gehandelt werden muss.
+    Risiko, Beutel und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
+    dann überall dasselbe, statt dass jeder Abschnitt sein eigenes „bald" hätte. */
+export const METER_WARNING = 75
+export const METER_ALERT = 90
+
 export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
@@ -139,11 +141,17 @@ export const MANUAL_TRIP_SECONDS = 12
 
 // --- Bergleute: eine Förderung je Sekunde, die Stufe bestimmt allein die Menge ---
 /** Bergleute arbeiten immer im Sekundentakt. Damit ist ihre Fördermenge zugleich ihre Rate, und
-    die Karte braucht keine Taktzeile — das `/s` an der Menge sagt bereits alles. */
+    die Karte braucht keine Taktzeile. */
 export const minerInterval = (_level: number) => MIN_CYCLE_SECONDS
-/** Unverändert gegenüber dem stufenlosen Modell — die Rate ist dieselbe, sie kommt jetzt nur in
-    Portionen statt als kontinuierlicher Strom. */
-export const minerRate = (level: number) => level === 0 ? 0 : 0.65 * 1.5 ** (level - 1)
+/** Ganze Goldstücke je Sekunde, Stufe für Stufe rund anderthalbmal so viel: 1, 2, 3, 4, 6, 8, 12,
+    18, 26 … Die Kurve ist dieselbe wie zuvor (Faktor 1,5), nur auf ganze Stücke aufgerundet und
+    damit gleichmäßig um gut die Hälfte angehoben — die frühere Reihe begann bei 0,65 und traf
+    zwischen den Stufen nie eine ganze Zahl. Der Aufschlag steckt in den Kosten (`slotUpgradeCost`),
+    sodass ein Bergmann pro Gold dasselbe leistet wie vorher; was sich ändert, ist allein, dass
+    jeder Takt ein sichtbares Goldstück liefert statt eines Bruchteils.
+    Aufgerundet wird, nicht gerundet: Nur so wächst die Reihe auf jeder Stufe echt an, statt in den
+    unteren Stufen zweimal denselben Wert zu zeigen — ein Aufstieg, der nichts ändert, ist keiner. */
+export const minerRate = (level: number) => level === 0 ? 0 : Math.ceil(1.5 ** (level - 1))
 export const minerYield = (level: number) => level === 0 ? 0 : minerRate(level) * minerInterval(level)
 export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
 
@@ -164,9 +172,8 @@ export const guardStrength = (state: GameState) => totalLevels(state.guardLevels
     Beutel-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt einer Tasche. */
 export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 ** guardStrength(state))
 
-/** Ab hier färbt sich die Risikokachel; ab `RISK_ALERT` pulsiert zusätzlich die Sicherung. */
-export const RISK_WARNING = 50
-export const RISK_ALERT = 80
+/** Ab `METER_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Diebeszug. */
+export const RISK_ALERT = METER_ALERT
 
 /** Wie stark der Anstieg je Truhenstufe zulegt. Ohne diesen Faktor stand ein fester Deckel von
     1,05 %/s gegen Wachen, die unbegrenzt weiterwachsen — drei billigste Wachen für 450 Gold
@@ -224,7 +231,11 @@ export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): 
 }
 
 export function slotUpgradeCost(state: GameState, group: SlotGroup, index: SlotIndex): number {
-  const bases: Record<SlotGroup, number> = { miners: 75, transporters: 180, guards: 150 }
+  // Der Sockel der Bergleute trägt den Aufschlag der ganzzahligen Fördermengen: Die Reihe
+  // 1, 2, 3, 4, 6 … liegt gut die Hälfte über der früheren 0,65, 0,98, 1,46 …, und derselbe
+  // Faktor steckt hier im Preis. Ein Bergmann kostet damit unverändert rund 115 Gold je Gold
+  // je Sekunde auf der ersten Stufe.
+  const bases: Record<SlotGroup, number> = { miners: 115, transporters: 180, guards: 150 }
   const factors: Record<SlotGroup, number> = { miners: 1.72, transporters: 1.78, guards: 1.8 }
   const levels = group === 'miners' ? state.minerLevels : group === 'transporters' ? state.transporterLevels : state.guardLevels
   return cost(bases[group], factors[group], levels[index])
@@ -252,12 +263,12 @@ const changedName = (current: string, next: string) => (next === current ? undef
 const stageFact = (stage: number, nextName?: string): UpgradeFact =>
   ({ from: `Stufe ${stage}`, to: `Stufe ${stage + 1}`, label: nextName ?? '' })
 
-/** Eine Attributzeile: derselbe Wert vor und nach dem Kauf. Die Einheit hängt nur am Nachher-Wert
-    — zweimal dieselbe Einheit trägt nichts bei und kostet die Breite, die der Attributname braucht.
+/** Eine Attributzeile: derselbe Wert vor und nach dem Kauf. Reine Zahlen — die Einheit stand
+    hinter jedem Nachher-Wert und wiederholte, was der Attributname links davon längst sagt.
     Ein Slot, der noch unbesetzt ist, hat keinen Vorher-Wert; dort steht ein Strich statt einer
     erfundenen Null. */
-function fact(label: string, before: number | null, after: number, unit: string, format: (value: number) => string): UpgradeFact {
-  return { from: before === null ? '–' : format(before), to: `${format(after)}${unit}`, label }
+function fact(label: string, before: number | null, after: number, format: (value: number) => string): UpgradeFact {
+  return { from: before === null ? '–' : format(before), to: format(after), label }
 }
 
 export function getEquipmentUpgrade(state: GameState, section: SectionId): UpgradeView {
@@ -270,8 +281,8 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       hint: 'Wirkt nur, wenn du selbst in der Mine klickst.',
       facts: [
         stageFact(state.tapLevel + 1, changedName(name, PICKAXES[visualStage(state.tapLevel + 1)])),
-        fact('je Schlag', tapValue(state), tapValue(next), ' Gold', effectValue),
-        fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), ' %', effectRate),
+        fact('Fördermenge', tapValue(state), tapValue(next), effectValue),
+        fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), effectRate),
       ],
       stage: state.tapLevel + 1, cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
       spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,
@@ -286,7 +297,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
       hint: 'Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre.',
       facts: [
         stageFact(state.chestLevel + 1, changedName(name, BAGS[visualStage(state.chestLevel + 1)])),
-        fact('Platz', chestCapacity(state), chestCapacity(next), ' Gold', effectGold),
+        fact('Kapazität', chestCapacity(state), chestCapacity(next), effectGold),
       ],
       stage: state.chestLevel + 1, cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
       spriteFamily: 'bag', spriteLevel: state.chestLevel,
@@ -300,7 +311,7 @@ export function getEquipmentUpgrade(state: GameState, section: SectionId): Upgra
     hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
     facts: [
       stageFact(state.vaultLevel + 1, changedName(name, TREASURE_CHESTS[visualStage(state.vaultLevel + 1)])),
-      fact('Platz', vaultCapacity(state), vaultCapacity(next), ' Gold', effectGold),
+      fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold),
     ],
     stage: state.vaultLevel + 1, cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
     spriteFamily: 'chest', spriteLevel: state.vaultLevel,
@@ -322,20 +333,21 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     const empty = level === 0
     const slotFacts: UpgradeFact[] = [stageFact(level, changedName(name, slotStageName(group, level + 1)))]
     if (group === 'miners') {
-      // Der Sekundentakt ist bei Bergleuten fest, deshalb steht hier nur die Menge — mit `/s`,
-      // weil Menge und Rate bei einem Takt von einer Sekunde dasselbe sind.
-      slotFacts.push(fact('Förderung', empty ? null : minerRate(level), minerRate(level + 1), '/s', signedRate))
+      // Der Sekundentakt ist bei Bergleuten fest, deshalb steht hier nur die Menge — sie ist bei
+      // einem Takt von einer Sekunde zugleich die Rate.
+      slotFacts.push(fact('Fördermenge', empty ? null : minerRate(level), minerRate(level + 1), effectValue))
     } else if (group === 'transporters') {
       slotFacts.push(
-        fact('Ladung', empty ? null : transporterCapacity(level), transporterCapacity(level + 1), '', effectGold),
-        fact('Dauer', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), ' s', effectRate),
+        fact('Ladung', empty ? null : transporterCapacity(level), transporterCapacity(level + 1), effectGold),
+        fact('Dauer', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), effectRate),
       )
     } else {
-      // „x % alle y s“: was eine Sicherung abträgt und wie oft sie stattfindet. Beides sind die
-      // Eigenschaften der Wache selbst; die Dauerleistung ist ihr Quotient und stünde doppelt da.
+      // Kraft und Dauer: was eine Sicherung abträgt und wie lange die Wache bis zur nächsten
+      // braucht. Beides sind Eigenschaften der Wache selbst; die Dauerleistung ist ihr Quotient
+      // und stünde doppelt da.
       slotFacts.push(
-        fact('Risiko', empty ? null : guardPower(level), guardPower(level + 1), ' %', loweringRate),
-        fact('Takt', empty ? null : guardInterval(level), guardInterval(level + 1), ' s', effectRate),
+        fact('Kraft', empty ? null : guardPower(level), guardPower(level + 1), effectValue),
+        fact('Dauer', empty ? null : guardInterval(level), guardInterval(level + 1), effectRate),
       )
     }
 

@@ -48,7 +48,40 @@ import {
 } from './engine'
 import { migrateGame } from './storage'
 
+/** Was `ticks` Takte eines Bergmanns im Beutel ergeben. In den Beutel gehen nur ganze Goldstücke;
+    der Bruchteil bleibt am Fels liegen und geht in den nächsten Takt ein. Über die Takte hinweg
+    ist die Summe darum immer der abgerundete Ertrag der Rate. */
+const mined = (level: number, ticks: number) => Math.floor(ticks * minerYield(level))
+
 describe('Vault Run engine', () => {
+  // Jede Fördermenge ist eine ganze Zahl — und bleibt es über alle Stufen hinweg, damit jeder Takt
+  // ein sichtbares Goldstück liefert statt eines Bruchteils.
+  it('mines whole gold on every level', () => {
+    const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    const rates = levels.map((level) => minerRate(level))
+
+    expect(rates.every(Number.isInteger)).toBe(true)
+    expect(rates.slice(0, 6)).toEqual([1, 2, 3, 4, 6, 8])
+    // Jede Stufe bringt echten Zuwachs: Ein Aufstieg, der dieselbe Zahl liefert, ist keiner.
+    expect(rates.every((rate, index) => index === 0 || rate > rates[index - 1])).toBe(true)
+  })
+
+  // Im Beutel landen ausschließlich ganze Goldstücke. Der angebrochene Fund bliebe am Fels liegen
+  // und ginge in den nächsten Takt ein — bei ganzzahligen Mengen bleibt dafür nie etwas übrig.
+  it('sends only whole gold from the mine into the bag', () => {
+    const state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    const beat = minerInterval(1) * 1_000
+    const banked = [1, 2, 3, 4, 5, 6].map((ticks) => advanceGame(state, ticks * beat).chestGold)
+
+    expect(banked).toEqual([1, 2, 3, 4, 5, 6])
+    expect(banked.every(Number.isInteger)).toBe(true)
+    expect(advanceGame(state, beat).minerCarry).toEqual([0, 0, 0, 0])
+
+    // Über viele Takte hinweg ist die Summe exakt die Rate.
+    const long = advanceGame(state, 40 * beat)
+    expect(long.lifetimeGold).toBe(mined(1, 40))
+  })
+
   it('moves gold from the bag into the treasure chest in a timed trip', () => {
     let state = createInitialState(0)
     for (let index = 0; index < 10; index += 1) state = tap(state)
@@ -112,7 +145,10 @@ describe('Vault Run engine', () => {
     // Und die Ruhe endet, sobald eine Fuhre Platz schafft — ohne die Ruhezeit nachzuholen.
     const room = { ...ticked, chestGold: ticked.chestGold - MANUAL_CARGO }
     const resumed = advanceGame(room, 5 * 60_000 + 10_000 + minerInterval(1) * 1_000)
-    expect(resumed.chestGold).toBeCloseTo(chestCapacity(state) - MANUAL_CARGO + minerYield(1), 5)
+    // Angerechnet wird der Takt mitsamt dem Fund, der seit der Ruhe am Fels liegt — ins Beutel
+    // wandert davon nur, was zusammen ein ganzes Goldstück ergibt.
+    const portion = Math.floor(room.minerCarry[0] + minerYield(1))
+    expect(resumed.chestGold).toBeCloseTo(chestCapacity(state) - MANUAL_CARGO + portion, 5)
   })
 
   // „Ruht“ heißt nicht „holt später nach“: Nach der Ruhe beginnt ein Bergmann seinen Takt neu,
@@ -128,7 +164,9 @@ describe('Vault Run engine', () => {
     const room = { ...idle, chestGold: capacity - MANUAL_CARGO }
     const beat = minerInterval(1) * 1_000
     expect(advanceGame(room, 10 * 60_000 + beat - 1).chestGold).toBeCloseTo(capacity - MANUAL_CARGO, 5)
-    expect(advanceGame(room, 10 * 60_000 + beat).chestGold).toBeCloseTo(capacity - MANUAL_CARGO + minerYield(1), 5)
+    // Zwei Takte ergeben zusammen das erste ganze Goldstück — und nur dieses eine, nicht die zehn
+    // Minuten Ruhe davor.
+    expect(advanceGame(room, 10 * 60_000 + 2 * beat).chestGold).toBeCloseTo(capacity - MANUAL_CARGO + mined(1, 2), 5)
   })
 
   // Dasselbe für die Ruhe während einer eigenen Fuhre: Wer ohne Fuhrknecht selbst unterwegs ist,
@@ -140,7 +178,7 @@ describe('Vault Run engine', () => {
   it('banks nothing while the mine rests during the player trip', () => {
     let state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
     state = advanceGame(state, 5_000)
-    expect(state.chestGold).toBeCloseTo(5 * minerYield(1), 5)
+    expect(state.chestGold).toBeCloseTo(mined(1, 5), 5)
 
     const travelling = startTransport(state, 5_000)
     expect(travelling.minerBeats[0]).not.toBeNull()
@@ -228,7 +266,7 @@ describe('Vault Run engine', () => {
     expect(exhaustionPerTap(improved)).toBeLessThan(exhaustionPerTap(base))
     expect(getEquipmentUpgrade(base, 'mine').facts[2]).toEqual({
       from: formatDecimal(exhaustionPerTap(base)),
-      to: `${formatDecimal(exhaustionPerTap(improved))} %`,
+      to: formatDecimal(exhaustionPerTap(improved)),
       label: 'Erschöpfung',
     })
 
@@ -370,14 +408,14 @@ describe('Vault Run engine', () => {
 
     expect(upgrades[0].facts).toEqual([
       { from: 'Stufe 1', to: 'Stufe 2', label: 'Eiserne Pickhacke' },
-      { from: '1', to: '2 Gold', label: 'je Schlag' },
-      { from: '6', to: '5,4 %', label: 'Erschöpfung' },
+      { from: '1', to: '2', label: 'Fördermenge' },
+      { from: '6', to: '5,4', label: 'Erschöpfung' },
     ])
     // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
     // Bergleute takten immer im Sekundentakt — ihre Karte braucht deshalb keine Taktzeile.
     expect(upgrades[1].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Tagelöhner' },
-      { from: '–', to: `+${formatDecimal(minerRate(1))}/s`, label: 'Förderung' },
+      { from: '–', to: `${minerRate(1)}`, label: 'Fördermenge' },
     ])
   })
 
@@ -385,7 +423,7 @@ describe('Vault Run engine', () => {
   // `tapValue` rundet auf, weshalb Stufe 3 → 4 denselben Wert liefert wie Stufe 2 → 3.
   it('admits it when a level adds nothing at all', () => {
     const [, hit] = getEquipmentUpgrade({ ...createInitialState(0), tapLevel: 2 }, 'mine').facts
-    expect(hit.to).toBe(`${hit.from} Gold`)
+    expect(hit.to).toBe(hit.from)
   })
 
   // Der Rangname ist der einzige Vorteil eines Aufstiegs, der in keiner Zahl steckt — und oberhalb
@@ -402,7 +440,7 @@ describe('Vault Run engine', () => {
     const state = { ...createInitialState(0), tapLevel: 4 }
     const upgraded = getEquipmentUpgrade(state, 'mine')
     expect(tapValue(state)).toBe(5)
-    expect(upgraded.facts[1]).toEqual({ from: '5', to: '6 Gold', label: 'je Schlag' })
+    expect(upgraded.facts[1]).toEqual({ from: '5', to: '6', label: 'Fördermenge' })
     expect(tap(state).chestGold).toBe(5)
   })
 
@@ -438,8 +476,11 @@ describe('Vault Run engine', () => {
     expect(ticked.threat).toBeCloseTo(60 - 2 * guardPower(1), 5)
 
     // Und die Mine fördert während der Sicherung durch — stillgelegt wird sie nur ohne Wachen.
-    const mining = { ...guarded, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    expect(advanceGame(lowerThreat(mining, 0), minerInterval(1) * 1_000).chestGold).toBeCloseTo(minerYield(1), 5)
+    // Der Bergmann steht auf Stufe 3, damit schon sein erster Takt ein ganzes Goldstück ergibt und
+    // die Förderung noch innerhalb der laufenden Sicherung im Beutel ankommt.
+    const mining = { ...guarded, minerLevels: [3, 0, 0, 0] as [number, number, number, number] }
+    expect(minerInterval(3) * 1_000).toBeLessThan(SECURE_COOLDOWN_MS)
+    expect(advanceGame(lowerThreat(mining, 0), minerInterval(3) * 1_000).chestGold).toBeCloseTo(mined(3, 1), 5)
   })
 
   // Der Spieler ist eine Person: Was er tut, tut er mit beiden Händen. Jede laufende Aktion sperrt
@@ -574,14 +615,12 @@ describe('Vault Run engine', () => {
   // stehen deshalb im Gruppenhinweis, nicht auf einer einzelnen Karte.
   it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
-    // „x % alle y s“ — was eine Sicherung abträgt und wie oft sie stattfindet.
+    // Kraft und Dauer — was eine Sicherung abträgt und wie lange die Wache bis zur nächsten braucht.
     expect(getSlotUpgrades(state, 'chest')[0].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Eisenschloss' },
-      { from: '–', to: `-${formatDecimal(guardPower(1))} %`, label: 'Risiko' },
-      { from: '–', to: `${formatDecimal(guardInterval(1))} s`, label: 'Takt' },
+      { from: '–', to: `${guardPower(1)}`, label: 'Kraft' },
+      { from: '–', to: `${formatDecimal(guardInterval(1))}`, label: 'Dauer' },
     ])
-
-    expect(getSlotUpgrades(state, 'chest')[0].facts[1].to.startsWith('-')).toBe(true)
 
     // Eine zweite Wache daneben ändert nichts an diesen Zeilen — jede sichert für sich.
     const guarded = { ...state, guardLevels: [0, 3, 0, 0] as [number, number, number, number] }
@@ -593,7 +632,7 @@ describe('Vault Run engine', () => {
     const state = createInitialState(0)
     const [, load, travel] = getSlotUpgrades(state, 'bag')[0].facts
     expect(load).toEqual({ from: '–', to: formatGold(transporterCapacity(1)), label: 'Ladung' })
-    expect(travel).toEqual({ from: '–', to: `${formatDecimal(transporterTripSeconds(1))} s`, label: 'Dauer' })
+    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterTripSeconds(1)), label: 'Dauer' })
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
     expect(getSlotUpgrades(staffed, 'bag')[0].facts[1]).toEqual({
@@ -718,11 +757,13 @@ describe('Vault Run engine', () => {
     // als Förderung gutgeschrieben.
     expect(ticked.lastTick).toBe(10_000)
 
-    // Der frisch angestellte Bergmann beginnt seinen Takt jetzt, nicht rückwirkend: Nach einem
-    // vollen Takt liegt genau eine Portion im Beutel, vorher nichts.
+    // Der frisch angestellte Bergmann beginnt seinen Takt jetzt, nicht rückwirkend: Vor dem ersten
+    // vollen Takt hat er nichts gefördert, und danach steht genau seine eigene Förderung an — nicht
+    // die zehn ruhenden Sekunden davor.
     const hired = { ...ticked, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    expect(advanceGame(hired, 10_000 + minerInterval(1) * 1_000 - 1).chestGold).toBe(0)
-    expect(advanceGame(hired, 10_000 + minerInterval(1) * 1_000).chestGold).toBeCloseTo(minerYield(1), 5)
+    const beat = minerInterval(1) * 1_000
+    expect(advanceGame(hired, 10_000 + beat - 1).minerCarry[0]).toBe(0)
+    expect(advanceGame(hired, 10_000 + 2 * beat).chestGold).toBeCloseTo(mined(1, 2), 5)
   })
 
   it('keeps advancing once anything is actually in motion', () => {

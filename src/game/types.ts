@@ -67,6 +67,10 @@ export interface GameState {
   /** Letzte Förderung je Bergmann und letzte Sicherung je Wache. */
   minerBeats: SlotBeats
   guardBeats: SlotBeats
+  /** Bruchteil eines Goldstücks, den ein Bergmann noch am Fels stehen hat. In den Beutel wandern
+      nur ganze Stücke; was ein Takt darüber hinaus fördert, bleibt hier liegen und geht in die
+      nächste Förderung ein. Über viele Takte hinweg bleibt die Fördermenge damit exakt die Rate. */
+  minerCarry: SlotLevels
   /** Die vier Fuhren der Fuhrknechte, jede für sich unterwegs. */
   transporterTrips: SlotTrips
   /** Die Fuhre, die der Spieler selbst trägt — unabhängig von allen Fuhrknechten. */

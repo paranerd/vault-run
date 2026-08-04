@@ -15,11 +15,11 @@ import {
 } from 'lucide-react'
 import {
   GOLD_FLIGHT_DURATION_MS,
-  EXHAUSTION_WARNING,
   SECTION_LABEL,
   MANUAL_SECURE_AMOUNT,
+  METER_ALERT,
+  METER_WARNING,
   RISK_ALERT,
-  RISK_WARNING,
   SECTION_SLOT_GROUP,
   UPGRADE_FILTERS,
   UPGRADE_FILTER_LABEL,
@@ -29,6 +29,7 @@ import {
   getAllUpgrades,
   getUpgradeGroups,
   hasAutomaticTransport,
+  minerInterval,
   minerYield,
   passiveRate,
   securityLoss,
@@ -48,7 +49,7 @@ import {
   startTransport,
   tap,
 } from './game/engine'
-import { formatDecimal, formatDuration, formatGold } from './game/format'
+import { formatDecimal, formatDuration, formatGold, formatInteger } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
 import type { GameEvent, GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
 
@@ -94,17 +95,11 @@ interface GoldFlight {
   endY: number
   rotation: number
   duration: number
-  preciseValue: boolean
 }
 
 function percentage(value: number, capacity: number) {
   if (capacity <= 0) return 0
   return Math.max(0, Math.min(100, (value / capacity) * 100))
-}
-
-function formatFlightGold(value: number, precise: boolean) {
-  if (!precise || Number.isInteger(value)) return formatGold(value)
-  return formatDecimal(value)
 }
 
 /** Ein einziger, wiederverwendeter AudioContext. Vorher entstand pro Ton ein eigener und wurde
@@ -210,6 +205,12 @@ const COUNT_UP_STEP_MS = 110
 const COUNT_UP_MIN_MS = 240
 const COUNT_UP_MAX_MS = 900
 
+/** Der Kopf schreibt seine beiden Zahlen aus: `1.310.000` statt `1,3 Mio.` Sie stehen
+    untereinander und haben die Breite dafür — und ausgeschrieben lassen sie sich Stelle für
+    Stelle vergleichen, was die gerundete Kurzform gerade da verschweigt, wo es eng wird.
+    Abgerundet wird wie überall: Angebrochenes Gold zählt erst, wenn es voll ist. */
+const formatFullGold = (value: number) => formatInteger(Math.floor(value))
+
 function prefersReducedMotion() {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
@@ -245,11 +246,31 @@ function useCountUp(target: number, format: (value: number) => string) {
   return label
 }
 
-/** Eigene Komponente, damit die Zwischenschritte des Zählers nur diese eine Zahl neu rendern
-    und nicht die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
-const HeaderWealth = memo(function HeaderWealth({ gold }: { gold: number }) {
-  const label = useCountUp(gold, formatGold)
-  return <div className="header-wealth"><strong><PixelCoin /> {label}</strong></div>
+/** Der Kopf trägt den Truhenstand und darunter, wie voll die Truhe damit ist. Die Grenze selbst
+    steht nicht mehr hier, sondern unter der Truhe im Abschnitt — der Balken sagt ohnehin, wie weit
+    es noch ist, und die Zahl daneben machte aus dem Kopf eine Rechenaufgabe.
+    Eigene Komponente, damit die Zwischenschritte des Zählers nur diesen Block neu rendern und
+    nicht die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
+const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: number; capacity: number }) {
+  const label = useCountUp(gold, formatFullGold)
+  const fill = capacity > 0 ? Math.max(0, Math.min(100, (gold / capacity) * 100)) : 0
+  const tone = meterTone(fill)
+  return (
+    <div className={`header-wealth ${tone ? `is-${tone}` : ''}`}>
+      <strong><PixelCoin /> {label}</strong>
+      <span
+        className="header-wealth__bar"
+        role="progressbar"
+        aria-label="Füllstand der Schatztruhe"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(fill)}
+        style={{ '--vault-fill': `${fill}%` } as CSSProperties}
+      >
+        <i aria-hidden="true" />
+      </span>
+    </div>
+  )
 })
 
 function StatTile({ label, value, icon, tone }: { label?: string; value?: string; icon?: ReactNode; tone?: 'warning' | 'alert' }) {
@@ -261,44 +282,58 @@ function StatTile({ label, value, icon, tone }: { label?: string; value?: string
   )
 }
 
-function SectionProgress({ fill, label, amount, muted = false }: { fill: number; label: string; amount?: string; muted?: boolean }) {
-  return (
-    <div className={`section-progress ${muted ? 'is-muted' : ''}`}>
-      <div className="section-progress__bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fill)}>
-        <i style={{ width: `${fill}%` }} />
-      </div>
-      {amount && <div className="section-progress__amount">{amount}</div>}
-    </div>
-  )
+/** Der Farbton eines Füllstands: Bis `METER_WARNING` ist er ruhig, darüber gelblich, ab
+    `METER_ALERT` rötlich. Er hängt allein am Fortschritt — ein Balken bei 90 % sagt in jedem
+    Abschnitt dasselbe, egal ob dahinter Räuber, Beutel oder Erschöpfung stehen. */
+function meterTone(fill: number): 'warning' | 'alert' | undefined {
+  if (fill >= METER_ALERT) return 'alert'
+  if (fill >= METER_WARNING) return 'warning'
+  return undefined
 }
 
+/** Die Leiste eines Abschnitts. Sie zeigt nur noch sich selbst: Die Figur sagt, worum es geht,
+    die Füllung wie weit es ist, die Farbe wie dringend. Beschriftung und Prozentzahl standen
+    links und rechts daneben und drängten die Leiste in die Mitte zusammen — für Vorleseprogramme
+    bleiben beide erhalten, sichtbar ist nur noch die Leiste. */
 function SectionMeter({
   fill,
   label,
   value,
   marker,
-  tone,
 }: {
   fill: number
   label: string
   value: string
   marker: 'robber' | 'gold' | 'exhaustion'
-  tone?: 'warning' | 'alert'
 }) {
   const safeFill = Math.max(0, Math.min(100, fill))
+  const tone = meterTone(safeFill)
   return (
     <h2
       className={`section-meter section-meter--${marker} ${tone ? `is-${tone}` : ''}`}
       style={{ '--meter-fill': `${safeFill}%` } as CSSProperties}
     >
+      <span className="sr-only">{label}</span>
       <span className="section-meter__progress" role="progressbar" aria-label={`${label}: ${value}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(safeFill)}>
         <i className="section-meter__fill" aria-hidden="true">
           <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" draggable={false} />
         </i>
       </span>
-      <span className="section-meter__label">{label}</span>
-      <strong>{value}</strong>
     </h2>
+  )
+}
+
+/** Die Zeilen unter einem Aktions-Button: die Größe, gegen die er arbeitet, und ihr Name darüber.
+    Truhe und Beutel tragen ihr Fassungsvermögen, die Mine den Ertrag eines Schlags als `+x` —
+    Zahlen, die den Knopf daneben beschreiben und sonst nur auf seiner Upgrade-Karte stehen. Das
+    Plus sagt, was der Druck auf den Knopf bringt; die Bezugsgröße „je Schlag“ ist der Knopf selbst.
+    Der Name steht oben und klein: Er ändert sich nie, die Zahl unter ihm bei jedem Ausbau. */
+function SectionCaption({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="section-caption">
+      <span>{label}</span>
+      <strong>{children}</strong>
+    </div>
   )
 }
 
@@ -407,6 +442,7 @@ function App() {
       läuft und die Anzeige zehnmal pro Sekunde nachsieht, entgeht ihr keine einzige Ankunft —
       jede Änderung ist genau eine Lieferung und damit genau eine Animation. */
   const seenMinerBeats = useRef<(number | null)[]>([...state.minerBeats])
+  const seenMinerCarry = useRef<number[]>([...state.minerCarry])
   const seenGuardBeats = useRef<(number | null)[]>([...state.guardBeats])
   const seenTransporterStarts = useRef<(number | null)[]>(state.transporterTrips.map((trip) => trip?.startedAt ?? null))
   const lastPlayerTripStart = useRef(state.playerTrip?.startedAt ?? null)
@@ -549,7 +585,7 @@ function App() {
     setDockPanel((current) => (current === kind ? null : kind))
   }
 
-  const launchGold = useCallback((value: number, kind: GoldFlight['kind'], preciseValue = false) => {
+  const launchGold = useCallback((value: number, kind: GoldFlight['kind']) => {
     const scene = sceneRef.current?.getBoundingClientRect()
     const source = (kind === 'coin' ? mineButtonRef : bagButtonRef).current?.getBoundingClientRect()
     const target = (kind === 'coin' ? bagButtonRef : chestButtonRef).current?.getBoundingClientRect()
@@ -570,7 +606,6 @@ function App() {
       endY: endY + (Math.random() - 0.5) * 6,
       rotation: (Math.random() - 0.5) * 70,
       duration: kind === 'coin' ? 850 + Math.random() * 250 : GOLD_FLIGHT_DURATION_MS,
-      preciseValue,
     }])
   }, [])
 
@@ -579,17 +614,25 @@ function App() {
   // Ein Takt ohne Vorgänger ist keine Förderung, sondern ein Anfang: So beginnt der frisch
   // angeheuerte Bergmann, und so nimmt einer nach der Ruhe seine Arbeit wieder auf. Er fliegt
   // deshalb nicht — sonst zeigte die Mine eine Münze, die im Beutel nie ankommt.
+  //
+  // Geflogen wird, was tatsächlich in den Beutel geht: ganze Goldstücke. Ein Takt, dessen Fund
+  // den angebrochenen Rest nicht voll macht, schickt nichts los. Die Menge ergibt sich aus dem
+  // Gefördertem der vergangenen Takte abzüglich dessen, was seither am Fels liegen blieb.
   useEffect(() => {
     const beats = state.minerBeats
     if (document.visibilityState === 'visible') {
       beats.forEach((beat, index) => {
         const seen = seenMinerBeats.current[index]
         const level = state.minerLevels[index]
-        if (beat !== null && seen !== null && beat !== seen && level > 0) launchGold(minerYield(level), 'coin', true)
+        if (beat === null || seen === null || beat === seen || level === 0) return
+        const ticks = Math.round((beat - seen) / (minerInterval(level) * 1_000))
+        const sent = Math.round(ticks * minerYield(level) + seenMinerCarry.current[index] - state.minerCarry[index])
+        if (sent > 0) launchGold(sent, 'coin')
       })
     }
     seenMinerBeats.current = [...beats]
-  }, [state.minerBeats, state.minerLevels, launchGold])
+    seenMinerCarry.current = [...state.minerCarry]
+  }, [state.minerBeats, state.minerLevels, state.minerCarry, launchGold])
 
   // Dasselbe für die Fuhren: je losfahrendem Fuhrknecht ein eigener Goldhaufen, dazu die eigene.
   useEffect(() => {
@@ -640,6 +683,9 @@ function App() {
   const bagMax = chestCapacity(state)
   const treasureMax = vaultCapacity(state)
   const bagFull = state.chestGold >= bagMax - 0.001
+  // Der Beutel meldet seinen Stand als Anteil. Die beiden absoluten Zahlen sagten hier wenig: Zu
+  // handeln ist danach, wie voll er ist, und die Grenze steht ohnehin auf der Beutel-Karte.
+  const bagFill = percentage(state.chestGold, bagMax)
   const automatic = hasAutomaticTransport(state)
   // Der Beutel-Button zeigt ausschließlich die eigene Fuhre. Die Fuhrknechte fahren jeder für
   // sich und melden sich über ihre eigenen Goldhaufen, nicht über diesen einen Balken.
@@ -666,12 +712,11 @@ function App() {
   const canTransport = !playerBusy && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
   const canSecure = chestRevealed && state.threat > 0 && !playerBusy
 
-  // Steigende Anzeige: 0 % ist ruhig, 100 % ist der Diebeszug. Ab `RISK_WARNING` färbt sich die
-  // Kachel, ab `RISK_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Schlag.
-  // Sie schweigt, solange der Spieler beschäftigt ist: Ein Puls, der zu einer Handlung auffordert,
-  // die gerade niemand ausführen kann, drängt ins Leere.
+  // Steigende Anzeige: 0 % ist ruhig, 100 % ist der Diebeszug. Die Leiste färbt sich wie jede
+  // andere nach ihrem eigenen Stand; ab `RISK_ALERT` pulsiert zusätzlich die Sicherung — die
+  // Vorwarnung vor dem Schlag. Sie schweigt, solange der Spieler beschäftigt ist: Ein Puls, der zu
+  // einer Handlung auffordert, die gerade niemand ausführen kann, drängt ins Leere.
   const risk = Math.min(100, state.threat)
-  const riskTone = risk >= RISK_ALERT ? 'alert' : risk >= RISK_WARNING ? 'warning' : undefined
   const riskAlarming = chestRevealed && risk >= RISK_ALERT && !playerBusy
   const exhausted = state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)
 
@@ -782,13 +827,13 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <HeaderWealth gold={state.vaultGold} />
+        <HeaderWealth gold={state.vaultGold} capacity={treasureMax} />
       </header>
 
       <main className="game-stage" aria-label="Dein Goldreich">
         <div className="game-sections" ref={sceneRef}>
           <article className="game-section game-section--chest">
-            <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" tone={riskTone} />
+            <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
                 <StatTile label="Verlust / Diebstahl" value={`${formatDecimal(securityLoss(state) * 100)}%`} icon={<ShieldAlert aria-hidden="true" />} />
@@ -804,14 +849,14 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
-                <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
+                <SectionCaption label="Kapazität">{formatFullGold(treasureMax)}</SectionCaption>
               </div>
               <SlotGrid section="chest" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('chest', index)} />
             </div>
           </article>
 
           <article className="game-section game-section--bag">
-            <SectionMeter fill={percentage(state.chestGold, bagMax)} label="Beutel" value={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} marker="gold" />
+            <SectionMeter fill={bagFill} label="Beutel" value={`${Math.round(bagFill)}%`} marker="gold" />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Beutelwerte">
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(transportRate))} />
@@ -821,13 +866,14 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
+                <SectionCaption label="Kapazität">{formatFullGold(bagMax)}</SectionCaption>
               </div>
               <SlotGrid section="bag" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('bag', index)} />
             </div>
           </article>
 
           <article className="game-section game-section--mine">
-            <SectionMeter fill={state.exhaustion} label="Mine" value={`${Math.round(state.exhaustion)}%`} marker="exhaustion" tone={exhausted ? 'alert' : state.exhaustion >= EXHAUSTION_WARNING ? 'warning' : undefined} />
+            <SectionMeter fill={state.exhaustion} label="Mine" value={`${Math.round(state.exhaustion)}%`} marker="exhaustion" />
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Minenwerte">
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(miningRate))} />
@@ -837,6 +883,7 @@ function App() {
                   {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
+                <SectionCaption label="Fördermenge">+{formatFullGold(tapValue(state))}</SectionCaption>
               </div>
               <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
@@ -857,7 +904,7 @@ function App() {
               if (flight.kind === 'pile') setState((current) => advanceGame(current, Date.now()))
               setGoldFlights((current) => current.filter((item) => item.id !== flight.id))
             }}>
-              {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatFlightGold(flight.value, flight.preciseValue)}</span>
+              {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatGold(flight.value)}</span>
             </i>
           ))}
         </div>

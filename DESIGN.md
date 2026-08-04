@@ -75,27 +75,29 @@ Der mittlere Teil jeder Karte ist eine **Attributtabelle**: je Zeile ein Wert vo
 
 ```text
 Stufe 2   →  Stufe 3    Wachturm
--8        →  -10 %      Risiko
-8,9       →  7,1 s      Takt
+8         →  10         Kraft
+8,9       →  7,1        Dauer
 ```
 
-Die drei Wertespalten sind inhaltsbreit und über alle Zeilen geteilt, sodass die Pfeile untereinander stehen und man die Karte in einer Blickachse hinunterliest. Die Einheit hängt **nur am Nachher-Wert** und bleibt so kurz wie möglich — `/s` statt `Gold/s`, `s` statt `Sek.`: Zweimal dieselbe Einheit trägt nichts bei und kostet die Breite, die der Attributname braucht. Ein unbesetzter Slot hat keinen Vorher-Wert und zeigt dort einen Strich statt einer erfundenen Null. Bringt eine Stufe rechnerisch nichts, steht links dieselbe Zahl wie rechts — eine Karte, die zum Kauf auffordert, muss das zeigen.
+Die drei Wertespalten sind inhaltsbreit und über alle Zeilen geteilt, sodass die Pfeile untereinander stehen und man die Karte in einer Blickachse hinunterliest. In den Zellen stehen **reine Zahlen**: Die Einheit stand hinter jedem Nachher-Wert und wiederholte, was der Attributname rechts daneben längst sagt — „Kraft“ braucht kein `%`, „Dauer“ kein `s`, „Fördermenge“ kein `/s`. Ein unbesetzter Slot hat keinen Vorher-Wert und zeigt dort einen Strich statt einer erfundenen Null. Bringt eine Stufe rechnerisch nichts, steht links dieselbe Zahl wie rechts — eine Karte, die zum Kauf auffordert, muss das zeigen.
 
-Das Vorzeichen sagt die Richtung: Bergleute und Fuhrknechte legen etwas zu einer Summe dazu und schreiben `+`, eine Wache trägt vom Risiko ab und schreibt `-`. Ihre Zeile heißt deshalb **Risiko** und nicht „Sicherung“ — benannt wird die Größe, die sich bewegt, und die steht als Prozentwert auf der Kachel darüber.
+Benannt wird jeweils die Größe, die sich bewegt: Eine Wache hat **Kraft** und **Dauer** — was eine Sicherung abträgt und wie lange sie bis zur nächsten braucht —, nicht „Risiko -x %“. Pickhacke und Bergmann heißen beide **Fördermenge**, weil beide dasselbe tun; Truhe und Beutel heißen **Kapazität**, wie die Zeile unter ihrem Aktions-Button.
 
-Aufgeführt sind die Eigenschaften der Einheit selbst, nicht deren Quotient: Ein Fuhrknecht nennt **Ladung** und **Fahrzeit**, eine Wache trägt „x % alle y s“ ab. Die Dauerleistung in Gold bzw. Prozent je Sekunde steht nicht zusätzlich dabei — sie folgt aus beiden Zeilen und wäre nur eine dritte Schreibweise derselben Sache. Bergleute takten fest im Sekundentakt und brauchen deshalb keine Taktzeile; bei ihnen sind Menge und Rate dasselbe, und das `/s` an der Menge sagt es bereits.
+Aufgeführt sind die Eigenschaften der Einheit selbst, nicht deren Quotient: Ein Fuhrknecht nennt **Ladung** und **Dauer**. Die Dauerleistung in Gold bzw. Prozent je Sekunde steht nicht zusätzlich dabei — sie folgt aus beiden Zeilen und wäre nur eine dritte Schreibweise derselben Sache. Bergleute takten fest im Sekundentakt und brauchen deshalb keine Zeile dafür; bei ihnen sind Menge und Rate dasselbe.
 
 Auf schmalen Geräten rückt die Tabelle unter Bild, Name und Preis über die volle Kartenbreite — in der mittleren Spalte bliebe für die Namen sonst zu wenig Platz.
 
 Diese Zeilen **dürfen sich nicht ändern, wenn nebenan gekauft wird**. Fördermenge und Ladung gehören dem Slot allein und erfüllen das von selbst; die Sicherungskraft ist wenigstens additiv und wächst je Stufe um denselben Betrag. Was mehrere Slots dagegen nur gemeinsam bewirken — die kürzere Fahrzeit, der Takt des Wachtrupps, der Schadensdeckel — hätte auf keiner einzelnen Karte eine Zahl, die nur zu ihr gehört, und steht darum im Hinweis über der Gruppe.
 
-So lassen sich zwei Angebote ohne Kopfrechnen vergleichen: Vier Wachen-Karten bringen alle `+2 Punkte`, also entscheidet allein der Preis — 150 statt 487. Ein unbesetzter Fuhrknecht bringt für 180 Gold `+12`, der Aufstieg des besten für 571 nur `+10`.
+So lassen sich zwei Angebote ohne Kopfrechnen vergleichen: Vier Wachen-Karten bringen alle zwei Punkte Kraft, also entscheidet allein der Preis — 150 statt 487. Ein unbesetzter Fuhrknecht bringt für 180 Gold 12 Ladung, der Aufstieg des besten für 571 nur 10 mehr.
 
 Fließtext steht nur dort, wo keine Zahl ihn ersetzt, und nur einmal. Was für alle vier Karten einer Gruppe gilt, steht als ein Satz unter der Gruppenüberschrift statt viermal auf den Karten; die Gruppenüberschrift bleibt deshalb auch im gefilterten Sheet stehen. Die drei Ausrüstungskarten tun jeweils etwas anderes und tragen ihren Hinweis darum selbst — und er nennt bewusst keine Zahl aus der Tabelle, sondern die Folge, die aus ihr nicht hervorgeht („Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre“). Die Stufennamen laufen parallel zu den Sprite-Stufen — Tagelöhner bis Erzmeister, Läufer bis Königskutsche, Eisenschloss bis Schatzfestung — und darüber hinaus bleibt der höchste Name stehen, während die Stufennummer weiterzählt. Noch nicht gekaufte Slot-Karten sind mit Ausnahme ihres Kauf-Buttons ausgegraut. Das Ausbau-Popup fährt von unten ein und beim Schließen wieder nach unten aus; es legt sich dabei über die Dock-Leiste. In der Desktop-Ansicht hängt es rechts und fährt entsprechend seitlich ein. Weil ein Ausfahren einen Startzustand im DOM braucht, bleibt das Sheet dauerhaft montiert und wird nur über eine Klasse umgeschaltet; geschlossen ist es per `visibility` weder anklick- noch vorlesbar. Statistik und Einstellungen enden dagegen oberhalb der Dock-Leiste, damit sie sichtbar und direkt umschaltbar bleibt. Diese Ausbau-Seiten scrollen intern, die Hauptansicht selbst nie.
 
 ## Einheiten: eigene Menge, eigener Takt
 
 Bergmann, Fuhrknecht und Wache folgen demselben Muster: **eine eigene Menge in einem eigenen Takt**, unabhängig von allen anderen. Es gibt keine gemeinsame Fuhre, keinen Trupp-Bonus und keinen Sammel-Teiler; der Durchsatz einer Gruppe ist schlicht die Summe ihrer Einheiten. Bei Fuhrknechten und Wachen erhöht ein Stufenaufstieg die Menge **und** verkürzt den Takt. Bergleute takten dagegen fest im Sekundentakt — bei ihnen wächst allein die Fördermenge, und ihre Menge ist damit zugleich ihre Rate.
+
+**Ein Bergmann fördert ganze Goldstücke**: 1, 2, 3, 4, 6, 8, 12, 18, 26 … — dieselbe Kurve wie zuvor (Faktor 1,5), aber auf ganze Stücke aufgerundet, damit jeder Takt ein sichtbares Goldstück liefert statt eines Bruchteils. Aufgerundet wird, nicht gerundet: Nur so wächst die Reihe auf jeder Stufe echt an, statt in den unteren Stufen zweimal denselben Wert zu zeigen. Der Aufschlag von gut der Hälfte steckt im Preis, sodass ein Bergmann pro Gold unverändert dasselbe leistet. Der Beutel führt damit nur noch ganze Zahlen; der Rest-Mechanismus im Zustand (`minerCarry`) bleibt als Garantie erhalten, falls eine Rate je wieder gebrochen wäre.
 
 Daraus folgt die Eigenschaft, an der die ganze Anzeige hängt: Der Zuwachs einer Karte hängt nur an der Einheit, die aufsteigt. Kauft man nebenan, bleibt die Zahl stehen. Bergleute und Fuhrknechte tragen dadurch sogar dieselbe Einheit — beide liefern Gold pro Sekunde — und sind über Kategoriegrenzen hinweg direkt vergleichbar.
 
