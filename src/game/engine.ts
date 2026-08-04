@@ -66,9 +66,15 @@ function addEvent(state: GameState, kind: GameEvent['kind'], message: string): v
   state.events = [{ id: state.eventSequence, kind, message }, ...state.events].slice(0, 5)
 }
 
+/** Was noch in den Beutel passt. Ist hier nichts mehr frei, ruht die Mine — der Beutel ist die
+    Grenze der Förderung, nicht bloß ein Trichter, durch den Gold ins Leere läuft. */
+function bagSpace(state: GameState): number {
+  return Math.max(0, chestCapacity(state) - state.chestGold)
+}
+
 function storeGold(state: GameState, amount: number, report?: OfflineReport): number {
   if (amount <= 0) return 0
-  const free = Math.max(0, chestCapacity(state) - state.chestGold)
+  const free = bagSpace(state)
   const stored = Math.min(free, amount)
   state.chestGold += stored
   state.lifetimeGold += stored
@@ -77,9 +83,23 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
   return stored
 }
 
-/** Eine laufende manuelle Sicherung legt das ganze Reich still; mit Wachen entfällt die Sperre. */
+/** Eine laufende manuelle Sicherung legt das **Reich** still — die Mine hört auf zu fördern. Mit
+    Wachen entfällt diese Sperre: Sie sichern nebenher, während die Mine weiterläuft. Vom Spieler
+    selbst sagt das nichts; ob **er** gerade beschäftigt ist, beantwortet `isPlayerBusy`. */
 export function isSecuringManually(state: GameState): boolean {
   return state.secureEndsAt !== null && !hasAutomaticSecurity(state)
+}
+
+/** Der Spieler ist eine Person mit zwei Händen. Jede seiner Aktionen belegt ihn für ihre Dauer,
+    und solange sie läuft, sind die beiden anderen gesperrt: Wer die Fuhre zur Truhe trägt, steht
+    nicht gleichzeitig Wache und schlägt nicht nebenbei Gold aus dem Fels.
+ *
+ *  Der Schlag mit der Pickhacke sperrt darum nichts — er dauert keine Zeit. Gesperrt wird immer
+ *  von der Aktion, die läuft: der eigenen Fuhre und der Sicherung von Hand. Beide behalten dabei
+ *  ihre eigene Wirkung auf das Reich: Ob die Mine dabei mitruht, hängt an Fuhrknechten und Wachen,
+ *  nicht daran, dass der Spieler gerade die Hände voll hat. */
+export function isPlayerBusy(state: GameState): boolean {
+  return state.playerTrip !== null || state.secureEndsAt !== null
 }
 
 /** Gold, das bereits unterwegs ist und die Truhe darum schon beansprucht — die eigene Fuhre und
@@ -95,7 +115,7 @@ export function goldInTransit(state: GameState): number {
 export const isPlayerTravelling = (state: GameState): boolean => state.playerTrip !== null
 
 export function tap(state: GameState): GameState {
-  if (isSecuringManually(state) || isPlayerTravelling(state)) return state
+  if (isPlayerBusy(state)) return state
   if (state.chestGold >= chestCapacity(state)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
@@ -116,7 +136,7 @@ function loadTrip(state: GameState, capacity: number, seconds: number, now: numb
 /** Die eigene Fuhre. Sie trägt die eigene Tragkraft und braucht die eigene Zeit — beides
     unabhängig davon, wie viele Fuhrknechte gerade unterwegs sind. */
 export function startTransport(state: GameState, now = Date.now()): GameState {
-  if (isSecuringManually(state) || isPlayerTravelling(state) || state.chestGold <= 0) return state
+  if (isPlayerBusy(state) || state.chestGold <= 0) return state
   const next = structuredClone(state)
   const trip = loadTrip(next, MANUAL_CARGO, MANUAL_TRIP_SECONDS, now)
   if (!trip) {
@@ -179,15 +199,44 @@ function settleTrips(state: GameState, cursor: number, report?: OfflineReport): 
   }
 }
 
+/** Ein ruhender Bergmann hat keinen Takt. Das ist mehr als Buchführung: Ein stehengelassener Takt
+    liefe während der Ruhe weiter, und jede stillgelegte Sekunde stünde danach als fällige Förderung
+    an — die Ruhe ergäbe am Ende dieselbe Menge wie durchgehende Arbeit, nur in einem Schwall.
+    Zugleich ist ein fälliger, aber nie abgearbeiteter Takt der einzige Weg, auf dem `nextBeat` einen
+    Zeitpunkt hinter dem Cursor melden könnte — die Schleife in `advanceGame` käme dann nicht mehr
+    von der Stelle. Wer weitermacht, beginnt seinen Takt darum von vorn. */
+function restMiner(state: GameState, index: SlotIndex): void {
+  state.minerBeats[index] = null
+}
+
+function restMiners(state: GameState): void {
+  for (const index of SLOTS) restMiner(state, index)
+}
+
 /** Jeder Bergmann fördert in seinem eigenen Takt. Nachgeholt wird in ganzen Takten, damit eine
-    lange Abwesenheit exakt dieselbe Menge ergibt wie durchgehendes Zusehen. */
+    lange Abwesenheit exakt dieselbe Menge ergibt wie durchgehendes Zusehen.
+ *
+ *  Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre: Ein Bergmann, der weiterschlüge,
+ *  förderte ausschließlich in den Verlust — über eine Nacht hinweg ein Vielfaches des Beutels an
+ *  Gold, das nie irgendwo ankommt. Die letzte Förderung füllt den Beutel noch bis zum Rand auf;
+ *  was in dieser einen Portion darüber hinausgeht, geht wie gehabt verloren. */
 function runMiners(state: GameState, cursor: number, report?: OfflineReport): void {
   for (const index of SLOTS) {
     const level = state.minerLevels[index]
     if (level === 0) continue
+    if (bagSpace(state) <= 0) {
+      restMiner(state, index)
+      continue
+    }
     const interval = minerInterval(level) * 1_000
     if (state.minerBeats[index] === null) state.minerBeats[index] = cursor
     while (cursor >= (state.minerBeats[index] as number) + interval) {
+      // Füllt eine frühere Förderung dieses Durchlaufs den Beutel, ruht auch der Rest der Takte —
+      // und der fällige Takt verfällt mit ihnen, statt als Rückstand liegen zu bleiben.
+      if (bagSpace(state) <= 0) {
+        restMiner(state, index)
+        break
+      }
       state.minerBeats[index] = (state.minerBeats[index] as number) + interval
       storeGold(state, minerYield(level), report)
     }
@@ -249,8 +298,10 @@ function runTheft(state: GameState, budget: number, report?: OfflineReport): num
   return stolen
 }
 
+/** Die Sicherung von Hand. Sie ist die dritte Aktion des Spielers und darum genauso gesperrt,
+    solange er selbst unterwegs ist — Wache geht nur, wer da ist. */
 export function lowerThreat(state: GameState, now = Date.now()): GameState {
-  if (state.threat <= 0 || state.secureEndsAt !== null) return state
+  if (state.threat <= 0 || isPlayerBusy(state)) return state
   const next = structuredClone(state)
   next.threat = Math.max(0, next.threat - MANUAL_SECURE_AMOUNT)
   next.secureStartedAt = now
@@ -258,11 +309,20 @@ export function lowerThreat(state: GameState, now = Date.now()): GameState {
   return next
 }
 
-/** Ruhezustand: In diesem Tick kann sich am sichtbaren Zustand nichts ändern — keine Bergleute,
-    keine Fuhre unterwegs oder startbereit, keine laufende Sicherung, kein Risiko und kein Gold in
-    der Truhe, das Risiko erzeugen könnte. Das ist das frühe Spiel zwischen zwei Klicks. */
+/** Die Mine bringt in diesem Tick nichts hervor: Entweder ist kein Bergmann angestellt, oder der
+    volle Beutel hat alle zur Ruhe gebracht. Die zweite Form zählt erst, wenn die Takte tatsächlich
+    abgelegt sind — solange noch einer steht, muss der Tick laufen und ihn ablegen. */
+function mineIsIdle(state: GameState): boolean {
+  if (passiveRate(state) === 0) return true
+  return bagSpace(state) <= 0 && state.minerBeats.every((beat) => beat === null)
+}
+
+/** Ruhezustand: In diesem Tick kann sich am sichtbaren Zustand nichts ändern — keine fördernde
+    Mine, keine Fuhre unterwegs oder startbereit, keine laufende Sicherung, kein Risiko und kein
+    Gold in der Truhe, das Risiko erzeugen könnte. Das ist das frühe Spiel zwischen zwei Klicks —
+    und der volle Beutel, der auf die erste Fuhre wartet. */
 function isDormant(state: GameState): boolean {
-  return passiveRate(state) === 0
+  return mineIsIdle(state)
     && state.playerTrip === null
     && state.transporterTrips.every((trip) => trip === null)
     && state.secureEndsAt === null
@@ -304,7 +364,9 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
     // Solange der Spieler selbst und ohne Fuhrknecht unterwegs ist, ruht das ganze Reich —
     // dann steht auch die Mine still. Sobald einer die Strecke übernimmt, fördert sie weiter.
     const paused = isSecuringManually(state) || (isPlayerTravelling(state) && !hasAutomaticTransport(state))
-    if (!paused) {
+    if (paused) {
+      restMiners(state)
+    } else {
       runMiners(state, cursor, report)
       dispatchTransporters(state, cursor)
     }
@@ -325,7 +387,9 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
   }
   // Ein letzter Durchlauf auf dem Zielzeitpunkt: Was genau jetzt fällig ist, soll auch jetzt
   // gutgeschrieben werden und nicht erst beim nächsten Tick.
-  if (!isSecuringManually(state) && !(isPlayerTravelling(state) && !hasAutomaticTransport(state))) {
+  if (isSecuringManually(state) || (isPlayerTravelling(state) && !hasAutomaticTransport(state))) {
+    restMiners(state)
+  } else {
     runMiners(state, target, report)
     dispatchTransporters(state, target)
   }
