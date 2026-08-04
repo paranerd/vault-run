@@ -246,34 +246,13 @@ function useCountUp(target: number, format: (value: number) => string) {
   return label
 }
 
-/** Der Kopf trägt den ganzen Truhenstand: die Summe, ihre Grenze und den Balken dazwischen.
-    Der Füllstand stand vorher als zweite Zeile unter der Truhe im Abschnitt — dort war er eine
-    dritte Zahl neben Risiko und Verlustquote und drückte den Button aus der Mitte. Oben gehört er
-    zu der Zahl, die er einordnet: Wie voll die Truhe ist, liest man am Balken, ohne die beiden
-    Zahlen gegeneinander rechnen zu müssen.
-    Eigene Komponente, damit die Zwischenschritte des Zählers nur diesen Block neu rendern und
-    nicht die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
-const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: number; capacity: number }) {
+/** Der Kopf trägt nur noch die eine Zahl, um die es geht: das Vermögen. Wie voll die Truhe dabei
+    ist, steht dort, wo die Truhe steht — als eigene Leiste unter dem Räuber.
+    Eigene Komponente, damit die Zwischenschritte des Zählers nur diese Zahl neu rendern und nicht
+    die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
+const HeaderWealth = memo(function HeaderWealth({ gold }: { gold: number }) {
   const label = useCountUp(gold, formatFullGold)
-  const fill = capacity > 0 ? Math.max(0, Math.min(100, (gold / capacity) * 100)) : 0
-  const tone = meterTone(fill)
-  return (
-    <div className={`header-wealth ${tone ? `is-${tone}` : ''}`}>
-      <strong><PixelCoin /> {label}</strong>
-      <span className="header-wealth__capacity">/ {formatFullGold(capacity)}</span>
-      <span
-        className="header-wealth__bar"
-        role="progressbar"
-        aria-label="Füllstand der Schatztruhe"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(fill)}
-        style={{ '--vault-fill': `${fill}%` } as CSSProperties}
-      >
-        <i aria-hidden="true" />
-      </span>
-    </div>
-  )
+  return <div className="header-wealth"><strong><PixelCoin /> {label}</strong></div>
 })
 
 function StatTile({ label, value, icon, tone }: { label?: string; value?: string; icon?: ReactNode; tone?: 'warning' | 'alert' }) {
@@ -294,6 +273,9 @@ function meterTone(fill: number): 'warning' | 'alert' | undefined {
   return undefined
 }
 
+/** Eine Abschnittsleiste. Ohne `marker` bleibt sie eine reine Leiste — die zweite Zeile eines
+    Abschnitts läuft schmaler und ohne Figur, damit auf einen Blick klar ist, welche der beiden
+    Leisten die des Abschnitts ist und welche ihr beigestellt. */
 function SectionMeter({
   fill,
   label,
@@ -303,18 +285,18 @@ function SectionMeter({
   fill: number
   label: string
   value: string
-  marker: 'robber' | 'gold' | 'exhaustion'
+  marker?: 'robber' | 'gold' | 'exhaustion'
 }) {
   const safeFill = Math.max(0, Math.min(100, fill))
   const tone = meterTone(safeFill)
   return (
     <h2
-      className={`section-meter section-meter--${marker} ${tone ? `is-${tone}` : ''}`}
+      className={`section-meter ${marker ? `section-meter--${marker}` : 'section-meter--plain'} ${tone ? `is-${tone}` : ''}`}
       style={{ '--meter-fill': `${safeFill}%` } as CSSProperties}
     >
       <span className="section-meter__progress" role="progressbar" aria-label={`${label}: ${value}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(safeFill)}>
         <i className="section-meter__fill" aria-hidden="true">
-          <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" draggable={false} />
+          {marker && <img className="section-meter__marker" src={`${SPRITE_ROOT}/marker-${marker}.png`} alt="" draggable={false} />}
         </i>
       </span>
       <span className="section-meter__label">{label}</span>
@@ -322,6 +304,15 @@ function SectionMeter({
     </h2>
   )
 }
+
+/** Der Füllstand der Schatztruhe als zweite Leiste des Truhen-Abschnitts. Sie zählt mit demselben
+    Schrittzähler hoch wie die Zahl im Kopf, damit eine ankommende Fuhre an beiden Stellen
+    dieselbe Bewegung macht. */
+const VaultFillMeter = memo(function VaultFillMeter({ gold, capacity }: { gold: number; capacity: number }) {
+  const label = useCountUp(gold, formatFullGold)
+  const fill = capacity > 0 ? Math.max(0, Math.min(100, (gold / capacity) * 100)) : 0
+  return <SectionMeter fill={fill} label="Gold" value={`${label} / ${formatFullGold(capacity)}`} />
+})
 
 function SlotGrid({
   section,
@@ -813,13 +804,16 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <HeaderWealth gold={state.vaultGold} capacity={treasureMax} />
+        <HeaderWealth gold={state.vaultGold} />
       </header>
 
       <main className="game-stage" aria-label="Dein Goldreich">
         <div className="game-sections" ref={sceneRef}>
           <article className="game-section game-section--chest">
-            <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
+            <div className="section-meters">
+              <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
+              <VaultFillMeter gold={state.vaultGold} capacity={treasureMax} />
+            </div>
             <div className="section-layout">
               <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
                 <StatTile label="Verlust / Diebstahl" value={`${formatDecimal(securityLoss(state) * 100)}%`} icon={<ShieldAlert aria-hidden="true" />} />
