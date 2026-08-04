@@ -40,6 +40,7 @@ import {
   buySlotUpgrade,
   dismissOfflineReport,
   goldInTransit,
+  isPlayerBusy,
   isSecuringManually,
   lowerThreat,
   startTransport,
@@ -563,7 +564,6 @@ function App() {
     ? percentage(now - state.playerTrip.startedAt, state.playerTrip.endsAt - state.playerTrip.startedAt)
     : 100
   const reservedGold = goldInTransit(state)
-  const canTransport = !playerTravelling && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
   const securing = state.secureEndsAt !== null
   const securingBlocks = isSecuringManually(state)
   const secureProgress = securing
@@ -571,15 +571,30 @@ function App() {
     : 0
   const chestRevealed = state.tripCount > 0 || state.vaultGold > 0 || reservedGold > 0
 
+  // Der Spieler ist eine Person: Läuft eine seiner drei Aktionen, sind die beiden anderen gesperrt.
+  // Alle drei Buttons zeigen dann denselben Fortschritt — den der Aktion, die ihn gerade belegt.
+  // Ohne diese Rückmeldung stünden zwei Buttons grundlos tot da, während der dritte sich füllt.
+  const playerBusy = isPlayerBusy(state)
+  const busyProgress = playerTravelling ? playerTransportProgress : secureProgress
+  const busyLabel = playerTravelling
+    ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent`
+    : `Wird gesichert: ${Math.round(secureProgress)} Prozent`
+  const canTransport = !playerBusy && state.chestGold > 0 && state.vaultGold + reservedGold < treasureMax
+  const canSecure = chestRevealed && state.threat > 0 && !playerBusy
+
   // Steigende Anzeige: 0 % ist ruhig, 100 % ist der Diebeszug. Ab `RISK_WARNING` färbt sich die
   // Kachel, ab `RISK_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Schlag.
+  // Sie schweigt, solange der Spieler beschäftigt ist: Ein Puls, der zu einer Handlung auffordert,
+  // die gerade niemand ausführen kann, drängt ins Leere.
   const risk = Math.min(100, state.threat)
   const riskTone = risk >= RISK_ALERT ? 'alert' : risk >= RISK_WARNING ? 'warning' : undefined
-  const riskAlarming = chestRevealed && risk >= RISK_ALERT && !securing
+  const riskAlarming = chestRevealed && risk >= RISK_ALERT && !playerBusy
 
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
-  // Die Kachel zeigt, was tatsächlich ankommt: Ohne Fuhrknecht ruht die Mine während einer
-  // manuellen Reise, und bei vollem Beutel verfällt jedes weitere Korn — beides ergibt 0.
+  // Die Kachel misst das Reich, nicht die Hände des Spielers: Ohne Fuhrknecht ruht die Mine während
+  // einer manuellen Reise, ohne Wachen während einer Sicherung, und bei vollem Beutel fördert
+  // niemand mehr — jedes davon ergibt 0. Eine Sicherung mit Wachen hält die Mine dagegen nicht an,
+  // auch wenn sie dem Spieler für ihre Dauer die Hände bindet.
   const miningPaused = (playerTravelling && !automatic) || bagFull || securingBlocks
   const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
   const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
@@ -596,7 +611,7 @@ function App() {
   const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
 
   const handleTap = () => {
-    if (playerTravelling || bagFull) return
+    if (playerBusy || bagFull) return
     recentTaps.current = [...recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS), now]
     const earned = Math.min(tapValue(state), Math.max(0, bagMax - state.chestGold))
     setState((current) => tap(current))
@@ -617,7 +632,7 @@ function App() {
   }
 
   const handleSecure = () => {
-    if (state.threat <= 0 || securing) return
+    if (!canSecure) return
     setState((current) => lowerThreat(current, Date.now()))
     playTone('secure', sound)
     haptic(haptics, 10)
@@ -696,12 +711,12 @@ function App() {
               <div className="section-center">
                 <button
                   ref={chestButtonRef}
-                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''} ${riskAlarming ? 'is-alarming' : ''} ${guardPulse ? 'is-secured' : ''}`}
-                  disabled={!chestRevealed || state.threat <= 0 || securing}
+                  className={`section-action section-action--chest ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${playerBusy ? 'is-progressing' : ''} ${riskAlarming ? 'is-alarming' : ''} ${guardPulse ? 'is-secured' : ''}`}
+                  disabled={!canSecure}
                   onClick={handleSecure}
-                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : securing ? `Wird gesichert: ${Math.round(secureProgress)} Prozent` : `Risiko um ${MANUAL_SECURE_AMOUNT} senken, aktuell ${Math.round(risk)} Prozent`}
+                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : playerBusy ? busyLabel : `Risiko um ${MANUAL_SECURE_AMOUNT} senken, aktuell ${Math.round(risk)} Prozent`}
                 >
-                  {securing && <i className="section-action__progress" style={{ height: `${secureProgress}%` }} aria-hidden="true" />}
+                  {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="chest" level={state.vaultLevel} />
                 </button>
                 <SectionProgress fill={percentage(state.vaultGold, treasureMax)} label="Füllstand der Schatztruhe" amount={`${formatGold(state.vaultGold)}/${formatGold(treasureMax)}`} />
@@ -717,8 +732,8 @@ function App() {
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(transportRate))} />
               </div>
               <div className="section-center">
-                <button ref={bagButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''} ${bagFull && canTransport && !securingBlocks ? 'is-full' : ''}`} disabled={!canTransport || securingBlocks} onClick={handleTransport} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : 'Gold zur Schatztruhe transportieren'}>
-                  {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                <button ref={bagButtonRef} className={`section-action ${playerBusy ? 'is-progressing' : ''} ${bagFull && canTransport ? 'is-full' : ''}`} disabled={!canTransport} onClick={handleTransport} aria-label={playerBusy ? busyLabel : 'Gold zur Schatztruhe transportieren'}>
+                  {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="bag" level={state.chestLevel} />
                 </button>
                 <SectionProgress fill={percentage(state.chestGold, bagMax)} label="Füllstand des Goldbeutels" amount={`${formatGold(state.chestGold)}/${formatGold(bagMax)}`} />
@@ -734,8 +749,8 @@ function App() {
                 <StatTile label="Gold / Sek." value={formatGold(Math.round(miningRate))} />
               </div>
               <div className="section-center">
-                <button ref={mineButtonRef} className={`section-action ${playerTravelling ? 'is-progressing' : ''}`} disabled={playerTravelling || bagFull || securingBlocks} onClick={handleTap} aria-label={playerTravelling ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent` : `Gold schürfen: ${formatGold(tapValue(state))}`}>
-                  {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                <button ref={mineButtonRef} className={`section-action ${playerBusy ? 'is-progressing' : ''}`} disabled={playerBusy || bagFull} onClick={handleTap} aria-label={playerBusy ? busyLabel : `Gold schürfen: ${formatGold(tapValue(state))}`}>
+                  {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
               </div>

@@ -33,6 +33,10 @@ Zu Beginn übernimmt der Spieler den Transport selbst. Während er unterwegs ist
 | Beutel | Transport starten | Beutel | vier Fuhrknechte/Gespanne |
 | Truhe | Risiko senken (anfangs blockierend) | Schatztruhe | vier Wachen |
 
+**Eine Person, eine Handlung.** Schürfen, die eigene Fuhre und die Sicherung von Hand sind die drei Aktionen des Spielers — und er hat nur ein Paar Hände. Jede laufende Aktion sperrt darum die beiden anderen: Wer die Fuhre zur Truhe trägt, steht nicht gleichzeitig Wache und schlägt nicht nebenbei Gold aus dem Fels. Der Schlag mit der Pickhacke sperrt selbst nichts, weil er keine Zeit dauert; gesperrt wird immer von der Aktion, die läuft. Alle drei Aktions-Buttons zeigen währenddessen denselben Fortschritt — den der Aktion, die den Spieler gerade belegt. Ohne diese Rückmeldung stünden zwei Buttons grundlos tot da, während der dritte sich füllt.
+
+Davon zu trennen ist, was eine Aktion mit dem **Reich** macht. Ob die Mine mitruht, hängt an Fuhrknechten und Wachen, nicht daran, dass der Spieler die Hände voll hat: Eine Sicherung mit Wachen bindet ihn 1,5 Sekunden, hält die Förderung aber nicht mehr an. Beide Sperren fallen im frühen Spiel zusammen und sind erst nach den ersten Angestellten unterscheidbar.
+
 **Eigene und automatische Fuhre sind getrennte Größen.** Was der Spieler selbst zur Truhe trägt, ist seine eigene Tragkraft (20 Gold in 12 s) — kein Mindestmaß der Fuhrknechte, sondern eine Zahl daneben, so wie der eigene Schlag neben den Bergleuten steht. Er kann jederzeit zusätzlich losziehen, während die Fuhrknechte fahren. Solange beides ein gemeinsamer Boden war, deckte die eigene Tragkraft die ersten Fuhrknecht-Stufen mit ab: Sie kosteten Gold und veränderten die Fuhre nicht.
 
 Der Transport bleibt immer diskret. Die angegebene Reisezeit bezeichnet Hin- und Rückweg zusammen. Zu Reisebeginn nimmt ein Träger seine Ladung aus dem Beutel; sie bleibt bis zur sichtbaren Ankunft seines Goldhaufens an ihm gebunden. Nach der 0,9-sekündigen Ankunftsanimation wird sie in der Schatztruhe abgelegt; seine Rückkehr läuft davon unabhängig bis zu ihrem unveränderten Ende weiter. Neues Gold bleibt im Beutel. Keine Reise nimmt mehr mit, als noch in die Schatztruhe passt — dabei zählt alles mit, was gerade unterwegs ist, sonst packten mehrere gleichzeitig fahrende Träger zusammen mehr ein als am Ziel hineinpasst.
@@ -121,9 +125,10 @@ Ein Gegenmittel steckt in der Truhe selbst: Weil das Risiko am Füllstand hängt
 
 Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand, dann von Angestellten übernommen.
 
-- **Ohne Wachen** senkt ein Tap auf die Truhe das Risiko um 25 Punkte der Hundert-Punkte-Skala. Währenddessen ruht das ganze Reich für 1,5 Sekunden — Schürfen, Transport und ein zweiter Sicherungs-Tap sind gesperrt, sichtbar als Füllung des Truhen-Buttons. Das Sichern kostet also echte Spielzeit.
-- **Ab der ersten Wache** sichert sie selbstständig in ihrem eigenen Takt. Jede Wache trägt ihre eigenen Punkte ab und wird mit jeder Stufe stärker und schneller; ein Trupp-Bonus existiert nicht. Die Sperre entfällt damit vollständig.
-- **Der Tap bleibt danach nützlich** — wie die Eilreise beim Transport: Läuft das Risiko zwischen zwei Takten hoch, senkt ein Tap es sofort zusätzlich, ohne irgendetwas zu blockieren.
+- **Ohne Wachen** senkt ein Tap auf die Truhe das Risiko um 25 Punkte der Hundert-Punkte-Skala. Währenddessen ruht das ganze Reich für 1,5 Sekunden — die Mine steht still, und Schürfen, Transport und ein zweiter Sicherungs-Tap sind gesperrt, sichtbar als Füllung des Truhen-Buttons. Das Sichern kostet also echte Spielzeit.
+- **Ab der ersten Wache** sichert sie selbstständig in ihrem eigenen Takt. Jede Wache trägt ihre eigenen Punkte ab und wird mit jeder Stufe stärker und schneller; ein Trupp-Bonus existiert nicht. Das Reich steht dabei nicht mehr still: Die Mine fördert durch.
+- **Der Tap bleibt danach nützlich** — wie die eigene Fuhre neben den Fuhrknechten: Läuft das Risiko zwischen zwei Takten hoch, senkt ein Tap es sofort zusätzlich, ohne die Förderung anzuhalten. Die 1,5 Sekunden belegen weiterhin den Spieler selbst, wie jede seiner Aktionen die beiden anderen belegt.
+- **Unterwegs geht keine Wache.** Solange der Spieler seine eigene Fuhre trägt, kann er nicht von Hand sichern. Wer bei hohem Risiko selbst losläuft, geht das bewusst ein — und kauft sich mit der ersten Wache genau davon frei.
 
 Die Wachen-Karte nennt deshalb **„x % alle y s“** — die Punkte, die diese eine Wache je Sicherung abträgt, in derselben Einheit, in der die Risikokachel steigt, und den Takt, in dem sie das tut. Beides gehört ihr allein. Der Schadensdeckel gilt dagegen für den ganzen Trupp und steht als ein Satz über der Gruppe: Es ist der Effekt, den man ausschließlich im Moment des Scheiterns sieht.
 

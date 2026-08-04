@@ -83,9 +83,23 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
   return stored
 }
 
-/** Eine laufende manuelle Sicherung legt das ganze Reich still; mit Wachen entfällt die Sperre. */
+/** Eine laufende manuelle Sicherung legt das **Reich** still — die Mine hört auf zu fördern. Mit
+    Wachen entfällt diese Sperre: Sie sichern nebenher, während die Mine weiterläuft. Vom Spieler
+    selbst sagt das nichts; ob **er** gerade beschäftigt ist, beantwortet `isPlayerBusy`. */
 export function isSecuringManually(state: GameState): boolean {
   return state.secureEndsAt !== null && !hasAutomaticSecurity(state)
+}
+
+/** Der Spieler ist eine Person mit zwei Händen. Jede seiner Aktionen belegt ihn für ihre Dauer,
+    und solange sie läuft, sind die beiden anderen gesperrt: Wer die Fuhre zur Truhe trägt, steht
+    nicht gleichzeitig Wache und schlägt nicht nebenbei Gold aus dem Fels.
+ *
+ *  Der Schlag mit der Pickhacke sperrt darum nichts — er dauert keine Zeit. Gesperrt wird immer
+ *  von der Aktion, die läuft: der eigenen Fuhre und der Sicherung von Hand. Beide behalten dabei
+ *  ihre eigene Wirkung auf das Reich: Ob die Mine dabei mitruht, hängt an Fuhrknechten und Wachen,
+ *  nicht daran, dass der Spieler gerade die Hände voll hat. */
+export function isPlayerBusy(state: GameState): boolean {
+  return state.playerTrip !== null || state.secureEndsAt !== null
 }
 
 /** Gold, das bereits unterwegs ist und die Truhe darum schon beansprucht — die eigene Fuhre und
@@ -101,7 +115,7 @@ export function goldInTransit(state: GameState): number {
 export const isPlayerTravelling = (state: GameState): boolean => state.playerTrip !== null
 
 export function tap(state: GameState): GameState {
-  if (isSecuringManually(state) || isPlayerTravelling(state)) return state
+  if (isPlayerBusy(state)) return state
   if (state.chestGold >= chestCapacity(state)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
@@ -122,7 +136,7 @@ function loadTrip(state: GameState, capacity: number, seconds: number, now: numb
 /** Die eigene Fuhre. Sie trägt die eigene Tragkraft und braucht die eigene Zeit — beides
     unabhängig davon, wie viele Fuhrknechte gerade unterwegs sind. */
 export function startTransport(state: GameState, now = Date.now()): GameState {
-  if (isSecuringManually(state) || isPlayerTravelling(state) || state.chestGold <= 0) return state
+  if (isPlayerBusy(state) || state.chestGold <= 0) return state
   const next = structuredClone(state)
   const trip = loadTrip(next, MANUAL_CARGO, MANUAL_TRIP_SECONDS, now)
   if (!trip) {
@@ -284,8 +298,10 @@ function runTheft(state: GameState, budget: number, report?: OfflineReport): num
   return stolen
 }
 
+/** Die Sicherung von Hand. Sie ist die dritte Aktion des Spielers und darum genauso gesperrt,
+    solange er selbst unterwegs ist — Wache geht nur, wer da ist. */
 export function lowerThreat(state: GameState, now = Date.now()): GameState {
-  if (state.threat <= 0 || state.secureEndsAt !== null) return state
+  if (state.threat <= 0 || isPlayerBusy(state)) return state
   const next = structuredClone(state)
   next.threat = Math.max(0, next.threat - MANUAL_SECURE_AMOUNT)
   next.secureStartedAt = now

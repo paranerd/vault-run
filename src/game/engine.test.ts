@@ -37,6 +37,7 @@ import {
   buyEquipmentUpgrade,
   buySlotUpgrade,
   createInitialState,
+  isPlayerBusy,
   isSecuringManually,
   lowerThreat,
   startTransport,
@@ -378,7 +379,7 @@ describe('Vault Run engine', () => {
     expect(isSecuringManually(released)).toBe(false)
   })
 
-  it('lets guards secure on their own without blocking the player', () => {
+  it('lets guards secure on their own without stopping the realm', () => {
     const guarded = { ...createInitialState(0), threat: 60, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
     const securing = lowerThreat(guarded, 0)
     expect(securing.secureEndsAt).not.toBeNull()
@@ -388,6 +389,44 @@ describe('Vault Run engine', () => {
     const interval = guardInterval(1) * 1_000
     const ticked = advanceGame(guarded, interval + 10)
     expect(ticked.threat).toBeCloseTo(60 - 2 * guardPower(1), 5)
+
+    // Und die Mine fördert während der Sicherung durch — stillgelegt wird sie nur ohne Wachen.
+    const mining = { ...guarded, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
+    expect(advanceGame(lowerThreat(mining, 0), minerInterval(1) * 1_000).chestGold).toBeCloseTo(minerYield(1), 5)
+  })
+
+  // Der Spieler ist eine Person: Was er tut, tut er mit beiden Händen. Jede laufende Aktion sperrt
+  // deshalb die beiden anderen — auch die Sicherung, die mit Wachen das Reich nicht mehr anhält.
+  it('lets one manual action block the other two', () => {
+    const busy = { ...createInitialState(0), threat: 50, chestGold: 40, guardLevels: [1, 0, 0, 0] as [number, number, number, number] }
+
+    const securing = lowerThreat(busy, 0)
+    expect(isPlayerBusy(securing)).toBe(true)
+    // Die Mine läuft mit Wachen weiter — die Hände des Spielers sind trotzdem gebunden.
+    expect(isSecuringManually(securing)).toBe(false)
+    expect(tap(securing)).toBe(securing)
+    expect(startTransport(securing, 10)).toBe(securing)
+
+    const travelling = startTransport(busy, 0)
+    expect(isPlayerBusy(travelling)).toBe(true)
+    expect(tap(travelling)).toBe(travelling)
+    expect(startTransport(travelling, 10)).toBe(travelling)
+    // Wache geht nur, wer da ist: Unterwegs lässt sich das Risiko nicht von Hand senken.
+    expect(lowerThreat(travelling, 10)).toBe(travelling)
+  })
+
+  // Und sobald die laufende Aktion vorbei ist, hat der Spieler wieder beide Hände frei.
+  it('frees every manual action again once the player is done', () => {
+    const busy = { ...createInitialState(0), threat: 50, chestGold: 40, guardLevels: [1, 0, 0, 0] as [number, number, number, number] }
+
+    const released = advanceGame(lowerThreat(busy, 0), SECURE_COOLDOWN_MS)
+    expect(isPlayerBusy(released)).toBe(false)
+    expect(tap(released).chestGold).toBeGreaterThan(40)
+    expect(startTransport(released, SECURE_COOLDOWN_MS).playerTrip).not.toBeNull()
+
+    const returned = advanceGame(startTransport(busy, 0), MANUAL_TRIP_SECONDS * 1_000)
+    expect(isPlayerBusy(returned)).toBe(false)
+    expect(lowerThreat(returned, MANUAL_TRIP_SECONDS * 1_000).threat).toBe(returned.threat - MANUAL_SECURE_AMOUNT)
   })
 
   it('keeps a guarded treasury safe across a long offline stretch', () => {
