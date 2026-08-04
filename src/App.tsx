@@ -28,7 +28,6 @@ import {
   chestCapacity,
   getAllUpgrades,
   getUpgradeGroups,
-  hasAutomaticTransport,
   minerInterval,
   minerYield,
   passiveRate,
@@ -44,7 +43,6 @@ import {
   dismissOfflineReport,
   goldInTransit,
   isPlayerBusy,
-  isSecuringManually,
   lowerThreat,
   startTransport,
   tap,
@@ -686,7 +684,6 @@ function App() {
   // Der Beutel meldet seinen Stand als Anteil. Die beiden absoluten Zahlen sagten hier wenig: Zu
   // handeln ist danach, wie voll er ist, und die Grenze steht ohnehin auf der Beutel-Karte.
   const bagFill = percentage(state.chestGold, bagMax)
-  const automatic = hasAutomaticTransport(state)
   // Der Beutel-Button zeigt ausschließlich die eigene Fuhre. Die Fuhrknechte fahren jeder für
   // sich und melden sich über ihre eigenen Goldhaufen, nicht über diesen einen Balken.
   const playerTravelling = state.playerTrip !== null
@@ -695,7 +692,6 @@ function App() {
     : 100
   const reservedGold = goldInTransit(state)
   const securing = state.secureEndsAt !== null
-  const securingBlocks = isSecuringManually(state)
   const secureProgress = securing
     ? percentage(now - (state.secureStartedAt ?? now), (state.secureEndsAt ?? now) - (state.secureStartedAt ?? now))
     : 0
@@ -721,11 +717,10 @@ function App() {
   const exhausted = state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)
 
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
-  // Die Kachel misst das Reich, nicht die Hände des Spielers: Ohne Fuhrknecht ruht die Mine während
-  // einer manuellen Reise, ohne Wachen während einer Sicherung, und bei vollem Beutel fördert
-  // niemand mehr — jedes davon ergibt 0. Eine Sicherung mit Wachen hält die Mine dagegen nicht an,
-  // auch wenn sie dem Spieler für ihre Dauer die Hände bindet.
-  const miningPaused = (playerTravelling && !automatic) || bagFull || securingBlocks
+  // Die Kachel misst das Reich, nicht die Hände des Spielers: Sie steht nur still, wenn der volle
+  // Beutel niemanden mehr fördern lässt. Was der Spieler von Hand tut, bindet ihn, nicht seine
+  // Angestellten — die fördern durch seine Fuhre und seine Sicherung hindurch.
+  const miningPaused = bagFull
   const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
   const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
 

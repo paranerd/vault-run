@@ -105,13 +105,17 @@ describe('Vault Run engine', () => {
     expect(state.playerTrip).toBeNull()
   })
 
-  it('pauses mining while the player transports gold without a transporter', () => {
+  // Angestellte legen die Hacke nicht weg, weil ihr Dienstherr einen Sack trägt: Die eigene Fuhre
+  // bindet ihn, nicht seine Bergleute — auch dann nicht, wenn noch kein Fuhrknecht angestellt ist.
+  it('keeps the miners working while the player carries a load himself', () => {
     let state = createInitialState(0)
     state.minerLevels = [1, 0, 0, 0]
     state.chestGold = 20
     state = startTransport(state, 0)
-    state = advanceGame(state, 5_000)
     expect(state.chestGold).toBe(0)
+
+    state = advanceGame(state, 5_000)
+    expect(state.chestGold).toBe(mined(1, 5))
   })
 
   // Der Beutel ist die Grenze der Förderung. Ein Bergmann, der in den vollen Beutel weiterschlägt,
@@ -169,38 +173,38 @@ describe('Vault Run engine', () => {
     expect(advanceGame(room, 10 * 60_000 + 2 * beat).chestGold).toBeCloseTo(capacity - MANUAL_CARGO + mined(1, 2), 5)
   })
 
-  // Dasselbe für die Ruhe während einer eigenen Fuhre: Wer ohne Fuhrknecht selbst unterwegs ist,
-  // hält die Mine an — und findet bei der Rückkehr keine aufgestaute Förderung vor.
-  //
-  // Ein ruhender Bergmann darf dabei keinen fälligen Takt behalten: `nextBeat` meldete sonst einen
-  // Zeitpunkt hinter dem Cursor, die Schleife käme nicht mehr von der Stelle und das Spiel bliebe
-  // stehen. Dieser Test läuft in genau diesem Fall nicht durch, sondern gar nicht mehr.
-  it('banks nothing while the mine rests during the player trip', () => {
+  // Die eigene Fuhre nimmt den Beutel mit und lässt die Mine laufen: Bei der Rückkehr liegt darin
+  // genau das, was die Bergleute währenddessen gefördert haben — nicht mehr und nicht weniger.
+  it('fills the bag with what the miners dig while the player is on the road', () => {
     let state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
     state = advanceGame(state, 5_000)
     expect(state.chestGold).toBeCloseTo(mined(1, 5), 5)
 
     const travelling = startTransport(state, 5_000)
+    expect(travelling.chestGold).toBe(0)
     expect(travelling.minerBeats[0]).not.toBeNull()
 
     const returned = advanceGame(travelling, 5_000 + MANUAL_TRIP_SECONDS * 1_000)
     expect(returned.playerTrip).toBeNull()
-    expect(returned.chestGold).toBe(0)
+    expect(returned.chestGold).toBe(mined(1, MANUAL_TRIP_SECONDS))
   })
 
-  // Dieselbe Ruhe während einer Sicherung von Hand — auch sie legt das ganze Reich still.
-  it('banks nothing while the mine rests during a manual securing', () => {
+  // Dasselbe für die Sicherung von Hand: Sie bindet den Spieler, nicht seine Bergleute. Auch ohne
+  // eine einzige Wache läuft die Mine durch — was er selbst tut, hält keine Automatik an.
+  it('keeps the miners working through a manual securing', () => {
     const mining = advanceGame({ ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number], threat: 50 }, 5_000)
     const securing = lowerThreat(mining, 5_000)
     expect(isSecuringManually(securing)).toBe(true)
+    expect(isPlayerBusy(securing)).toBe(true)
 
-    const held = advanceGame(securing, 5_000 + SECURE_COOLDOWN_MS - 1)
-    expect(held.chestGold).toBeCloseTo(mining.chestGold, 5)
-    expect(held.minerBeats).toEqual([null, null, null, null])
+    const held = advanceGame(securing, 6_000)
+    expect(held.chestGold).toBe(mining.chestGold + mined(1, 1))
+    expect(held.minerBeats[0]).not.toBeNull()
 
-    // Und auch nach der Freigabe steht nichts nach: Der Takt beginnt neu.
-    const released = advanceGame(held, 5_000 + SECURE_COOLDOWN_MS)
-    expect(released.chestGold).toBeCloseTo(mining.chestGold, 5)
+    // Und über die Sicherung hinaus läuft der Takt einfach weiter, ohne Bruch.
+    const released = advanceGame(held, 8_000)
+    expect(released.secureEndsAt).toBeNull()
+    expect(released.chestGold).toBe(mined(1, 8))
   })
 
   // Eine durchschlafene Nacht ohne Transport füllt den Beutel und lässt es dabei bewenden: Was
