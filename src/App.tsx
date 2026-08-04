@@ -49,7 +49,7 @@ import {
   startTransport,
   tap,
 } from './game/engine'
-import { formatDecimal, formatDuration, formatGold } from './game/format'
+import { formatDecimal, formatDuration, formatGold, formatInteger } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
 import type { GameEvent, GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
 
@@ -205,6 +205,12 @@ const COUNT_UP_STEP_MS = 110
 const COUNT_UP_MIN_MS = 240
 const COUNT_UP_MAX_MS = 900
 
+/** Der Kopf schreibt seine beiden Zahlen aus: `1.310.000` statt `1,3 Mio.` Sie stehen
+    untereinander und haben die Breite dafür — und ausgeschrieben lassen sie sich Stelle für
+    Stelle vergleichen, was die gerundete Kurzform gerade da verschweigt, wo es eng wird.
+    Abgerundet wird wie überall: Angebrochenes Gold zählt erst, wenn es voll ist. */
+const formatFullGold = (value: number) => formatInteger(Math.floor(value))
+
 function prefersReducedMotion() {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
@@ -248,15 +254,13 @@ function useCountUp(target: number, format: (value: number) => string) {
     Eigene Komponente, damit die Zwischenschritte des Zählers nur diesen Block neu rendern und
     nicht die ganze Szene — die Bilderfolge läuft schneller als der Spieltakt. */
 const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: number; capacity: number }) {
-  const label = useCountUp(gold, formatGold)
+  const label = useCountUp(gold, formatFullGold)
   const fill = capacity > 0 ? Math.max(0, Math.min(100, (gold / capacity) * 100)) : 0
   const tone = meterTone(fill)
   return (
     <div className={`header-wealth ${tone ? `is-${tone}` : ''}`}>
-      <strong>
-        <PixelCoin /> {label}
-        <span className="header-wealth__capacity">/ {formatGold(capacity)}</span>
-      </strong>
+      <strong><PixelCoin /> {label}</strong>
+      <span className="header-wealth__capacity">/ {formatFullGold(capacity)}</span>
       <span
         className="header-wealth__bar"
         role="progressbar"
