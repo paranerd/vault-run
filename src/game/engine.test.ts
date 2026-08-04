@@ -189,19 +189,22 @@ describe('Vault Run engine', () => {
     expect(returned.chestGold).toBe(mined(1, MANUAL_TRIP_SECONDS))
   })
 
-  // Dieselbe Ruhe während einer Sicherung von Hand — auch sie legt das ganze Reich still.
-  it('banks nothing while the mine rests during a manual securing', () => {
+  // Dasselbe für die Sicherung von Hand: Sie bindet den Spieler, nicht seine Bergleute. Auch ohne
+  // eine einzige Wache läuft die Mine durch — was er selbst tut, hält keine Automatik an.
+  it('keeps the miners working through a manual securing', () => {
     const mining = advanceGame({ ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number], threat: 50 }, 5_000)
     const securing = lowerThreat(mining, 5_000)
     expect(isSecuringManually(securing)).toBe(true)
+    expect(isPlayerBusy(securing)).toBe(true)
 
-    const held = advanceGame(securing, 5_000 + SECURE_COOLDOWN_MS - 1)
-    expect(held.chestGold).toBeCloseTo(mining.chestGold, 5)
-    expect(held.minerBeats).toEqual([null, null, null, null])
+    const held = advanceGame(securing, 6_000)
+    expect(held.chestGold).toBe(mining.chestGold + mined(1, 1))
+    expect(held.minerBeats[0]).not.toBeNull()
 
-    // Und auch nach der Freigabe steht nichts nach: Der Takt beginnt neu.
-    const released = advanceGame(held, 5_000 + SECURE_COOLDOWN_MS)
-    expect(released.chestGold).toBeCloseTo(mining.chestGold, 5)
+    // Und über die Sicherung hinaus läuft der Takt einfach weiter, ohne Bruch.
+    const released = advanceGame(held, 8_000)
+    expect(released.secureEndsAt).toBeNull()
+    expect(released.chestGold).toBe(mined(1, 8))
   })
 
   // Eine durchschlafene Nacht ohne Transport füllt den Beutel und lässt es dabei bewenden: Was

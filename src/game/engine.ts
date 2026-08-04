@@ -89,9 +89,9 @@ function storeGold(state: GameState, amount: number, report?: OfflineReport): nu
   return stored
 }
 
-/** Eine laufende manuelle Sicherung legt das **Reich** still — die Mine hört auf zu fördern. Mit
-    Wachen entfällt diese Sperre: Sie sichern nebenher, während die Mine weiterläuft. Vom Spieler
-    selbst sagt das nichts; ob **er** gerade beschäftigt ist, beantwortet `isPlayerBusy`. */
+/** Der Spieler sichert gerade selbst, ohne dass eine Wache die Arbeit ohnehin täte. Das ist eine
+    Aussage über **ihn** und hält nichts im Reich an — Bergleute und Fuhrknechte arbeiten währenddessen
+    weiter. Ob **er** beschäftigt ist, beantwortet `isPlayerBusy`. */
 export function isSecuringManually(state: GameState): boolean {
   return state.secureEndsAt !== null && !hasAutomaticSecurity(state)
 }
@@ -212,10 +212,6 @@ function settleTrips(state: GameState, cursor: number, report?: OfflineReport): 
     von der Stelle. Wer weitermacht, beginnt seinen Takt darum von vorn. */
 function restMiner(state: GameState, index: SlotIndex): void {
   state.minerBeats[index] = null
-}
-
-function restMiners(state: GameState): void {
-  for (const index of SLOTS) restMiner(state, index)
 }
 
 /** Jeder Bergmann fördert in seinem eigenen Takt. Nachgeholt wird in ganzen Takten, damit eine
@@ -398,15 +394,12 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
 
   let cursor = state.lastTick
   while (cursor < target) {
-    // Die Bergleute fördern durch, während der Spieler selbst zur Truhe geht: Angestellte legen
-    // die Hacke nicht weg, weil ihr Dienstherr einen Sack trägt. Gesperrt ist allein sein eigener
-    // Schlag, und den sperrt `tap` für sich.
-    if (isSecuringManually(state)) {
-      restMiners(state)
-    } else {
-      runMiners(state, cursor, report)
-      dispatchTransporters(state, cursor)
-    }
+    // Was der Spieler von Hand tut, hält keine Automatik an: Bergleute fördern und Fuhrknechte
+    // fahren, während er selbst eine Fuhre trägt oder Wache steht. Angestellte legen die Arbeit
+    // nicht nieder, weil ihr Dienstherr mit anpackt. Gesperrt sind allein seine eigenen drei
+    // Aktionen — gegenseitig, und das regeln `tap`, `startTransport` und `lowerThreat` für sich.
+    runMiners(state, cursor, report)
+    dispatchTransporters(state, cursor)
     runGuards(state, cursor)
 
     const nextCursor = Math.min(target, cursor + STEP_MS, nextBeat(state))
@@ -425,12 +418,8 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
   }
   // Ein letzter Durchlauf auf dem Zielzeitpunkt: Was genau jetzt fällig ist, soll auch jetzt
   // gutgeschrieben werden und nicht erst beim nächsten Tick.
-  if (isSecuringManually(state)) {
-    restMiners(state)
-  } else {
-    runMiners(state, target, report)
-    dispatchTransporters(state, target)
-  }
+  runMiners(state, target, report)
+  dispatchTransporters(state, target)
   runGuards(state, target)
 
   state.lastTick = now

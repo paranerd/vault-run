@@ -43,7 +43,6 @@ import {
   dismissOfflineReport,
   goldInTransit,
   isPlayerBusy,
-  isSecuringManually,
   lowerThreat,
   startTransport,
   tap,
@@ -693,7 +692,6 @@ function App() {
     : 100
   const reservedGold = goldInTransit(state)
   const securing = state.secureEndsAt !== null
-  const securingBlocks = isSecuringManually(state)
   const secureProgress = securing
     ? percentage(now - (state.secureStartedAt ?? now), (state.secureEndsAt ?? now) - (state.secureStartedAt ?? now))
     : 0
@@ -719,11 +717,10 @@ function App() {
   const exhausted = state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)
 
   // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
-  // Die Kachel misst das Reich, nicht die Hände des Spielers: Bei vollem Beutel fördert niemand
-  // mehr, und ohne Wachen ruht die Mine während einer Sicherung von Hand — beides ergibt 0. Seine
-  // eigene Fuhre hält die Bergleute dagegen nicht an, auch wenn sie ihm für ihre Dauer die Hände
-  // bindet; eine Sicherung mit Wachen ebenso wenig.
-  const miningPaused = bagFull || securingBlocks
+  // Die Kachel misst das Reich, nicht die Hände des Spielers: Sie steht nur still, wenn der volle
+  // Beutel niemanden mehr fördern lässt. Was der Spieler von Hand tut, bindet ihn, nicht seine
+  // Angestellten — die fördern durch seine Fuhre und seine Sicherung hindurch.
+  const miningPaused = bagFull
   const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
   const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
 
