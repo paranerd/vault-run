@@ -135,8 +135,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   height: 30px;
   margin: 0;
   display: grid;
-  grid-template-columns: 58px minmax(0,360px) 98px;
-  justify-content: center;
+  /* Die beiden Randspalten sind gleich breit (`1fr` teilt den Rest zu gleichen Teilen), damit die
+     Leiste in der Mittelspalte exakt auf der Mittelachse des Abschnitts sitzt — und zwar in allen
+     drei Abschnitten auf derselben, egal wie lang Beschriftung und Wert ausfallen. Feste, ungleiche
+     Randspalten verschoben sie um deren halbe Differenz nach außen. */
+  grid-template-columns: minmax(84px,1fr) minmax(0,360px) minmax(84px,1fr);
   gap: 8px;
   align-items: center;
   overflow: hidden;
@@ -170,7 +173,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   width: var(--meter-fill);
   background: repeating-linear-gradient(90deg,#d99d30 0 7px,#f5c84d 7px 12px,#ae671d 12px 15px);
   box-shadow: inset 0 2px rgba(255,239,159,.36), inset 0 -2px rgba(77,38,14,.3);
-  transition: width .85s ease-in-out;
+  /* Genau ein Tick lang und linear: Damit überbrückt die Leiste die Lücke zwischen zwei
+     Spielzuständen und ist am nächsten Tick wieder auf dem Ist-Wert. Eine lange, weiche Kurve tat
+     Werten gut, die in Sprüngen kommen (Beutel), dämpfte aber den stetig wachsenden Räuber zur
+     Zeitlupe: Von einer 850-ms-Kurve, die alle 100 ms neu ansetzt, bleiben pro Tick nur die ersten,
+     flachsten Prozent übrig. So laufen beide gleich schnell — nämlich so schnell wie ihr Wert. */
+  transition: width .1s linear;
 }
 .section-meter--chest .section-meter__fill,.section-meter--robber .section-meter__fill { background: repeating-linear-gradient(90deg,#91452b 0 7px,#bd5934 7px 12px,#71301f 12px 15px); }
 .section-meter--exhaustion .section-meter__fill { background: repeating-linear-gradient(90deg,#c37625 0 7px,#dc8b2e 7px 12px,#934418 12px 15px); }
@@ -540,7 +548,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .dock-button svg { width: 19px; height: 19px; }
   .dock-button { font-size: 12px; gap: 2px; }
   .game-section { grid-template-rows: 24px minmax(0,1fr); }
-  .section-meter { height: 24px; grid-template-columns: 46px minmax(0,360px) 82px; gap: 5px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
+  .section-meter { height: 24px; grid-template-columns: minmax(66px,1fr) minmax(0,360px) minmax(66px,1fr); gap: 5px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__label { font-size: 11px; }.section-meter strong { font-size: 10px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
   .section-layout { --stat-block: min(112px, 88%); }
   .stats-grid,.slot-grid { gap: 2px; }
@@ -559,7 +567,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 @media (min-width: 760px) {
   .topbar { padding-right: 22px; padding-left: 22px; }
   .game-section { grid-template-rows: 34px minmax(0,1fr); }
-  .section-meter { height: 34px; grid-template-columns: 76px minmax(0,360px) 128px; gap: 12px; }.section-meter__progress { height: 17px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
+  .section-meter { height: 34px; grid-template-columns: minmax(112px,1fr) minmax(0,360px) minmax(112px,1fr); gap: 12px; }.section-meter__progress { height: 17px; }.section-meter__label { font-size: 18px; }.section-meter strong { font-size: 16px; }.section-meter__marker { width: 44px; height: 44px; }
   .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
   .section-layout { --stat-block: min(168px, 86%); }
   .stats-grid,.slot-grid { max-width: 145px; gap: 6px; }
