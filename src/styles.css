@@ -215,13 +215,21 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   width: min(100%, 520px);
   height: 100%;
   margin: 0 auto;
-  padding: 7px 8px 8px;
+  /* Rechts liegt der Rand um die Breite des Schlagschattens höher: Der Schatten gehört zum Knopf,
+     fällt aber nur nach rechts. Mit gleichem Rand auf beiden Seiten stünde die rechte Kachel
+     sichtbar näher am Rand als die linke — symmetrisch ist erst, was man sieht, nicht was im
+     Kasten steht. Dieselben drei Pixel stecken darum in jedem Breakpoint. */
+  padding: 7px calc(8px + var(--panel-shadow)) 8px 8px;
   display: grid;
   grid-template-columns: minmax(0,1fr) minmax(100px,124px) minmax(0,1fr);
   gap: 7px;
   align-items: center;
+  justify-content: center;
   /* Gemeinsame Blockhöhe der drei Spalten: hält Stat-, Text- und Slot-Unterkante auf einer Linie. */
   --stat-block: min(146px, 90%);
+  /* Der harte Pixelschatten unter Kacheln und Aktions-Button — hier, weil das Layout ihn
+     ausgleichen muss. */
+  --panel-shadow: 3px;
 }
 /* Beide Seitenspalten sitzen auf derselben Kachel: links der Behälter mit seiner Kapazität, rechts
    die vier Slots. Ein Abschnitt liest sich damit als drei Blöcke gleicher Bauart — Ort, Handlung,
@@ -547,7 +555,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 }
 
 @media (max-width: 360px) {
-  .section-layout { grid-template-columns: minmax(0,1fr) 92px minmax(0,1fr); gap: 4px; padding-right: 5px; padding-left: 5px; }
+  .section-layout { grid-template-columns: minmax(0,1fr) 92px minmax(0,1fr); gap: 4px; padding-right: calc(5px + var(--panel-shadow)); padding-left: 5px; }
   .section-aside { padding: 4px 5px; }
   .section-aside img { width: 58px; }
   .section-aside--plain img { width: 80px; }
@@ -602,7 +610,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 @media (min-width: 760px) {
   .topbar { padding-right: 22px; padding-left: 22px; }
   .section-meter { height: 34px; }.section-meter__progress { height: 17px; }.section-meter__marker { width: 44px; height: 44px; }
-  .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
+  .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px calc(10px + var(--panel-shadow)) 10px 10px; }
   .section-layout { --stat-block: min(168px, 86%); }
   .slot-grid { gap: 6px; padding: 8px; }
   .section-aside { gap: 9px; padding: 9px 11px; }
