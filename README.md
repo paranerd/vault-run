@@ -2,7 +2,7 @@
 
 Vault Run ist ein mobile-first Fantasy-Idle-Game in Pixel-Art. Mit einer rostigen Pickhacke beginnt der Spieler Gold zu schürfen, sammelt es zunächst in einem kleinen Beutel und bringt es anschließend in die Schatztruhe — nur dort lässt es sich ausgeben, aber nur dort lockt es auch Diebe an.
 
-Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen Header und Dock-Leiste teilen sich Truhe, Lager und Mine von oben nach unten den verfügbaren Platz zu exakt gleichen Teilen. Jeder Abschnitt zeigt links das Bild seines Ortes — Truhe und Lager mit ihrer Kapazität darunter —, mittig seine Aktion und rechts vier einzeln levelbare Spezialisten-Slots auf derselben Kachel. Die Dock-Leiste am unteren Rand führt zu Ausbau, Statistik und Einstellungen und hält Abstand zu iOS-Home-Bar und runden Displayecken.
+Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen Header und Dock-Leiste teilen sich Truhe, Lager und Mine von oben nach unten den verfügbaren Platz zu exakt gleichen Teilen. Jeder Abschnitt zeigt links das Bild seines Ortes — Truhe und Lager mit ihrem Füllstand in Prozent darunter, rot bei 100 % —, mittig seine Aktion und rechts vier einzeln levelbare Spezialisten-Slots auf derselben Kachel. Die Dock-Leiste am unteren Rand führt zu Ausbau, Statistik und Einstellungen und hält Abstand zu iOS-Home-Bar und runden Displayecken.
 
 ## Kernloop
 
@@ -11,7 +11,7 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen 
 3. Das Gold per zeitlich laufendem Transport zur Schatztruhe bringen.
 4. Bis zu vier Fuhrknechte einzeln anheuern und aufleveln; der erste automatisiert die Fahrten.
 5. Vier Bergleute und vier Wachen unabhängig voneinander verbessern.
-6. Pickhacke, Goldbeutel und Schatztruhe im Ausbau-Popup unter „Ausrüstung“ aufwerten.
+6. Pickhacke, Goldbeutel, Stiefel und Grubenlampe im Ausbau-Popup unter „Ausrüstung“ aufwerten, Lager und Schatztruhe unter ihrem eigenen Abschnitt.
 7. Die Truhe von Hand sichern, um das Diebstahlrisiko zu senken — anfangs ruht dabei das ganze Reich. Wachen übernehmen das später selbstständig.
 
 ## Gestaltung
@@ -22,7 +22,7 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen 
 - warme Pergament-, Holz-, Stein- und Goldpalette
 - drei Pixel-Trennstreifen, kompakte 2×2-Raster, harte Pixel-Schatten, gerasterte Fortschrittsbalken und PWA-App-Icon im selben Stil
 - feste Dock-Leiste mit Safe-Zones für Home-Bar und runde Ecken
-- ein einziges Ausbau-Popup, gefiltert nach Ausrüstung, Bergleuten, Transport und Wachen
+- ein einziges Ausbau-Popup, gefiltert nach Ausrüstung, Mine, Lager und Truhe — jeder Ort der Szene führt in seinen eigenen Reiter
 - Einstellungen mit Soundsteuerung und doppelter Neustart-Bestätigung sowie eine eigene Statistikübersicht
 
 ## Entwicklung

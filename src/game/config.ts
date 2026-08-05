@@ -380,6 +380,10 @@ function fact(label: string, before: number | null, after: number, format: (valu
     noch das, was ihm allein gehört. */
 interface EquipmentSpec {
   section: SectionId
+  /** Der Reiter, unter dem das Stück steht. Die vier Stücke am Körper des Spielers teilen sich den
+      Reiter „Ausrüstung“; Lager und Truhe stehen dagegen bei ihrem eigenen Abschnitt, weil sie ihm
+      gehören und nicht ihm getragen werden. */
+  category: UpgradeCategory
   names: readonly string[]
   accent: UpgradeView['accent']
   spriteFamily: UpgradeView['spriteFamily']
@@ -390,13 +394,9 @@ interface EquipmentSpec {
   facts: (state: GameState, next: GameState) => UpgradeFact[]
 }
 
-/** Erst die vier Stücke, die der Spieler am Körper trägt, dann die beiden Behälter des Reiches.
-    In dieser Reihenfolge stehen sie im Ausbau-Sheet. */
-export const EQUIPMENT_ORDER: readonly EquipmentUpgradeId[] = ['tap', 'pack', 'boots', 'lamp', 'stock', 'vault']
-
 const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   tap: {
-    section: 'mine', names: PICKAXES, accent: 'business', spriteFamily: 'pickaxe',
+    section: 'mine', category: 'equipment', names: PICKAXES, accent: 'business', spriteFamily: 'pickaxe',
     hint: 'Wirkt nur, wenn du selbst in der Mine schlägst.',
     facts: (state, next) => [
       fact('Fördermenge', tapValue(state), tapValue(next), effectValue),
@@ -404,12 +404,12 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
     ],
   },
   pack: {
-    section: 'stock', names: PACKS, accent: 'logistics', spriteFamily: 'pack',
+    section: 'stock', category: 'equipment', names: PACKS, accent: 'logistics', spriteFamily: 'pack',
     hint: 'Wirkt nur, wenn du selbst trägst. Mehr, als im Lager Platz hat, schulterst du nie.',
     facts: (state, next) => [fact('Ladung', packCargo(state), packCargo(next), effectGold)],
   },
   boots: {
-    section: 'stock', names: BOOTS, accent: 'logistics', spriteFamily: 'boots',
+    section: 'stock', category: 'equipment', names: BOOTS, accent: 'logistics', spriteFamily: 'boots',
     hint: 'Fuhre und Wachgang sind beides Wege, die du selbst gehst.',
     facts: (state, next) => [
       fact('Dauer Fuhre', manualTripSeconds(state), manualTripSeconds(next), effectRate),
@@ -417,17 +417,17 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
     ],
   },
   lamp: {
-    section: 'vault', names: LAMPS, accent: 'vault', spriteFamily: 'lamp',
+    section: 'vault', category: 'equipment', names: LAMPS, accent: 'vault', spriteFamily: 'lamp',
     hint: 'Wirkt nur, wenn du selbst Wache gehst. Dieselben Punkte, die eine Wache abträgt.',
     facts: (state, next) => [fact('Sichtweite', lampSight(state), lampSight(next), effectValue)],
   },
   stock: {
-    section: 'stock', names: STOCKPILES, accent: 'logistics', spriteFamily: 'stock',
+    section: 'stock', category: 'transporters', names: STOCKPILES, accent: 'logistics', spriteFamily: 'stock',
     hint: 'Ist das Lager voll, ruht die Mine bis zur nächsten Fuhre.',
     facts: (state, next) => [fact('Kapazität', stockCapacity(state), stockCapacity(next), effectGold)],
   },
   vault: {
-    section: 'vault', names: TREASURE_CHESTS, accent: 'vault', spriteFamily: 'vault',
+    section: 'vault', category: 'guards', names: TREASURE_CHESTS, accent: 'vault', spriteFamily: 'vault',
     hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
     facts: (state, next) => [fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold)],
   },
@@ -440,7 +440,7 @@ export function getEquipmentUpgrade(state: GameState, id: EquipmentUpgradeId): U
   const name = stageName(spec.names, level)
   const nextName = changedName(name, stageName(spec.names, level + 1))
   return {
-    key: `equipment:${id}`, section: spec.section, equipmentId: id, name, nextName,
+    key: `equipment:${id}`, section: spec.section, category: spec.category, equipmentId: id, name, nextName,
     hint: spec.hint,
     facts: [stageFact(level + 1, nextName), ...spec.facts(state, next)],
     stage: level + 1, cost: equipmentUpgradeCost(state, id), available: true,
@@ -486,6 +486,7 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     return {
       key: `slot:${group}:${index}`,
       section: SLOT_SECTION[group],
+      category: group,
       slot: { group, index },
       name,
       nextName: changedName(name, slotStageName(group, level + 1)),
@@ -500,56 +501,85 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
   })
 }
 
-export function getAllUpgrades(state: GameState): UpgradeView[] {
-  const sections: SectionId[] = ['mine', 'stock', 'vault']
-  return [
-    ...EQUIPMENT_ORDER.map((id) => getEquipmentUpgrade(state, id)),
-    ...sections.flatMap((section) => getSlotUpgrades(state, section)),
-  ]
+export const UPGRADE_CATEGORIES: readonly UpgradeCategory[] = ['equipment', 'miners', 'transporters', 'guards']
+export const UPGRADE_FILTERS: readonly UpgradeFilter[] = UPGRADE_CATEGORIES
+
+/** Der Reiter, den der Dock-Button öffnet. Es gibt keinen Sammelreiter mehr, der als neutraler
+    Einstieg dienen könnte, also braucht das Sheet einen benannten — und das ist der erste. */
+export const DEFAULT_UPGRADE_FILTER: UpgradeFilter = 'equipment'
+
+/** Die Beschriftung der Reiter. Drei von ihnen heißen wie die Abschnitte der Szene, denn sie
+    zeigen genau das, was dort steht: die Truhe mit ihren Wachen, das Lager mit seinen Fuhrknechten,
+    die Mine mit ihren Bergleuten. Vorher waren sie nach den Angestellten benannt — dann führte ein
+    Tap auf die Truhe zu einem Reiter „Wachen“, und der Behälter, den man angetippt hatte, lag
+    unter „Ausrüstung“ woanders. Der vierte Reiter trägt weiterhin, was der Spieler am Körper hat. */
+export const UPGRADE_FILTER_LABEL: Record<UpgradeFilter, string> = {
+  equipment: 'Ausrüstung',
+  miners: 'Mine',
+  transporters: 'Lager',
+  guards: 'Truhe',
 }
 
-export const UPGRADE_CATEGORIES: readonly UpgradeCategory[] = ['equipment', 'miners', 'transporters', 'guards']
-export const UPGRADE_FILTERS: readonly UpgradeFilter[] = ['all', ...UPGRADE_CATEGORIES]
-
-export const UPGRADE_FILTER_LABEL: Record<UpgradeFilter, string> = {
-  all: 'Alle',
-  equipment: 'Ausrüstung',
+/** Die Überschrift über einem Block von Karten. Sie ist bewusst nicht die Reiter-Beschriftung:
+    Der Reiter nennt den Ort, die Überschrift nennt, was in diesem Block steht — unter „Lager“
+    stehen erst das Lager selbst und darunter seine Fuhrknechte. */
+const SLOT_GROUP_LABEL: Record<SlotGroup, string> = {
   miners: 'Bergleute',
-  transporters: 'Transport',
+  transporters: 'Fuhrknechte',
   guards: 'Wachen',
 }
 
-/** Prefix of every `UpgradeView.key` that belongs to a filter; `all` matches everything. */
-export const UPGRADE_FILTER_PREFIX: Record<UpgradeFilter, string> = {
-  all: '',
-  equipment: 'equipment:',
-  miners: 'slot:miners:',
-  transporters: 'slot:transporters:',
-  guards: 'slot:guards:',
+/** Die Ausrüstungsstücke eines Reiters, in ihrer Reihenfolge. Die vier Stücke am Körper des
+    Spielers bleiben zusammen; Lager und Truhe stehen bei ihrem eigenen Abschnitt, weil dorthin
+    zeigt, wer sie in der Szene antippt. */
+const CATEGORY_EQUIPMENT: Record<UpgradeCategory, readonly EquipmentUpgradeId[]> = {
+  equipment: ['tap', 'pack', 'boots', 'lamp'],
+  miners: [],
+  transporters: ['stock'],
+  guards: ['vault'],
 }
 
 export const SECTION_FILTER: Record<SectionId, UpgradeCategory> = SECTION_SLOT_GROUP
 
+/** Der Behälter zuerst, dann seine Angestellten — dieselbe Leserichtung wie in der Szene, wo links
+    der Ort steht und rechts die Leute, die dort arbeiten. */
 export function getCategoryUpgrades(state: GameState, category: UpgradeCategory): UpgradeView[] {
-  if (category === 'equipment') return EQUIPMENT_ORDER.map((id) => getEquipmentUpgrade(state, id))
-  return getSlotUpgrades(state, SLOT_SECTION[category])
+  return [
+    ...CATEGORY_EQUIPMENT[category].map((id) => getEquipmentUpgrade(state, id)),
+    ...(category === 'equipment' ? [] : getSlotUpgrades(state, SLOT_SECTION[category])),
+  ]
+}
+
+export function getAllUpgrades(state: GameState): UpgradeView[] {
+  return UPGRADE_CATEGORIES.flatMap((category) => getCategoryUpgrades(state, category))
 }
 
 export interface UpgradeGroup {
-  category: UpgradeCategory
+  /** Eindeutig über alle Gruppen eines Reiters — ein Reiter kann zwei tragen. */
+  key: string
   label: string
-  /** Gilt für alle Karten der Gruppe und steht deshalb genau einmal darüber. Die Ausrüstung hat
-      keinen: Ihre drei Karten tun jeweils etwas anderes und erklären sich auf der Karte selbst. */
+  /** Gilt für alle Karten der Gruppe und steht deshalb genau einmal darüber. Behälter- und
+      Ausrüstungsgruppen haben keinen: Ihre Karten tun jeweils etwas anderes und erklären sich
+      auf der Karte selbst. */
   hint?: string
   upgrades: UpgradeView[]
 }
 
+/** Ein Reiter zerfällt in bis zu zwei Blöcke: den Behälter des Abschnitts und seine Angestellten.
+    Getrennt, weil der Hinweis nur den Angestellten gilt — stünde er über beiden, erklärte ein Satz
+    über Fuhrknechte auch die Lagerkarte. */
 export function getUpgradeGroups(state: GameState, filter: UpgradeFilter): UpgradeGroup[] {
-  const categories = filter === 'all' ? UPGRADE_CATEGORIES : [filter]
-  return categories.map((category) => ({
-    category,
-    label: UPGRADE_FILTER_LABEL[category],
-    hint: category === 'equipment' ? undefined : SLOT_GROUP_HINT[category],
-    upgrades: getCategoryUpgrades(state, category),
-  }))
+  const equipment = CATEGORY_EQUIPMENT[filter].map((id) => getEquipmentUpgrade(state, id))
+  if (filter === 'equipment') {
+    return [{ key: 'equipment', label: UPGRADE_FILTER_LABEL.equipment, upgrades: equipment }]
+  }
+  return [
+    ...(equipment.length > 0 ? [{ key: `container:${filter}`, label: UPGRADE_FILTER_LABEL[filter], upgrades: equipment }] : []),
+    {
+      key: `slots:${filter}`,
+      label: SLOT_GROUP_LABEL[filter],
+      hint: SLOT_GROUP_HINT[filter],
+      upgrades: getSlotUpgrades(state, SLOT_SECTION[filter]),
+    },
+  ]
 }

@@ -271,11 +271,21 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-aside img { width: 68px; max-width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 3px 0 rgba(38,19,10,.28)); }
 .section-aside--plain img { width: 104px; }
 /* Beschriftung über dem Wert, beides mittig: Nebeneinander teilten sich Wort und Zahl die
-   Kachelbreite, und ein Hort im Millionenbereich hätte dort nur noch als Stummel Platz. */
-.section-aside__capacity { max-width: 100%; margin: 0; display: grid; gap: 1px; justify-items: center; font-family: var(--pixel-font); line-height: 1.05; text-align: center; }
-.section-aside__capacity > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-aside__capacity span { color: rgba(67,41,26,.72); font-size: 13px; letter-spacing: .04em; }
-.section-aside__capacity strong { color: #43291a; font-size: 18px; font-weight: 400; }
+   Kachelbreite, und die Beschriftung wäre als erstes weggeschnitten worden. */
+.section-aside__fill { max-width: 100%; margin: 0; display: grid; gap: 1px; justify-items: center; font-family: var(--pixel-font); line-height: 1.05; text-align: center; }
+.section-aside__fill > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-aside__fill span { color: rgba(67,41,26,.72); font-size: 13px; letter-spacing: .04em; }
+.section-aside__fill strong { color: #43291a; font-size: 18px; font-weight: 400; transition: color .15s linear; }
+/* Dieselbe Ampel wie auf den Leisten — gelb ab 75 %, rot ab 90 %, kräftiges Rot bei 100 % —, aber
+   in dunkleren Tönen: `--meter-warning` und `--meter-alert` sind für helle Schrift auf dunklem
+   Braun gemischt und verschwänden auf dem hellen Pergament dieser Kachel. Ein voller Behälter ist
+   kein „fast“ mehr, sondern ein Zustand: Dort steht die Zahl in kräftigem Rot, und die
+   Beschriftung darüber färbt mit — nur so ist der Rand der Skala auch mit einem Blick zu sehen,
+   der die Zahl selbst gar nicht liest. */
+.section-aside.is-warning .section-aside__fill strong { color: #92560f; }
+.section-aside.is-alert .section-aside__fill strong { color: var(--red); }
+.section-aside.is-full .section-aside__fill strong { color: #c0301c; }
+.section-aside.is-full .section-aside__fill span { color: rgba(167,59,45,.8); }
 
 /* Die mittlere Spalte trägt nur den Button; seine Beschriftung steht in ihm. */
 .section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -559,8 +569,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside { padding: 4px 5px; }
   .section-aside img { width: 58px; }
   .section-aside--plain img { width: 80px; }
-  .section-aside__capacity span { font-size: 11px; }
-  .section-aside__capacity strong { font-size: 16px; }
+  .section-aside__fill span { font-size: 11px; }
+  .section-aside__fill strong { font-size: 16px; }
   .slot-grid { padding: 4px; }
   .slot-grid button { border-width: 1px; }
   .slot-grid img { width: 45px; height: 45px; }
@@ -598,8 +608,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside { gap: 3px; padding: 3px 5px; }
   .section-aside img { width: 48px; }
   .section-aside--plain img { width: 70px; }
-  .section-aside__capacity span { font-size: 11px; }
-  .section-aside__capacity strong { font-size: 15px; }
+  .section-aside__fill span { font-size: 11px; }
+  .section-aside__fill strong { font-size: 15px; }
   .section-center { gap: 2px; }
   .section-action { width: 88px; height: 80px; border-width: 2px; box-shadow: 2px 2px 0 #2a160d; }
   .section-action img { width: 50px; height: 50px; }
@@ -616,8 +626,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside { gap: 9px; padding: 9px 11px; }
   .section-aside img { width: 92px; }
   .section-aside--plain img { width: 126px; }
-  .section-aside__capacity span { font-size: 16px; }
-  .section-aside__capacity strong { font-size: 22px; }
+  .section-aside__fill span { font-size: 16px; }
+  .section-aside__fill strong { font-size: 22px; }
   .section-action { width: 128px; height: 122px; }.section-action img { width: 78px; height: 78px; }.section-action__label { font-size: 19px; }
   .slot-grid img { width: 58px; height: 58px; }
   .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); transform: translateX(100%); }

@@ -37,6 +37,7 @@ import {
   tapValue,
   transporterCapacity,
   transporterRate,
+  UPGRADE_FILTERS,
   vaultCapacity,
   withSlotLevel,
 } from './config'
@@ -701,11 +702,45 @@ describe('Vault Run engine', () => {
   // Ausrüstungskarten erklären sich einzeln und tragen ihren Hinweis selbst.
   it('carries shared wording on the group and per-card wording only on equipment', () => {
     const state = createInitialState(0)
-    const [equipment, miners] = getUpgradeGroups(state, 'all')
+    const [equipment] = getUpgradeGroups(state, 'equipment')
+    const [miners] = getUpgradeGroups(state, 'miners')
     expect(equipment.hint).toBeUndefined()
     expect(equipment.upgrades.every((upgrade) => Boolean(upgrade.hint))).toBe(true)
     expect(miners.hint).toBeTruthy()
     expect(miners.upgrades.every((upgrade) => upgrade.hint === undefined)).toBe(true)
+  })
+
+  // Der Hinweis über den Angestellten darf nicht über dem Behälter stehen: „Jeder Fuhrknecht fährt
+  // für sich“ erklärt keine Lagererweiterung. Behälter und Angestellte sind deshalb zwei Blöcke
+  // unter demselben Reiter — der Behälter zuerst, wie in der Szene links der Ort steht.
+  it('splits a section tab into its container and its staff', () => {
+    const state = createInitialState(0)
+    for (const [filter, equipmentId] of [['transporters', 'stock'], ['guards', 'vault']] as const) {
+      const [container, staff] = getUpgradeGroups(state, filter)
+      expect(container.upgrades.map((card) => card.equipmentId)).toEqual([equipmentId])
+      expect(container.hint).toBeUndefined()
+      expect(staff.hint).toBeTruthy()
+      expect(staff.upgrades).toHaveLength(4)
+      expect(container.key).not.toBe(staff.key)
+    }
+    // Die Mine hat keinen Behälter und darum auch nur einen Block.
+    expect(getUpgradeGroups(state, 'miners')).toHaveLength(1)
+  })
+
+  // Jede Karte gehört genau einem Reiter. Sonst zählte der rote Punkt eines Reiters Angebote mit,
+  // die dort gar nicht liegen — oder ein bezahlbares Upgrade meldete sich nirgends.
+  it('files every upgrade under exactly one tab', () => {
+    const state = createInitialState(0)
+    const all = getAllUpgrades(state)
+    const filed = UPGRADE_FILTERS.flatMap((filter) => getCategoryUpgrades(state, filter))
+    expect(filed.map((card) => card.key).sort()).toEqual(all.map((card) => card.key).sort())
+    expect(new Set(all.map((card) => card.key)).size).toBe(all.length)
+    expect(all.every((card) => getCategoryUpgrades(state, card.category).some((sibling) => sibling.key === card.key))).toBe(true)
+    // Und die Reiter eines Abschnitts zeigen dieselben Karten wie seine Gruppen.
+    for (const filter of UPGRADE_FILTERS) {
+      const grouped = getUpgradeGroups(state, filter).flatMap((group) => group.upgrades)
+      expect(grouped.map((card) => card.key)).toEqual(getCategoryUpgrades(state, filter).map((card) => card.key))
+    }
   })
 
   it('reports a securing rate that can be read against the risk growth', () => {
@@ -912,11 +947,17 @@ describe('Ausrüstung des Spielers', () => {
     expect(getSlotUpgrades(bright, 'vault')[0].facts[1].label).toBe('Sichtweite')
   })
 
-  // Vier Stücke am Körper, dann die beiden Behälter des Reiches — in dieser Reihenfolge stehen sie
-  // im Ausbau-Sheet, und jedes trägt sein eigenes Bild.
-  it('offers the player gear before the containers', () => {
-    const cards = getCategoryUpgrades(createInitialState(0), 'equipment')
-    expect(cards.map((card) => card.equipmentId)).toEqual(['tap', 'pack', 'boots', 'lamp', 'stock', 'vault'])
-    expect(new Set(cards.map((card) => card.spriteFamily)).size).toBe(cards.length)
+  // Der Reiter „Ausrüstung“ trägt genau die vier Stücke am Körper des Spielers. Die beiden
+  // Behälter des Reiches stehen bei ihrem Abschnitt — dorthin zeigt, wer sie in der Szene antippt.
+  // Jedes Stück trägt sein eigenes Bild.
+  it('keeps the player gear together and the containers with their section', () => {
+    const state = createInitialState(0)
+    const gear = getCategoryUpgrades(state, 'equipment')
+    expect(gear.map((card) => card.equipmentId)).toEqual(['tap', 'pack', 'boots', 'lamp'])
+    expect(new Set(gear.map((card) => card.spriteFamily)).size).toBe(gear.length)
+    expect(getEquipmentUpgrade(state, 'stock').category).toBe('transporters')
+    expect(getEquipmentUpgrade(state, 'vault').category).toBe('guards')
+    expect(getCategoryUpgrades(state, 'guards')[0].equipmentId).toBe('vault')
+    expect(getCategoryUpgrades(state, 'transporters')[0].equipmentId).toBe('stock')
   })
 })

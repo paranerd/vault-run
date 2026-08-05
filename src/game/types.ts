@@ -14,7 +14,11 @@ export type SectionId = 'mine' | 'stock' | 'vault'
 export type EquipmentUpgradeId = 'tap' | 'pack' | 'boots' | 'lamp' | 'stock' | 'vault'
 export type SlotGroup = 'miners' | 'transporters' | 'guards'
 export type UpgradeCategory = 'equipment' | SlotGroup
-export type UpgradeFilter = 'all' | UpgradeCategory
+/** Die Reiter des Ausbau-Sheets sind genau die Kategorien — einen Sammelreiter „Alle“ gibt es
+    nicht mehr. Er zeigte alle vier Kategorien untereinander und war damit nur die längste Fassung
+    dessen, was die vier anderen Reiter einzeln sagen; zugleich konnte er als einziger keine
+    Angebote abhaken, weil er auf keine Kategorie zeigte. */
+export type UpgradeFilter = UpgradeCategory
 export type SlotIndex = 0 | 1 | 2 | 3
 export type SlotLevels = [number, number, number, number]
 
@@ -114,6 +118,9 @@ export interface UpgradeFact {
 export interface UpgradeView {
   key: string
   section: SectionId
+  /** Der Reiter, unter dem die Karte im Ausbau-Sheet steht. Nicht aus dem `key` ableitbar: Lager
+      und Truhe sind Ausrüstung und stehen trotzdem bei ihrem eigenen Abschnitt. */
+  category: UpgradeCategory
   /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. */
   name: string
   /** Name nach dem Kauf; nur gesetzt, wenn der Aufstieg ihn tatsächlich ändert. */

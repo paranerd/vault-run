@@ -22,9 +22,9 @@ import {
   METER_WARNING,
   RISK_ALERT,
   SECTION_SLOT_GROUP,
+  DEFAULT_UPGRADE_FILTER,
   UPGRADE_FILTERS,
   UPGRADE_FILTER_LABEL,
-  UPGRADE_FILTER_PREFIX,
   stockCapacity,
   getAllUpgrades,
   getUpgradeGroups,
@@ -57,7 +57,7 @@ interface UpgradePanelState {
 
 /** Das Sheet bleibt dauerhaft montiert, damit es beim ersten Öffnen einen Startzustand
     zum Herüberblenden hat und beim Schließen nach unten ausfahren kann. */
-const CLOSED_PANEL: UpgradePanelState = { filter: 'all', open: false }
+const CLOSED_PANEL: UpgradePanelState = { filter: DEFAULT_UPGRADE_FILTER, open: false }
 
 /** Standzeit einer eingeblendeten Warnung; höchstens `MAX_ALERTS` liegen gleichzeitig an. */
 const ALERT_LIFETIME_MS = 3_600
@@ -273,33 +273,49 @@ const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: numb
   )
 })
 
-/** Die linke Spalte eines Abschnitts: das Bild des Behälters und darunter, wie viel er fasst.
-    Beschriftung über dem Wert statt daneben — nebeneinander teilten sich Wort und Zahl die Breite
-    der Kachel, und eine Truhe im Millionenbereich hätte dort nur noch als Stummel Platz gehabt.
-    Übereinander bekommt die Zahl die ganze Kachelbreite, und die Zeile darüber ändert sich nie.
+/** Die linke Spalte eines Abschnitts: das Bild des Behälters und darunter sein **Füllstand** in
+    Prozent. Vorher stand dort seine Kapazität als absolute Zahl. Die war zwar größer, aber nie eine
+    Handlungsaufforderung: Sie änderte sich nur beim Kauf, und was der Spieler wissen muss, ist
+    nicht, wie viel hineinpasst, sondern wie viel noch hineinpasst. Die Grenze selbst steht
+    weiterhin auf der Upgrade-Karte des Behälters, mit ihrem Wert nach dem Kauf daneben.
+    Beschriftung über dem Wert statt daneben — die Zeile darüber ändert sich nie, darunter steht
+    eine Zahl, die es nie über drei Stellen bringt.
     Die Mine hat keinen Behälter und trägt darum nur ihr Bild.
  *
- *  Die Kachel ist ein Knopf und öffnet den Ausbau bei der **Ausrüstung** — genau wie das
- *  Slot-Raster gegenüber ihn bei den Angestellten des Abschnitts öffnet. Damit führt jeder
- *  sichtbare Gegenstand der Szene zu der Karte, auf der er sich verbessern lässt. */
-function SectionAside({ icon, capacity, label, onOpen, panelRef }: {
+ *  Die Kachel ist ein Knopf und öffnet den Ausbau beim Reiter ihres eigenen Abschnitts — genau
+ *  wie das Slot-Raster gegenüber. Damit führt jeder sichtbare Gegenstand der Szene zu der Karte,
+ *  auf der er sich verbessern lässt. */
+function SectionAside({ icon, fill, full, label, onOpen, panelRef }: {
   icon: ReactNode
-  capacity?: string
+  /** Füllstand in Prozent, oder nichts für einen Abschnitt ohne Behälter. */
+  fill?: number
+  /** Ob der Behälter tatsächlich voll ist. Getrennt vom Prozentwert, weil `Math.round` bei 99,7 %
+      hundert anzeigen würde — und „100 %“ ist hier ein Zustand, keine Rundung. */
+  full?: boolean
   label: string
   onOpen: () => void
   panelRef?: RefObject<HTMLButtonElement | null>
 }) {
+  const hasMeter = fill !== undefined
+  const tone = full ? 'full' : hasMeter ? meterTone(fill) : undefined
   return (
-    <button className={`section-aside ${capacity ? '' : 'section-aside--plain'}`} ref={panelRef} onClick={onOpen} aria-label={label}>
+    <button className={`section-aside ${hasMeter ? '' : 'section-aside--plain'} ${tone ? `is-${tone}` : ''}`} ref={panelRef} onClick={onOpen} aria-label={label}>
       {icon}
-      {capacity && (
-        <span className="section-aside__capacity">
-          <span>Kapazität</span>
-          <strong>{capacity}</strong>
+      {hasMeter && (
+        <span className="section-aside__fill">
+          <span>Füllstand</span>
+          <strong>{formatPercent(fill, full)}</strong>
         </span>
       )}
     </button>
   )
+}
+
+/** Ganze Prozente mit geschütztem Leerzeichen. Abgerundet statt gerundet: Nur ein wirklich voller
+    Behälter zeigt „100 %“, und nur ein wirklich leerer „0 %“. */
+function formatPercent(fill: number, full = false) {
+  const shown = full ? 100 : Math.min(99, Math.max(0, Math.floor(fill)))
+  return `${shown} %`
 }
 
 /** Der Farbton eines Füllstands: Bis `METER_WARNING` ist er ruhig, darüber gelblich, ab
@@ -558,6 +574,15 @@ function App() {
   const affordableKeys = useMemo(() => affordable.map((upgrade) => `${upgrade.key}:${upgrade.cost}`), [affordable])
   const affordableSignature = affordableKeys.join('|')
 
+  const isUnseen = (upgrade: UpgradeView) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`)
+  // Nach Kategorie, nicht mehr nach `key`-Präfix: Lager und Truhe sind Ausrüstung und zählen
+  // trotzdem zu ihrem eigenen Reiter.
+  const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.category === filter)
+  const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter(isUnseen)
+  /** Das Badge am Slot-Raster zählt nur die vier Slots — seit Lager und Truhe im selben Reiter
+      stehen, enthält dessen Kategorie auch eine Karte, die nicht in diesem Raster liegt. */
+  const unseenSlotsFor = (filter: UpgradeFilter) => unseenFor(filter).filter((upgrade) => upgrade.slot).length
+
   useEffect(() => {
     const current = new Set(affordableKeys)
     const hasNew = affordableKeys.some((key) => !previousAffordable.current.has(key) && !seenUpgradeLevels.has(key))
@@ -573,11 +598,7 @@ function App() {
 
   const acknowledge = (filter: UpgradeFilter) => {
     setUpgradeNoticePulsing(false)
-    // „Alle“ ist kein Blick auf eine bestimmte Kategorie — und da der Dock-Button diesen Filter
-    // öffnet, würde ein Abhaken dort schlicht jeden Punkt löschen, bevor etwas angesehen wurde.
-    if (filter === 'all') return
-    const prefix = UPGRADE_FILTER_PREFIX[filter]
-    const relevant = affordable.filter((upgrade) => upgrade.key.startsWith(prefix)).map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
+    const relevant = affordableIn(filter).map((upgrade) => `${upgrade.key}:${upgrade.cost}`)
     if (relevant.length === 0) return
     setSeenUpgradeLevels((current) => {
       const next = new Set(current)
@@ -597,9 +618,12 @@ function App() {
 
   const closeUpgrades = () => setPanel((current) => ({ ...current, open: false }))
 
-  /** Die Kachel links führt in jedem Abschnitt zur Ausrüstung — dort stehen Pickhacke, Beutel,
-      Stiefel, Grubenlampe und die beiden Behälter, also alles, was auf ihr zu sehen ist. */
-  const openEquipment = () => openUpgrades('equipment')
+  /** Die Kachel links führt in jedem Abschnitt zu seinem eigenen Reiter: die Truhe zu „Truhe“, das
+      Lager zu „Lager“, die Goldmine zu „Mine“. Dort steht ganz oben der Behälter, den man
+      angetippt hat, darunter die Angestellten des Abschnitts. Vorher landete jede Kachel bei der
+      Ausrüstung — der angetippte Gegenstand stand dann in einer Liste mit fünf anderen, und wer
+      auf die Truhe tippte, sah zuerst eine Pickhacke. */
+  const openSection = (section: SectionId) => openUpgrades(SECTION_SLOT_GROUP[section])
 
   const openSlotUpgrades = (section: SectionId, index: SlotIndex) => {
     const group = SECTION_SLOT_GROUP[section]
@@ -719,9 +743,12 @@ function App() {
   const stockMax = stockCapacity(state)
   const treasureMax = vaultCapacity(state)
   const stockFull = state.stockGold >= stockMax - 0.001
-  // Das Lager meldet seinen Stand als Anteil. Die beiden absoluten Zahlen sagten hier wenig: Zu
-  // handeln ist danach, wie voll er ist, und die Grenze steht ohnehin auf der Lager-Karte.
+  // Beide Behälter melden ihren Stand als Anteil — auf der Leiste über dem Abschnitt und als Zahl
+  // unter ihrem Bild. Die absoluten Zahlen sagten hier wenig: Zu handeln ist danach, wie voll sie
+  // sind, und die Grenze steht ohnehin auf ihrer eigenen Upgrade-Karte.
   const stockFill = percentage(state.stockGold, stockMax)
+  const vaultFill = percentage(state.vaultGold, treasureMax)
+  const vaultFull = state.vaultGold >= treasureMax - 0.001
   // Der Transport-Button zeigt ausschließlich die eigene Fuhre. Die Fuhrknechte fahren jeder für
   // sich und melden sich über ihre eigenen Goldhaufen, nicht über diesen einen Balken.
   const playerTravelling = state.playerTrip !== null
@@ -762,9 +789,6 @@ function App() {
   const restProgress = resting
     ? percentage(EXHAUSTION_BREAK_MS - ((state.exhaustedUntil ?? now) - now), EXHAUSTION_BREAK_MS)
     : 0
-
-  const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.key.startsWith(UPGRADE_FILTER_PREFIX[filter]))
-  const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
 
   const handleTap = () => {
     if (playerBusy || stockFull || exhausted) return
@@ -846,7 +870,9 @@ function App() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- wie oben: `upgradeLevelKey` deckt alles ab.
   const upgradeGroups = useMemo(() => getUpgradeGroups(state, panel.filter), [upgradeLevelKey, panel.filter])
-  const dockNoticeCount = unseenFor('all').length
+  // Der Dock-Button meldet alles Ungesehene, egal in welchem Reiter — er ist der Weg ins Sheet,
+  // wenn man nicht schon weiß, wohin.
+  const dockNoticeCount = affordable.filter(isUnseen).length
 
   return (
     <div className="app-shell">
@@ -864,9 +890,10 @@ function App() {
               <SectionAside
                 panelRef={vaultPanelRef}
                 icon={<PixelSprite family="vault" level={state.vaultLevel} />}
-                capacity={formatFullGold(treasureMax)}
-                label={`Schatztruhe, Kapazität ${formatFullGold(treasureMax)}: Ausrüstung ausbauen`}
-                onOpen={openEquipment}
+                fill={vaultFill}
+                full={vaultFull}
+                label={`Schatztruhe, ${formatPercent(vaultFill, vaultFull)} gefüllt: Truhe ausbauen`}
+                onOpen={() => openSection('vault')}
               />
               <div className="section-center">
                 <button
@@ -880,7 +907,7 @@ function App() {
                   <ActionLabel>Bewachen</ActionLabel>
                 </button>
               </div>
-              <SlotGrid section="vault" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('vault', index)} />
+              <SlotGrid section="vault" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenSlotsFor('guards') > 0} noticeCount={unseenSlotsFor('guards')} onOpen={(index) => openSlotUpgrades('vault', index)} />
             </div>
           </article>
 
@@ -890,9 +917,10 @@ function App() {
               <SectionAside
                 panelRef={stockPanelRef}
                 icon={<PixelSprite family="stock" level={state.stockLevel} />}
-                capacity={formatFullGold(stockMax)}
-                label={`Lager, Kapazität ${formatFullGold(stockMax)}: Ausrüstung ausbauen`}
-                onOpen={openEquipment}
+                fill={stockFill}
+                full={stockFull}
+                label={`Lager, ${formatPercent(stockFill, stockFull)} gefüllt: Lager ausbauen`}
+                onOpen={() => openSection('stock')}
               />
               <div className="section-center">
                 <button
@@ -907,16 +935,16 @@ function App() {
                   <ActionLabel>Transportieren</ActionLabel>
                 </button>
               </div>
-              <SlotGrid section="stock" levels={state.transporterLevels} family="transport" panelRef={stockSlotsRef} notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('stock', index)} />
+              <SlotGrid section="stock" levels={state.transporterLevels} family="transport" panelRef={stockSlotsRef} notifying={upgradeNoticePulsing && unseenSlotsFor('transporters') > 0} noticeCount={unseenSlotsFor('transporters')} onOpen={(index) => openSlotUpgrades('stock', index)} />
             </div>
           </article>
 
           <article className="game-section game-section--mine">
             <SectionMeter fill={state.exhaustion} label="Mine" value={`${Math.round(state.exhaustion)}%`} marker="exhaustion" />
             <div className="section-layout">
-              {/* Die Mine hat keinen Behälter und darum auch keine Zahlen unter ihrem Bild: Was hier
+              {/* Die Mine hat keinen Behälter und darum auch keine Zahl unter ihrem Bild: Was hier
                   entsteht, liegt eine Sekunde später im Lager. */}
-              <SectionAside icon={<SceneIcon name="goldmine" />} label="Goldmine: Ausrüstung ausbauen" onOpen={openEquipment} />
+              <SectionAside icon={<SceneIcon name="goldmine" />} label="Goldmine: Mine ausbauen" onOpen={() => openSection('mine')} />
               <div className="section-center">
                 <button
                   ref={mineButtonRef}
@@ -930,7 +958,7 @@ function App() {
                   <ActionLabel>Graben</ActionLabel>
                 </button>
               </div>
-              <SlotGrid section="mine" levels={state.minerLevels} family="miner" panelRef={mineSlotsRef} notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
+              <SlotGrid section="mine" levels={state.minerLevels} family="miner" panelRef={mineSlotsRef} notifying={upgradeNoticePulsing && unseenSlotsFor('miners') > 0} noticeCount={unseenSlotsFor('miners')} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
           </article>
 
@@ -968,7 +996,7 @@ function App() {
           </button>
           <button
             className={`dock-button ${panel.open ? 'is-active' : ''} ${upgradeNoticePulsing && dockNoticeCount > 0 ? 'is-notifying' : ''}`}
-            onClick={() => (panel.open ? closeUpgrades() : openUpgrades('all'))}
+            onClick={() => (panel.open ? closeUpgrades() : openUpgrades(DEFAULT_UPGRADE_FILTER))}
             aria-expanded={panel.open}
             aria-label={dockNoticeCount > 0 ? `Ausbau öffnen, ${dockNoticeCount} kaufbare Upgrades` : 'Ausbau öffnen'}
           >
@@ -990,8 +1018,8 @@ function App() {
           </div>
           <div className="sheet-filters" role="tablist" aria-label="Upgrade-Typ filtern">
             {UPGRADE_FILTERS.map((filter) => {
-              // Der Punkt meldet nur noch ungesehene Angebote; „Alle“ bekommt gar keinen.
-              const pending = filter === 'all' ? 0 : unseenFor(filter).length
+              // Der Punkt meldet nur noch ungesehene Angebote.
+              const pending = unseenFor(filter).length
               return (
                 <button
                   key={filter}
@@ -1010,9 +1038,10 @@ function App() {
         </header>
         <div className="sheet-content" ref={sheetContentRef}>
           {upgradeGroups.map((group) => (
-            <section key={group.category} className="upgrade-group">
-              {/* Der Titel steht jetzt auch im gefilterten Sheet, weil der Hinweis darunter hängt:
-                  Er gilt für alle vier Karten der Gruppe und stand vorher auf jeder einzeln. */}
+            <section key={group.key} className="upgrade-group">
+              {/* Der Titel trennt Behälter und Angestellte innerhalb eines Reiters und trägt den
+                  Hinweis darunter: Er gilt für alle vier Karten der Gruppe und stand vorher auf
+                  jeder einzeln. */}
               <h3 className="upgrade-group__title">{group.label}</h3>
               {group.hint && <p className="upgrade-group__hint">{group.hint}</p>}
               <div className="upgrade-list">
