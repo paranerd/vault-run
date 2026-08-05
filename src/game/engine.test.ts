@@ -29,6 +29,7 @@ import {
   transporterTripSeconds,
   riskGrowth,
   guardSight,
+  guardSpeed,
   guardRate,
   minerRate,
   minerYield,
@@ -40,6 +41,7 @@ import {
   tapValue,
   transporterCapacity,
   transporterRate,
+  transporterSpeed,
   UPGRADE_FILTERS,
   vaultCapacity,
   withSlotLevel,
@@ -722,16 +724,16 @@ describe('Vault Run engine', () => {
   })
 
   // Die Wachen-Karte nennt die Punkte, die der Trupp je Sicherung zusätzlich abträgt — dieselbe
-  // Einheit, in der die Risikokachel steigt. Der Takt gehört ebenfalls der einzelnen Wache; nur
+  // Einheit, in der die Risikokachel steigt. Das Tempo gehört ebenfalls der einzelnen Wache; nur
   // die Kraft wirkt erst als Summe und trägt ihre Erklärung darum im Gruppenhinweis.
   it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
-    // Sichtweite, Dauer und Kraft — was eine Sicherung abträgt, wie lange die Wache bis zur
-    // nächsten braucht und was sie beiträgt, wenn die Diebe doch durchkommen.
+    // Sichtweite, Geschwindigkeit und Kraft — was eine Sicherung abträgt, wie schnell die Wache
+    // ihre Runde geht und was sie beiträgt, wenn die Diebe doch durchkommen.
     expect(getSlotUpgrades(state, 'vault')[0].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: '' },
       { from: '–', to: `${guardSight(1)}`, label: 'Sichtweite' },
-      { from: '–', to: `${formatDecimal(guardInterval(1))}`, label: 'Dauer' },
+      { from: '–', to: `${formatDecimal(guardSpeed(1))}`, label: 'Geschwindigkeit' },
       { from: '–', to: `${guardMight(1)}`, label: 'Kraft' },
     ])
 
@@ -740,12 +742,12 @@ describe('Vault Run engine', () => {
     expect(getSlotUpgrades(guarded, 'vault')[0].facts).toEqual(getSlotUpgrades(state, 'vault')[0].facts)
   })
 
-  // Ein Fuhrknecht nennt, was er trägt und wie lange er dafür braucht — nicht den Quotienten.
-  it('describes a transporter by its load and its travel time', () => {
+  // Ein Fuhrknecht nennt, was er trägt und wie schnell er läuft — nicht den Quotienten.
+  it('describes a transporter by its load and its speed', () => {
     const state = createInitialState(0)
     const [, load, travel] = getSlotUpgrades(state, 'stock')[0].facts
     expect(load).toEqual({ from: '–', to: formatGold(transporterCapacity(1)), label: 'Ladung' })
-    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterTripSeconds(1)), label: 'Dauer' })
+    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterSpeed(1)), label: 'Geschwindigkeit' })
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
     expect(getSlotUpgrades(staffed, 'stock')[0].facts[1]).toEqual({
@@ -1029,65 +1031,44 @@ describe('Ausrüstung des Spielers', () => {
     expect(walks.every((seconds, index) => index === 0 || seconds < walks[index - 1])).toBe(true)
   })
 
-  // Ein größerer Beutel bringt mehr pro Weg und macht denselben Weg zäher. Beides muss auf der
-  // Karte stehen — die zweite Zeile wächst und ist trotzdem der Preis. Unterm Strich lohnt sich der
-  // Kauf weiterhin: Die Ladung wächst schneller als der Weg.
-  it('pays for a heavier bag with a longer trip and still comes out ahead', () => {
-    // Lager groß genug, damit der Deckel nicht mitspielt.
-    const bags = [0, 1, 2, 3, 4].map((packLevel) => withLevels({ packLevel, stockLevel: 9 }))
-    const trips = bags.map(manualTripSeconds)
-    const throughput = bags.map((state) => packCargo(state) / manualTripSeconds(state))
+  // Dieselbe Beschriftung heißt dieselbe Skala — das gilt seit jeher für die **Sichtweite** von
+  // Lampe und Wache und jetzt auch für die **Geschwindigkeit** von Stiefeln, Fuhrknecht und Wache.
+  // Alle drei messen an derselben Standardstrecke: Wer sie in zwölf Sekunden zurücklegt, hat
+  // Tempo 1. Damit ist die Zahl auf der Stiefelkarte gegen die auf der Fuhrknecht-Karte lesbar,
+  // ohne dass man wüsste, wie lang die Wege sind.
+  it('measures every speed against the same standard route', () => {
+    const bare = createInitialState(0)
+    expect(bootsPace(bare)).toBe(1)
+    expect(transporterSpeed(1)).toBe(1)
+    expect(guardSpeed(1)).toBe(1)
 
-    expect(trips.every((seconds, index) => index === 0 || seconds > trips[index - 1])).toBe(true)
-    expect(throughput.every((rate, index) => index === 0 || rate > throughput[index - 1])).toBe(true)
-    // Rund 30 % Zuwachs je Stufe — der Beutel trägt anderthalbmal so viel, der Weg wächst weniger.
-    for (let index = 1; index < throughput.length; index += 1) {
-      expect(throughput[index] / throughput[index - 1]).toBeCloseTo(1.3, 1)
+    // Und Tempo 1 heißt überall dasselbe: zwölf Sekunden für die volle Strecke.
+    expect(manualTripSeconds(bare)).toBe(12)
+    expect(transporterTripSeconds(1)).toBe(12)
+    expect(guardInterval(1)).toBe(12)
+
+    // Der Wachgang des Spielers ist kein schnellerer Weg, sondern ein kürzerer: Er späht um die
+    // Truhe, statt sie zu umrunden. Sein Tempo ist dasselbe.
+    expect(manualSecureSeconds(bare)).toBeLessThan(guardInterval(1))
+  })
+
+  // Jede der drei Geschwindigkeiten wächst mit der Stufe, und jede Dauer ist die Strecke geteilt
+  // durch sie. Steht eine Zahl am Boden still, tut es die andere auch.
+  it('turns every rising speed into a falling duration', () => {
+    const levels = [1, 2, 3, 4, 5, 6]
+    for (const speeds of [levels.map(transporterSpeed), levels.map(guardSpeed)]) {
+      expect(speeds.every((speed, index) => index === 0 || speed > speeds[index - 1])).toBe(true)
     }
+    const trips = levels.map(transporterTripSeconds)
+    const rounds = levels.map(guardInterval)
+    expect(trips.every((seconds, index) => index === 0 || seconds < trips[index - 1])).toBe(true)
+    expect(rounds.every((seconds, index) => index === 0 || seconds < rounds[index - 1])).toBe(true)
 
-    const card = getEquipmentUpgrade(bags[1], 'pack')
-    expect(card.facts.map((entry) => entry.label)).toEqual(['', 'Ladung', 'Dauer Fuhre'])
-  })
-
-  // Das Gewicht hängt an der geschulterten Ladung, nicht an der Beutelstufe. Sonst wäre ein Beutel
-  // über der Lagergröße ein rein schädlicher Kauf: mehr Weg für dieselbe Ladung. So stehen beide
-  // Zeilen der Karte still und sagen gemeinsam, dass zuerst das Lager wachsen muss.
-  it('stops charging for bag levels the stockpile cannot fill', () => {
-    const capped = withLevels({ packLevel: 2, stockLevel: 0 })
-    const bigger = withLevels({ packLevel: 4, stockLevel: 0 })
-
-    expect(packCargo(bigger)).toBe(packCargo(capped))
-    expect(manualTripSeconds(bigger)).toBe(manualTripSeconds(capped))
-
-    const [, load, walk] = getEquipmentUpgrade(capped, 'pack').facts
-    expect(load.to).toBe(load.from)
-    expect(walk.to).toBe(walk.from)
-  })
-
-  // Der Wachgang ist die Runde **um** die Truhe: Ein Drachenhort lässt sich nicht in derselben Zeit
-  // ablaufen wie eine morsche Holzkiste. Das ist die zweite, sichtbare Kehrseite des Truhenausbaus
-  // neben dem Risiko-Faktor — und der Grund, warum die Stiefel bis zuletzt etwas tun.
-  it('walks a longer round around a bigger chest', () => {
-    const chests = [0, 1, 2, 3, 5].map((vaultLevel) => withLevels({ vaultLevel }))
-    const walks = chests.map(manualSecureSeconds)
-    expect(walks.every((seconds, index) => index === 0 || seconds > walks[index - 1])).toBe(true)
-
-    const card = getEquipmentUpgrade(chests[0], 'vault')
-    expect(card.facts.map((entry) => entry.label)).toEqual(['', 'Kapazität', 'Dauer Wachgang'])
-
-    // Und die Stiefel holen es zurück: Dieselbe Truhe, bessere Stiefel, kürzerer Weg.
-    const shod = withLevels({ vaultLevel: 5, bootsLevel: 6 })
-    expect(manualSecureSeconds(shod)).toBeLessThan(manualSecureSeconds(withLevels({ vaultLevel: 5 })))
-  })
-
-  // Ohne mitwachsenden Weg erreicht der Wachgang seinen Boden bei Stiefelstufe 9 — von da an wirkte
-  // die Hälfte der Stiefel auf nichts mehr. Mit der Truhe wandert der Boden mit.
-  it('moves the securing floor out of reach as the chest grows', () => {
-    expect(manualSecureSeconds(withLevels({ bootsLevel: 9 }))).toBe(MANUAL_SECURE_FLOOR_SECONDS)
-    expect(manualSecureSeconds(withLevels({ bootsLevel: 9, vaultLevel: 5 }))).toBeGreaterThan(MANUAL_SECURE_FLOOR_SECONDS)
-    // Dort trägt die nächste Stiefelstufe also wieder etwas ein.
-    expect(manualSecureSeconds(withLevels({ bootsLevel: 10, vaultLevel: 5 })))
-      .toBeLessThan(manualSecureSeconds(withLevels({ bootsLevel: 9, vaultLevel: 5 })))
+    // Am Boden von einer Sekunde steht beides still — die Karte verspricht dort nichts mehr.
+    expect(transporterTripSeconds(80)).toBe(MIN_CYCLE_SECONDS)
+    expect(transporterSpeed(80)).toBe(transporterSpeed(81))
+    expect(guardInterval(80)).toBe(MIN_CYCLE_SECONDS)
+    expect(guardSpeed(80)).toBe(guardSpeed(81))
   })
 
   // Kein Weg wird beliebig kurz: Die Fuhre liegt auf demselben Boden wie jeder andere Takt, der
