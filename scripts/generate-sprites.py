@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Erzeugt die Sprites für Stiefel, Grubenlampe und Lager.
+"""Erzeugt die Sprites für Stiefel, Grubenlampe, Lager, die beiden Aktions-Icons und die Goldmine.
 
 PLATZHALTER. Die übrigen Reihen unter `public/sprites` sind gezeichnete 160x160-Bilder mit
 mehreren tausend Farben; was dieses Skript ausgibt, ist bewusst einfacher: ein 32x32-Raster in der
@@ -37,6 +37,10 @@ STONE_LIT = (0x84, 0x82, 0x79)
 WOOD = (0x6d, 0x42, 0x1e)
 WOOD_LIT = (0x93, 0x5e, 0x2c)
 GROUND = (0x3a, 0x2a, 0x1a)
+SKIN = (0xc2, 0x8c, 0x59)
+SKIN_LIT = (0xe0, 0xac, 0x74)
+CLOTH = (0x3f, 0x52, 0x6e)
+CLOTH_LIT = (0x5b, 0x72, 0x95)
 
 
 class Canvas:
@@ -46,6 +50,11 @@ class Canvas:
     def set(self, x, y, colour):
         if 0 <= x < GRID and 0 <= y < GRID and colour is not None:
             self.px[y][x] = colour
+
+    def clear(self, x, y):
+        """Nimmt einen Punkt wieder heraus — so bekommen gerundete Formen ihre Ecken zurück."""
+        if 0 <= x < GRID and 0 <= y < GRID:
+            self.px[y][x] = None
 
     def rect(self, x0, y0, x1, y1, colour):
         for y in range(y0, y1 + 1):
@@ -166,8 +175,105 @@ def stock(stage):
     return cv
 
 
+def action_guard():
+    """Platzhalter „Wache gehen": Wächter im Schritt, Speer geschultert, Laterne erhoben.
+
+    Anders als die Ausrüstungssprites kennt dieses Bild keine Stufen — der Wachgang wird nicht
+    ausgebaut, nur die Lampe, mit der er gegangen wird. Es steht auf dem Aktions-Button der Truhe
+    und zeigt deshalb die Handlung, nicht den Behälter.
+    """
+    cv = Canvas()
+    cv.rect(1, 29, 30, 30, GROUND)                                   # Boden
+    cv.outlined(8, 20, 11, 25, CLOTH, CLOTH_LIT)                     # hinteres Bein
+    cv.rect(6, 26, 11, 27, DARK)                                     # Stiefel hinten
+    cv.outlined(14, 20, 17, 26, CLOTH, CLOTH_LIT)                    # vorderes Bein im Schritt
+    cv.rect(14, 27, 20, 28, DARK)                                    # Stiefel vorn
+    cv.outlined(9, 12, 17, 19, CLOTH, CLOTH_LIT)                     # Rumpf
+    cv.rect(9, 18, 17, 19, LEATHER[2])                               # Gürtel
+    cv.rect(9, 18, 17, 18, LEATHER_LIT[2])
+    cv.outlined(11, 8, 17, 11, SKIN, SKIN_LIT)                       # Gesicht
+    cv.set(16, 9, LINE)                                              # Auge
+    cv.outlined(10, 4, 18, 7, IRON, IRON_LIT)                        # Helm
+    cv.rect(9, 7, 19, 7, IRON_LIT)                                   # Krempe
+    cv.rect(13, 2, 15, 3, BRASS_LIT)                                 # Helmbusch
+    cv.outlined(18, 13, 20, 14, SKIN, SKIN_LIT)                      # Arm zur Laterne
+    cv.rect(22, 12, 22, 16, IRON)                                    # Aufhängung
+    cv.rect(20, 12, 22, 12, IRON)
+    cv.outlined(19, 17, 25, 18, BRASS, BRASS_LIT)                    # Haube
+    cv.outlined(19, 19, 25, 24, GLASS[3], None)                      # Glas
+    cv.rect(21, 20, 23, 24, FLAME)                                   # Flamme
+    cv.rect(21, 21, 22, 23, FLAME_LIT)
+    cv.outlined(19, 25, 25, 26, BRASS, BRASS_LIT)                    # Fuß
+    for step in range(23):                                           # Speer quer über der Schulter
+        cv.set(2 + step, 28 - step, WOOD_LIT if step % 3 else WOOD)
+        cv.set(3 + step, 28 - step, WOOD)
+    cv.rect(24, 4, 25, 6, IRON_LIT)                                  # Speerspitze
+    cv.set(25, 3, IRON_LIT)
+    return cv
+
+
+def action_transport():
+    """Platzhalter „Gold transportieren": praller Goldsack, dahinter ein Pfeil in Richtung Truhe."""
+    cv = Canvas()
+    cv.rect(1, 29, 30, 30, GROUND)
+    cv.outlined(3, 13, 17, 27, LEATHER[2], LEATHER_LIT[2])           # Sack
+    for corner in ((2, 12), (3, 12), (2, 13), (18, 12), (17, 12), (18, 13), (2, 28), (18, 28)):
+        cv.clear(*corner)                                            # gerundete Ecken
+    cv.outlined(7, 9, 13, 12, LEATHER[1], LEATHER_LIT[1])            # Hals
+    cv.rect(6, 11, 14, 11, DARK)                                     # Schnur
+    cv.rect(8, 6, 12, 8, GOLD)                                       # Münzen im offenen Hals
+    cv.rect(8, 6, 11, 7, GOLD_LIT)
+    cv.rect(9, 5, 11, 6, GOLD_HI)
+    cv.rect(5, 19, 15, 21, GOLD)                                     # Goldband auf dem Bauch
+    cv.rect(6, 20, 14, 20, GOLD_LIT)
+    def arrow(colour, grow):                                         # Pfeil Richtung Truhe
+        cv.rect(19, 17 - grow, 24, 19 + grow, colour)                # Schaft
+        for step in range(5 + grow):                                 # Spitze
+            cv.rect(24 + step, 14 + step - grow, 24 + step, 22 - step + grow, colour)
+
+    arrow(LINE, 1)                                                   # Kontur wie bei jedem Sprite
+    arrow(GOLD_LIT, 0)
+    cv.rect(19, 17, 23, 17, GOLD_HI)
+    return cv
+
+
+def goldmine():
+    """Platzhalter „Goldmine": Berg mit gezimmertem Stolleneingang, Goldadern und Schienen.
+
+    Steht links im Minen-Abschnitt an der Stelle, an der vorher die Förderrate stand — der Ort
+    statt seiner Kennzahl, wie Truhe und Lager auch ihr eigenes Bild tragen.
+    """
+    cv = Canvas()
+    cv.rect(0, 28, 31, 31, GROUND)
+    for row in range(20):                                            # Berg als Stufenkegel
+        y = 8 + row
+        half = min(15, 2 + row)
+        cv.rect(16 - half, y, 15 + half, y, STONE if row % 2 else STONE_LIT)
+        cv.set(15 - half, y, LINE)
+        cv.set(16 + half, y, LINE)
+    cv.rect(14, 7, 17, 7, LINE)                                      # Gipfelkante
+    for vein, (x, y) in enumerate(((6, 24), (24, 22), (9, 18), (22, 26), (12, 13))):
+        cv.rect(x, y, x + 1, y, GOLD_LIT if vein % 2 else GOLD)      # Goldadern im Fels
+        cv.set(x + 2, y + 1, GOLD_HI)
+    cv.rect(11, 18, 20, 27, DARK)                                    # Stollen
+    cv.rect(12, 17, 19, 17, DARK)
+    cv.outlined(10, 16, 10, 27, WOOD, WOOD_LIT)                      # linker Pfosten
+    cv.outlined(21, 16, 21, 27, WOOD, WOOD_LIT)                      # rechter Pfosten
+    cv.outlined(10, 14, 21, 15, WOOD, WOOD_LIT)                      # Sturz
+    for x in range(12, 20, 3):                                       # Schwellen der Schiene
+        cv.rect(x, 27, x + 1, 27, WOOD)
+    cv.rect(13, 26, 13, 28, IRON_LIT)                                # Schienen
+    cv.rect(18, 26, 18, 28, IRON_LIT)
+    cv.rect(14, 24, 17, 25, GOLD)                                    # Gold im dunklen Stollen
+    cv.rect(15, 24, 16, 24, GOLD_HI)
+    return cv
+
+
 for index in range(4):
     boots(index).write(f'boots-{index}')
     lamp(index).write(f'lamp-{index}')
     stock(index).write(f'stock-{index}')
-print(f'12 Platzhalter-Sprites nach {OUT} geschrieben.')
+action_guard().write('action-guard')
+action_transport().write('action-transport')
+goldmine().write('goldmine')
+print(f'15 Platzhalter-Sprites nach {OUT} geschrieben.')

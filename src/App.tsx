@@ -6,7 +6,6 @@ import {
   Clock3,
   Download,
   RotateCcw,
-  ShieldAlert,
   Settings,
   Vibrate,
   VibrateOff,
@@ -14,9 +13,10 @@ import {
   VolumeX,
 } from 'lucide-react'
 import {
+  EXHAUSTION_BREAK_MS,
   GOLD_FLIGHT_DURATION_MS,
   SECTION_LABEL,
-  lampPower,
+  lampSight,
   packCargo,
   METER_ALERT,
   METER_WARNING,
@@ -25,14 +25,11 @@ import {
   UPGRADE_FILTERS,
   UPGRADE_FILTER_LABEL,
   UPGRADE_FILTER_PREFIX,
-  automaticTransportRate,
   stockCapacity,
   getAllUpgrades,
   getUpgradeGroups,
   minerInterval,
   minerYield,
-  passiveRate,
-  securityLoss,
   slotVisualLevel,
   tapValue,
   vaultCapacity,
@@ -48,7 +45,7 @@ import {
   startTransport,
   tap,
 } from './game/engine'
-import { formatDecimal, formatDuration, formatGold, formatInteger } from './game/format'
+import { formatDuration, formatGold, formatInteger } from './game/format'
 import { loadGame, resetGame, saveGame } from './game/storage'
 import type { GameEvent, GameState, SectionId, SlotIndex, UpgradeFilter, UpgradeView } from './game/types'
 
@@ -61,12 +58,6 @@ interface UpgradePanelState {
 /** Das Sheet bleibt dauerhaft montiert, damit es beim ersten Öffnen einen Startzustand
     zum Herüberblenden hat und beim Schließen nach unten ausfahren kann. */
 const CLOSED_PANEL: UpgradePanelState = { filter: 'all', open: false }
-
-/** Fenster, über das die aktive Schürfrate gemittelt wird; danach ebbt sie von selbst ab. */
-const TAP_RATE_WINDOW_MS = 3_000
-/** Dasselbe für selbst ausgelöste Fuhren. Entspricht der Basis-Reisedauer, sodass lückenlos
-    hintereinander gestartete Reisen die tatsächlich erreichbare Rate ergeben. */
-const TRIP_RATE_WINDOW_MS = 12_000
 
 /** Standzeit einer eingeblendeten Warnung; höchstens `MAX_ALERTS` liegen gleichzeitig an. */
 const ALERT_LIFETIME_MS = 3_600
@@ -167,6 +158,16 @@ function spriteStage(level: number, maximum = 3) {
 function PixelSprite({ family, level, className = '' }: { family: UpgradeView['spriteFamily']; level: number; className?: string }) {
   const maximum = family === 'security' ? 4 : 3
   return <img className={`pixel-sprite ${className}`} src={`${SPRITE_ROOT}/${family}-${spriteStage(level, maximum)}.png`} alt="" aria-hidden="true" draggable={false} />
+}
+
+/** Bilder ohne Ausbaustufen: die drei Handlungen auf den Aktions-Buttons und der Ort, für den ein
+    Abschnitt steht. Sie kennen keine Stufe, weil sich an ihnen nichts ausbauen lässt — der Wachgang
+    bleibt ein Wachgang, die Goldmine bleibt die Goldmine.
+    `guard` und `transport` sind bewusst Platzhalter, bis gezeichnete Sprites vorliegen. */
+type SceneIconName = 'action-guard' | 'action-transport' | 'goldmine'
+
+function SceneIcon({ name, className = '' }: { name: SceneIconName; className?: string }) {
+  return <img className={`pixel-sprite ${className}`} src={`${SPRITE_ROOT}/${name}.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
 function PixelCoin({ className = '' }: { className?: string }) {
@@ -272,11 +273,23 @@ const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: numb
   )
 })
 
-function StatTile({ label, value, icon, tone }: { label?: string; value?: string; icon?: ReactNode; tone?: 'warning' | 'alert' }) {
+/** Die linke Spalte eines Abschnitts: das Bild dessen, worum es hier geht, und darunter sein Stand.
+    Bis eben standen dort Raten — Gold je Sekunde in Mine und Lager, der Verlustanteil in der Truhe.
+    Sie beschrieben den Durchsatz des Reiches, nicht den Ort, an dem der Spieler steht; was ihn zum
+    Handeln bringt, ist der Füllstand, und der steht jetzt hier: Truhe und Lager nennen ihre
+    Kapazität und darunter, wie viel davon belegt ist. Das Bild trägt keine Kachel mehr — es steht
+    frei im Abschnitt, wie die Sprites in der Szene auch. */
+function SectionAside({ icon, facts }: { icon: ReactNode; facts?: readonly [string, string][] }) {
   return (
-    <div className={`stat-tile ${label ? '' : 'is-empty'} ${tone ? `is-${tone}` : ''}`} aria-hidden={!label || undefined}>
-      {icon && <span className="stat-tile__icon">{icon}</span>}
-      {label ? <><strong>{value}</strong><span>{label}</span></> : <span>·</span>}
+    <div className={`section-aside ${facts ? '' : 'section-aside--plain'}`}>
+      {icon}
+      {facts && (
+        <dl className="section-aside__facts">
+          {facts.map(([label, value]) => (
+            <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+          ))}
+        </dl>
+      )}
     </div>
   )
 }
@@ -430,8 +443,6 @@ function App() {
   })
   const sceneRef = useRef<HTMLDivElement>(null)
   const sheetContentRef = useRef<HTMLDivElement>(null)
-  const recentTaps = useRef<number[]>([])
-  const recentTrips = useRef<{ at: number; amount: number }[]>([])
   const stockButtonRef = useRef<HTMLButtonElement>(null)
   const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
@@ -699,13 +710,15 @@ function App() {
   const chestRevealed = state.tripCount > 0 || state.vaultGold > 0 || reservedGold > 0
 
   // Der Spieler ist eine Person: Läuft eine seiner drei Aktionen, sind die beiden anderen gesperrt.
-  // Alle drei Buttons zeigen dann denselben Fortschritt — den der Aktion, die ihn gerade belegt.
-  // Ohne diese Rückmeldung stünden zwei Buttons grundlos tot da, während der dritte sich füllt.
+  // Den Fortschritt zeigt aber nur der Button, der die Aktion ausgelöst hat — die beiden anderen
+  // sind schlicht ausgegraut. Vorher füllten sich alle drei gleichzeitig: Das las sich, als liefen
+  // drei Dinge parallel, und verschwieg dabei genau die eine Information, auf die es ankommt —
+  // welche Aktion den Spieler gerade bindet. Ein ausgegrauter Button sagt „jetzt nicht“, und der
+  // eine laufende sagt, warum.
   const playerBusy = isPlayerBusy(state)
-  const busyProgress = playerTravelling ? playerTransportProgress : secureProgress
-  const busyLabel = playerTravelling
-    ? `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent`
-    : `Wird gesichert: ${Math.round(secureProgress)} Prozent`
+  const transportLabel = `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent`
+  const secureLabel = `Wachgang: ${Math.round(secureProgress)} Prozent`
+  const blockedLabel = playerTravelling ? 'Gesperrt, du bist mit der Fuhre unterwegs' : 'Gesperrt, du gehst gerade Wache'
   const canTransport = !playerBusy && state.stockGold > 0 && state.vaultGold + reservedGold < treasureMax
   const canSecure = chestRevealed && state.threat > 0 && !playerBusy
 
@@ -716,29 +729,19 @@ function App() {
   const risk = Math.min(100, state.threat)
   const riskAlarming = chestRevealed && risk >= RISK_ALERT && !playerBusy
   const exhausted = state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)
-
-  // Gesamtförderung: passive Bergleute plus die über ein gleitendes Fenster gemittelten Klicks.
-  // Die Kachel misst das Reich, nicht die Hände des Spielers: Sie steht nur still, wenn der volle
-  // Lager niemanden mehr fördern lässt. Was der Spieler von Hand tut, bindet ihn, nicht seine
-  // Angestellten — die fördern durch seine Fuhre und seine Sicherung hindurch.
-  const miningPaused = stockFull
-  const tapsPerSecond = recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS).length / (TAP_RATE_WINDOW_MS / 1_000)
-  const miningRate = miningPaused ? 0 : passiveRate(state) + tapsPerSecond * tapValue(state)
-
-  // Transportrate nach demselben Muster: automatischer Dauerdurchsatz plus die selbst
-  // ausgelösten Fuhren im Zeitfenster. Ohne Automatik und ohne Klicks steht sie auf 0.
-  const manualTripGold = recentTrips.current
-    .filter((trip) => now - trip.at < TRIP_RATE_WINDOW_MS)
-    .reduce((total, trip) => total + trip.amount, 0)
-  const vaultFull = state.vaultGold + reservedGold >= treasureMax - 0.001
-  const transportRate = vaultFull ? 0 : automaticTransportRate(state) + manualTripGold / (TRIP_RATE_WINDOW_MS / 1_000)
+  // Die Zwangspause bei voller Leiste ist der Cooldown der Mine und läuft deshalb auf ihrem eigenen
+  // Button ab, wie Fuhre und Wachgang auf ihren. Bei einer Dreiviertelsekunde war dafür kein Platz;
+  // über vier Sekunden ist die Füllung die Antwort auf die Frage „wie lange noch?“.
+  const resting = state.exhaustedUntil !== null && now < state.exhaustedUntil
+  const restProgress = resting
+    ? percentage(EXHAUSTION_BREAK_MS - ((state.exhaustedUntil ?? now) - now), EXHAUSTION_BREAK_MS)
+    : 0
 
   const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.key.startsWith(UPGRADE_FILTER_PREFIX[filter]))
   const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter((upgrade) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`))
 
   const handleTap = () => {
     if (playerBusy || stockFull || exhausted) return
-    recentTaps.current = [...recentTaps.current.filter((at) => now - at < TAP_RATE_WINDOW_MS), now]
     const earned = Math.min(tapValue(state), Math.max(0, stockMax - state.stockGold))
     setState((current) => tap(current, now))
     launchGold(earned, 'coin')
@@ -751,7 +754,6 @@ function App() {
     const next = startTransport(state, Date.now())
     const payload = next.playerTrip?.gold ?? 0
     if (payload <= 0) return
-    recentTrips.current = [...recentTrips.current.filter((trip) => now - trip.at < TRIP_RATE_WINDOW_MS), { at: now, amount: payload }]
     setState(next)
     playTone('trip', sound)
     haptic(haptics, 18)
@@ -831,21 +833,26 @@ function App() {
           <article className="game-section game-section--vault">
             <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
             <div className="section-layout">
-              <div className="stats-grid stats-grid--single" aria-label="Truhenwerte">
-                <StatTile label="Verlust / Diebstahl" value={`${formatDecimal(securityLoss(state) * 100)}%`} icon={<ShieldAlert aria-hidden="true" />} />
-              </div>
+              {/* Die Truhe selbst steht jetzt links mit ihrem Fassungsvermögen und ihrem Inhalt —
+                  der Button daneben zeigt die Handlung, nicht mehr den Behälter. */}
+              <SectionAside
+                icon={<PixelSprite family="vault" level={state.vaultLevel} />}
+                facts={[['Kapazität', formatFullGold(treasureMax)], ['Füllstand', formatFullGold(state.vaultGold)]]}
+              />
               <div className="section-center">
                 <button
                   ref={chestButtonRef}
-                  className={`section-action section-action--vault ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${playerBusy ? 'is-progressing' : ''} ${riskAlarming ? 'is-alarming' : ''} ${guardPulse ? 'is-secured' : ''}`}
+                  className={`section-action section-action--vault ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''} ${playerTravelling ? 'is-blocked' : ''} ${riskAlarming ? 'is-alarming' : ''} ${guardPulse ? 'is-secured' : ''}`}
                   disabled={!canSecure}
                   onClick={handleSecure}
-                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : playerBusy ? busyLabel : `Risiko um ${lampPower(state)} senken, aktuell ${Math.round(risk)} Prozent`}
+                  aria-label={!chestRevealed ? 'Schatztruhe noch nicht erreicht' : securing ? secureLabel : playerTravelling ? blockedLabel : `Wache gehen und Risiko um ${lampSight(state)} senken, aktuell ${Math.round(risk)} Prozent`}
                 >
-                  {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
-                  <PixelSprite family="vault" level={state.vaultLevel} />
+                  {securing && <i className="section-action__progress" style={{ height: `${secureProgress}%` }} aria-hidden="true" />}
+                  <SceneIcon name="action-guard" />
                 </button>
-                <SectionCaption label="Kapazität">{formatFullGold(treasureMax)}</SectionCaption>
+                {/* Was ein Wachgang abträgt — die Sichtweite der Grubenlampe. Die Kapazität stand
+                    hier, solange der Button die Truhe zeigte; sie steht jetzt links bei ihr. */}
+                <SectionCaption label="Sichtweite">{formatInteger(lampSight(state))}</SectionCaption>
               </div>
               <SlotGrid section="vault" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('vault', index)} />
             </div>
@@ -854,13 +861,20 @@ function App() {
           <article className="game-section game-section--stock">
             <SectionMeter fill={stockFill} label="Lager" value={`${Math.round(stockFill)}%`} marker="gold" />
             <div className="section-layout">
-              <div className="stats-grid stats-grid--single" aria-label="Lagerwerte">
-                <StatTile label="Gold / Sek." value={formatGold(Math.round(transportRate))} />
-              </div>
+              <SectionAside
+                icon={<PixelSprite family="stock" level={state.stockLevel} />}
+                facts={[['Kapazität', formatFullGold(stockMax)], ['Füllstand', formatFullGold(state.stockGold)]]}
+              />
               <div className="section-center">
-                <button ref={stockButtonRef} className={`section-action ${playerBusy ? 'is-progressing' : ''} ${stockFull && canTransport ? 'is-full' : ''}`} disabled={!canTransport} onClick={handleTransport} aria-label={playerBusy ? busyLabel : `Gold zur Schatztruhe transportieren: ${formatGold(packCargo(state))}`}>
-                  {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
-                  <PixelSprite family="pack" level={state.packLevel} />
+                <button
+                  ref={stockButtonRef}
+                  className={`section-action ${playerTravelling ? 'is-progressing' : ''} ${securing ? 'is-blocked' : ''} ${stockFull && canTransport ? 'is-full' : ''}`}
+                  disabled={!canTransport}
+                  onClick={handleTransport}
+                  aria-label={playerTravelling ? transportLabel : securing ? blockedLabel : `Gold zur Schatztruhe transportieren: ${formatGold(packCargo(state))}`}
+                >
+                  {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
+                  <SceneIcon name="action-transport" />
                 </button>
                 {/* Die Zahl, auf die man hier handelt, ist die eigene Ladung — wie in der Mine die
                     Fördermenge des eigenen Schlages. Die Kapazität des Lagers steht als Füllstand
@@ -874,12 +888,18 @@ function App() {
           <article className="game-section game-section--mine">
             <SectionMeter fill={state.exhaustion} label="Mine" value={`${Math.round(state.exhaustion)}%`} marker="exhaustion" />
             <div className="section-layout">
-              <div className="stats-grid stats-grid--single" aria-label="Minenwerte">
-                <StatTile label="Gold / Sek." value={formatGold(Math.round(miningRate))} />
-              </div>
+              {/* Die Mine hat keinen Behälter und darum auch keine Zahlen unter ihrem Bild: Was hier
+                  entsteht, liegt eine Sekunde später im Lager. */}
+              <SectionAside icon={<SceneIcon name="goldmine" />} />
               <div className="section-center">
-                <button ref={mineButtonRef} className={`section-action ${playerBusy ? 'is-progressing' : ''} ${exhausted ? 'is-exhausted' : ''}`} disabled={playerBusy || stockFull || exhausted} onClick={handleTap} aria-label={playerBusy ? busyLabel : exhausted ? 'Erschöpft: kurze Pause' : `Gold schürfen: ${formatGold(tapValue(state))}`}>
-                  {playerBusy && <i className="section-action__progress" style={{ height: `${busyProgress}%` }} aria-hidden="true" />}
+                <button
+                  ref={mineButtonRef}
+                  className={`section-action ${playerBusy ? 'is-blocked' : resting ? 'is-progressing' : ''} ${exhausted ? 'is-exhausted' : ''}`}
+                  disabled={playerBusy || stockFull || exhausted}
+                  onClick={handleTap}
+                  aria-label={playerBusy ? blockedLabel : resting ? `Erschöpft, Pause: ${Math.round(restProgress)} Prozent` : exhausted ? 'Erschöpft: kurze Pause' : `Gold schürfen: ${formatGold(tapValue(state))}`}
+                >
+                  {!playerBusy && resting && <i className="section-action__progress" style={{ height: `${restProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
                 </button>
                 <SectionCaption label="Fördermenge">+{formatFullGold(tapValue(state))}</SectionCaption>

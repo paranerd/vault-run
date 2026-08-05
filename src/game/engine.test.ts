@@ -5,7 +5,8 @@ import {
   OFFLINE_THEFT_SHARE,
   automaticTransportRate,
   getCategoryUpgrades,
-  lampPower,
+  lampSight,
+  LOSS_PER_MIGHT,
   MANUAL_SECURE_FLOOR_SECONDS,
   MIN_CYCLE_SECONDS,
   manualSecureSeconds,
@@ -16,6 +17,8 @@ import {
   exhaustionRecoveryRate,
   getAllUpgrades,
   guardInterval,
+  guardMight,
+  guardMightTotal,
   getEquipmentUpgrade,
   getSlotUpgrades,
   getUpgradeGroups,
@@ -23,7 +26,7 @@ import {
   passiveRate,
   transporterTripSeconds,
   riskGrowth,
-  guardPower,
+  guardSight,
   guardRate,
   minerRate,
   minerYield,
@@ -59,7 +62,7 @@ const START = createInitialState(0)
 const MANUAL_CARGO = packCargo(START)
 const MANUAL_TRIP_SECONDS = manualTripSeconds(START)
 const SECURE_COOLDOWN_MS = manualSecureSeconds(START) * 1_000
-const MANUAL_SECURE_AMOUNT = lampPower(START)
+const MANUAL_SECURE_AMOUNT = lampSight(START)
 
 /** Was `ticks` Takte eines Bergmanns im Beutel ergeben. In den Beutel gehen nur ganze Goldstücke;
     der Bruchteil bleibt am Fels liegen und geht in den nächsten Takt ein. Über die Takte hinweg
@@ -248,8 +251,14 @@ describe('Vault Run engine', () => {
     expect(state.stockGold).toBe(2)
   })
 
-  it('forces a short break only after exhaustion reaches 100 percent', () => {
+  it('forces a break only after exhaustion reaches 100 percent', () => {
     let state = createInitialState(0)
+    // Die Pause muss länger dauern als die Reaktion, die sie erzwingen soll — sonst tippt man
+    // durch sie hindurch, und der einzige Preis des Dauerschürfens kostet nichts. Nach oben
+    // begrenzt sie die Erholung selbst: Stehenbleiben darf nie länger dauern als Abkühlen.
+    expect(EXHAUSTION_BREAK_MS).toBeGreaterThanOrEqual(2_000)
+    expect(EXHAUSTION_BREAK_MS).toBeLessThanOrEqual((100 / exhaustionRecoveryRate(state)) * 1_000)
+
     const safeTaps = Math.floor(99 / exhaustionPerTap(state))
     for (let index = 0; index < safeTaps; index += 1) state = tap(state, 0)
 
@@ -404,7 +413,8 @@ describe('Vault Run engine', () => {
       expect(transporterTripSeconds(level + 1)).toBeLessThan(transporterTripSeconds(level))
       expect(transporterCapacity(level + 1)).toBeGreaterThan(transporterCapacity(level))
       expect(guardInterval(level + 1)).toBeLessThan(guardInterval(level))
-      expect(guardPower(level + 1)).toBeGreaterThan(guardPower(level))
+      expect(guardSight(level + 1)).toBeGreaterThan(guardSight(level))
+      expect(guardMight(level + 1)).toBeGreaterThan(guardMight(level))
     }
   })
 
@@ -490,7 +500,7 @@ describe('Vault Run engine', () => {
     // Beide Wachen takten für sich; nach dem Takt der ersten ist genau deren Beitrag abgetragen.
     const interval = guardInterval(1) * 1_000
     const ticked = advanceGame(guarded, interval + 10)
-    expect(ticked.threat).toBeCloseTo(60 - 2 * guardPower(1), 5)
+    expect(ticked.threat).toBeCloseTo(60 - 2 * guardSight(1), 5)
 
     // Und die Mine fördert während der Sicherung durch — stillgelegt wird sie nur ohne Wachen.
     // Der Bergmann steht auf Stufe 3, damit schon sein erster Takt ein ganzes Goldstück ergibt und
@@ -621,22 +631,33 @@ describe('Vault Run engine', () => {
     expect(returned.lastOfflineReport?.stolen ?? 0).toBeLessThanOrEqual(delivered * OFFLINE_THEFT_SHARE + 0.001)
   })
 
-  it('shrinks the raid loss through independently levelled guards', () => {
+  // Der Schadensdeckel hängt seit der dritten Wachen-Zeile an der **Kraft** des Trupps, nicht mehr
+  // an der Summe der Stufen: dieselbe Kurve, aber eine Zahl, die auf der Karte steht.
+  it('shrinks the raid loss through the might of the guards', () => {
     const state = createInitialState(0)
     const guarded = { ...state, guardLevels: [1, 1, 0, 0] as [number, number, number, number] }
     expect(securityLoss(guarded)).toBeLessThan(securityLoss(state))
+    expect(guardMightTotal(guarded)).toBe(guardMight(1) * 2)
+    expect(securityLoss(guarded)).toBeCloseTo(0.08 * LOSS_PER_MIGHT ** guardMightTotal(guarded), 9)
+
+    // Zwei Wachen auf Stufe 1 sind für den Deckel dasselbe wie eine auf Stufe 2: Kraft ist additiv
+    // und kennt keinen Trupp-Bonus, wie jede andere Größe einer Gruppe auch.
+    const levelled = { ...state, guardLevels: [2, 0, 0, 0] as [number, number, number, number] }
+    expect(securityLoss(levelled)).toBeCloseTo(securityLoss(guarded), 9)
   })
 
   // Die Wachen-Karte nennt die Punkte, die der Trupp je Sicherung zusätzlich abträgt — dieselbe
-  // Einheit, in der die Risikokachel steigt. Takt und Schadensdeckel gehören dem ganzen Trupp und
-  // stehen deshalb im Gruppenhinweis, nicht auf einer einzelnen Karte.
+  // Einheit, in der die Risikokachel steigt. Der Takt gehört ebenfalls der einzelnen Wache; nur
+  // die Kraft wirkt erst als Summe und trägt ihre Erklärung darum im Gruppenhinweis.
   it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
-    // Kraft und Dauer — was eine Sicherung abträgt und wie lange die Wache bis zur nächsten braucht.
+    // Sichtweite, Dauer und Kraft — was eine Sicherung abträgt, wie lange die Wache bis zur
+    // nächsten braucht und was sie beiträgt, wenn die Diebe doch durchkommen.
     expect(getSlotUpgrades(state, 'vault')[0].facts).toEqual([
       { from: 'Stufe 0', to: 'Stufe 1', label: 'Nachtwächter' },
-      { from: '–', to: `${guardPower(1)}`, label: 'Kraft' },
+      { from: '–', to: `${guardSight(1)}`, label: 'Sichtweite' },
       { from: '–', to: `${formatDecimal(guardInterval(1))}`, label: 'Dauer' },
+      { from: '–', to: `${guardMight(1)}`, label: 'Kraft' },
     ])
 
     // Eine zweite Wache daneben ändert nichts an diesen Zeilen — jede sichert für sich.
@@ -881,11 +902,14 @@ describe('Ausrüstung des Spielers', () => {
   })
 
   // Die Lampe zählt in denselben Punkten wie eine Wache — dieselbe Beschriftung, dieselbe Skala.
+  // Beide heißen **Sichtweite**: Was ein Wachgang abträgt, ist abgesuchtes Gelände. „Kraft" ist
+  // seither das dritte Attribut der Wachen und beschreibt etwas anderes — den Ernstfall.
   it('takes off as much risk as the lamp is worth', () => {
     const bright = withLevels({ lampLevel: 3, threat: 100 })
-    expect(lampPower(bright)).toBeGreaterThan(lampPower(createInitialState(0)))
-    expect(lowerThreat(bright, 0).threat).toBe(100 - lampPower(bright))
-    expect(getEquipmentUpgrade(bright, 'lamp').facts[1].label).toBe('Kraft')
+    expect(lampSight(bright)).toBeGreaterThan(lampSight(createInitialState(0)))
+    expect(lowerThreat(bright, 0).threat).toBe(100 - lampSight(bright))
+    expect(getEquipmentUpgrade(bright, 'lamp').facts[1].label).toBe('Sichtweite')
+    expect(getSlotUpgrades(bright, 'vault')[0].facts[1].label).toBe('Sichtweite')
   })
 
   // Vier Stücke am Körper, dann die beiden Behälter des Reiches — in dieser Reihenfolge stehen sie
