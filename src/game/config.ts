@@ -358,14 +358,13 @@ export function withSlotLevel(state: GameState, group: SlotGroup, index: SlotInd
   return { ...state, [key]: levels }
 }
 
-/** Der Name der nächsten Stufe, aber nur, wenn er sich überhaupt ändert. Oberhalb der letzten
-    benannten Stufe wiederholt er sich sonst und wäre als „Vorteil“ eine Falschaussage. */
-const changedName = (current: string, next: string) => (next === current ? undefined : next)
-
-/** Die Stufenzeile, mit der jede Karte beginnt. Ihr Name ist der Rang nach dem Kauf — und bleibt
-    leer, sobald die Einheit über der letzten benannten Stufe steht und ihren Rang behält. */
-const stageFact = (stage: number, nextName?: string): UpgradeFact =>
-  ({ from: `Stufe ${stage}`, to: `Stufe ${stage + 1}`, label: nextName ?? '' })
+/** Die Stufenzeile, mit der jede Karte beginnt: nur die beiden Nummern. Der Rang nach dem Kauf
+    stand bis eben rechts daneben und war die einzige Zeile der Tabelle, die keinen Wert
+    verglich — ein Name statt eines Vorher/Nachher, der die Spalte aufhielt, in der überall sonst
+    das Attribut steht. Was die Einheit heute ist, sagt die Überschrift der Karte; was sie nach
+    dem Kauf ist, sagt sie unmittelbar danach selbst. */
+const stageFact = (stage: number): UpgradeFact =>
+  ({ from: `Stufe ${stage}`, to: `Stufe ${stage + 1}`, label: '' })
 
 /** Eine Attributzeile: derselbe Wert vor und nach dem Kauf. Reine Zahlen — die Einheit stand
     hinter jedem Nachher-Wert und wiederholte, was der Attributname links davon längst sagt.
@@ -438,11 +437,10 @@ export function getEquipmentUpgrade(state: GameState, id: EquipmentUpgradeId): U
   const level = equipmentLevel(state, id)
   const next = withEquipmentLevel(state, id)
   const name = stageName(spec.names, level)
-  const nextName = changedName(name, stageName(spec.names, level + 1))
   return {
-    key: `equipment:${id}`, section: spec.section, category: spec.category, equipmentId: id, name, nextName,
+    key: `equipment:${id}`, section: spec.section, category: spec.category, equipmentId: id, name,
     hint: spec.hint,
-    facts: [stageFact(level + 1, nextName), ...spec.facts(state, next)],
+    facts: [stageFact(level + 1), ...spec.facts(state, next)],
     stage: level + 1, cost: equipmentUpgradeCost(state, id), available: true,
     accent: spec.accent, spriteFamily: spec.spriteFamily, spriteLevel: level,
   }
@@ -461,7 +459,7 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
     // still, wenn nebenan gekauft wird. Die Menge je Takt steht nicht zusätzlich dabei: Sie ist
     // das Produkt der beiden Zeilen und wäre nur eine dritte Schreibweise derselben Sache.
     const empty = level === 0
-    const slotFacts: UpgradeFact[] = [stageFact(level, changedName(name, slotStageName(group, level + 1)))]
+    const slotFacts: UpgradeFact[] = [stageFact(level)]
     if (group === 'miners') {
       // Der Sekundentakt ist bei Bergleuten fest, deshalb steht hier nur die Menge — sie ist bei
       // einem Takt von einer Sekunde zugleich die Rate.
@@ -489,7 +487,6 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
       category: group,
       slot: { group, index },
       name,
-      nextName: changedName(name, slotStageName(group, level + 1)),
       stage: level,
       facts: slotFacts,
       cost: slotUpgradeCost(state, group, index),

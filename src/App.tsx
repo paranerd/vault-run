@@ -40,6 +40,7 @@ import {
   buySlotUpgrade,
   dismissOfflineReport,
   goldInTransit,
+  stockSpace,
   isPlayerBusy,
   lowerThreat,
   startTransport,
@@ -393,7 +394,13 @@ function SlotGrid({
         const index = rawIndex as SlotIndex
         return (
           <button key={index} className={level === 0 ? 'is-empty' : ''} onClick={() => onOpen(index)} aria-label={`Slot ${index + 1}, ${level === 0 ? 'unbesetzt' : `Stufe ${level}`}`}>
-            <PixelSprite family={family} level={slotVisualLevel(SECTION_SLOT_GROUP[section], level)} />
+            {/* Ein unbesetzter Slot zeigt kein Bild mehr, sondern das Wort. Die ausgegraute Grafik
+                war die des ersten Rangs und damit ein Bild von jemandem, der gar nicht da ist —
+                aus zwei Metern Abstand sah der leere Slot aus wie ein besetzter, nur blasser. Das
+                „+“ in der Ecke bleibt: An seiner Stelle steht bei besetzten Slots die Stufe. */}
+            {level === 0
+              ? <span className="slot-grid__empty">Leer</span>
+              : <PixelSprite family={family} level={slotVisualLevel(SECTION_SLOT_GROUP[section], level)} />}
             <b>{level === 0 ? '+' : level}</b>
           </button>
         )
@@ -431,7 +438,9 @@ const UpgradeCard = memo(function UpgradeCard({ upgrade, affordable, focused, on
           </div>
         ))}
       </dl>
-      <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold verbessern: ${upgrade.facts.map((entry) => `${entry.label || 'Stufe'} ${entry.from} wird ${entry.to}`).join(', ')}`}>
+      {/* Die Stufenzeile trägt keinen Namen mehr und braucht auch vorgelesen keinen: „Stufe 4 wird
+          Stufe 5“ steht schon vollständig in ihren beiden Werten. */}
+      <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold verbessern: ${upgrade.facts.map((entry) => `${entry.label ? `${entry.label} ` : ''}${entry.from} wird ${entry.to}`).join(', ')}`}>
         {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
       </button>
       {upgrade.hint && <p className="upgrade-card__hint">{upgrade.hint}</p>}
@@ -665,7 +674,7 @@ function App() {
       endX: endX + (Math.random() - 0.5) * 6,
       endY: endY + (Math.random() - 0.5) * 6,
       rotation: (Math.random() - 0.5) * 70,
-      duration: kind === 'coin' ? 850 + Math.random() * 250 : GOLD_FLIGHT_DURATION_MS,
+      duration: GOLD_FLIGHT_DURATION_MS,
     }])
   }, [])
 
@@ -742,11 +751,17 @@ function App() {
   const now = Date.now()
   const stockMax = stockCapacity(state)
   const treasureMax = vaultCapacity(state)
-  const stockFull = state.stockGold >= stockMax - 0.001
   // Beide Behälter melden ihren Stand als Anteil — auf der Leiste über dem Abschnitt und als Zahl
   // unter ihrem Bild. Die absoluten Zahlen sagten hier wenig: Zu handeln ist danach, wie voll sie
   // sind, und die Grenze steht ohnehin auf ihrer eigenen Upgrade-Karte.
+  //
+  // Angezeigt wird, was **drinliegt** — in beiden Behältern gleich, und in beiden erst nach der
+  // Ankunft. Wovon dagegen der nächste Schlag abhängt, ist der freie Platz: Was noch fliegt, ist
+  // schon vergeben. Die beiden Größen fallen nur für die knappe Sekunde eines Fluges auseinander.
   const stockFill = percentage(state.stockGold, stockMax)
+  const stockStored = state.stockGold >= stockMax - 0.001
+  const stockRoom = stockSpace(state)
+  const stockFull = stockRoom <= 0.001
   const vaultFill = percentage(state.vaultGold, treasureMax)
   const vaultFull = state.vaultGold >= treasureMax - 0.001
   // Der Transport-Button zeigt ausschließlich die eigene Fuhre. Die Fuhrknechte fahren jeder für
@@ -792,7 +807,7 @@ function App() {
 
   const handleTap = () => {
     if (playerBusy || stockFull || exhausted) return
-    const earned = Math.min(tapValue(state), Math.max(0, stockMax - state.stockGold))
+    const earned = Math.min(tapValue(state), stockRoom)
     setState((current) => tap(current, now))
     launchGold(earned, 'coin', mineButtonRef, stockPanelRef)
     playTone('coin', sound)
@@ -918,8 +933,8 @@ function App() {
                 panelRef={stockPanelRef}
                 icon={<PixelSprite family="stock" level={state.stockLevel} />}
                 fill={stockFill}
-                full={stockFull}
-                label={`Lager, ${formatPercent(stockFill, stockFull)} gefüllt: Lager ausbauen`}
+                full={stockStored}
+                label={`Lager, ${formatPercent(stockFill, stockStored)} gefüllt: Lager ausbauen`}
                 onOpen={() => openSection('stock')}
               />
               <div className="section-center">
@@ -974,7 +989,10 @@ function App() {
               '--coin-end-rotation': `${flight.rotation * 1.7}deg`,
               '--coin-duration': `${flight.duration}ms`,
             } as CSSProperties} onAnimationEnd={() => {
-              if (flight.kind === 'pile') setState((current) => advanceGame(current, Date.now()))
+              // Jede Landung schließt mit einem Tick ab, damit der Behälter sein Gold genau beim
+              // Aufschlag bekommt und nicht erst beim nächsten der zehn Takte pro Sekunde. Das galt
+              // bisher nur für den Goldhaufen — die Münze hatte nichts abzuschließen.
+              setState((current) => advanceGame(current, Date.now()))
               setGoldFlights((current) => current.filter((item) => item.id !== flight.id))
             }}>
               {flight.kind === 'coin' ? <PixelCoin /> : <PixelGoldPile />}<span>+{formatGold(flight.value)}</span>

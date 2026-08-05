@@ -50,6 +50,22 @@ export interface Trip {
   endsAt: number
 }
 
+/** Eine Ladung Gold, die gerade auf dem Weg ins Lager ist: was ein Bergmann in einem Takt aus dem
+    Fels geschlagen hat oder was ein Schlag des Spielers ergeben hat. `at` ist der Moment, in dem
+    sie im Lager liegt — das Ende ihrer Flug-Animation.
+ *
+ *  Sie ist das Gegenstück zur `Trip` auf der zweiten Strecke: Gold gehört überall erst dem
+ *  Behälter, wenn es dort **angekommen** ist. Vorher wurde nur die Fuhre so behandelt, während der
+ *  Schlag sein Gold sofort ins Lager buchte und die fliegende Münze bloß hinterherflog.
+ *
+ *  Der Platz im Lager ist ab dem Losfliegen belegt (siehe `stockSpace`). Ohne diese Reservierung
+ *  förderten die Bergleute weiter gegen ein Lager, das gleich voll ist, und der Spieler könnte
+ *  Schläge tun, deren Gold bei der Ankunft keinen Platz mehr fände. */
+export interface GoldArrival {
+  gold: number
+  at: number
+}
+
 /** Je Slot eine laufende Fuhre oder `null`. */
 export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
 /** Je Slot der Zeitpunkt der letzten eigenen Lieferung bzw. Sicherung; `null`, solange der Slot
@@ -58,11 +74,14 @@ export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
 export type SlotBeats = [number | null, number | null, number | null, number | null]
 
 export interface GameState {
-  schemaVersion: 8
+  schemaVersion: 9
   savedAt: number
   lastTick: number
-  /** Was im Lager am Stollenmund liegt: gefördert, aber noch nicht abtransportiert. */
+  /** Was im Lager am Stollenmund liegt: angekommen, aber noch nicht abtransportiert. */
   stockGold: number
+  /** Gefördertes Gold, das noch zum Lager unterwegs ist. Es zählt noch nicht zu `stockGold`,
+      belegt dort aber schon seinen Platz. */
+  stockArrivals: GoldArrival[]
   vaultGold: number
   lifetimeGold: number
   lostGold: number
@@ -105,13 +124,11 @@ export interface GameState {
 }
 
 /** Eine Zeile der Attributtabelle einer Upgrade-Karte: derselbe Wert vor und nach dem Kauf,
-    dahinter sein Name. Die erste Zeile ist immer die Stufe; ihr Name ist der Rang, den die
-    Einheit danach trägt. */
+    dahinter sein Name. Die erste Zeile ist immer die Stufe. */
 export interface UpgradeFact {
   from: string
   to: string
-  /** Steht am Zeilenende. Leer, wenn die Zeile für sich spricht — etwa die Stufenzeile einer
-      Einheit, die ihren Rangnamen behält. */
+  /** Steht am Zeilenende. Leer bei der Stufenzeile: „Stufe 4 → Stufe 5“ spricht für sich. */
   label: string
 }
 
@@ -121,10 +138,10 @@ export interface UpgradeView {
   /** Der Reiter, unter dem die Karte im Ausbau-Sheet steht. Nicht aus dem `key` ableitbar: Lager
       und Truhe sind Ausrüstung und stehen trotzdem bei ihrem eigenen Abschnitt. */
   category: UpgradeCategory
-  /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. */
+  /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. Den Namen der **nächsten**
+      Stufe nennt die Karte nicht mehr: Er war die einzige Zeile der Attributtabelle, die keinen
+      Wert verglich. */
   name: string
-  /** Name nach dem Kauf; nur gesetzt, wenn der Aufstieg ihn tatsächlich ändert. */
-  nextName?: string
   /** Kurzer Hinweis auf einen Effekt, der sich aus keiner Zahl ablesen lässt. Slots tragen ihn
       nicht — dort steht der gemeinsame Hinweis einmal über der Gruppe statt viermal je Karte. */
   hint?: string

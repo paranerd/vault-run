@@ -8,7 +8,7 @@ Die Hauptansicht passt ohne Seitenscrollen auf ein Smartphone-Display. Zwischen 
 
 1. Mit der Pickhacke Gold aus dem Fels schlagen.
 2. Frisch geschürftes Gold im Beutel sammeln.
-3. Das Gold per zeitlich laufendem Transport zur Schatztruhe bringen.
+3. Das Gold per zeitlich laufendem Transport zur Schatztruhe bringen — es zählt für den Behälter, sobald es dort angekommen ist, in der Mine wie in der Truhe.
 4. Bis zu vier Fuhrknechte einzeln anheuern und aufleveln; der erste automatisiert die Fahrten.
 5. Vier Bergleute und vier Wachen unabhängig voneinander verbessern.
 6. Pickhacke, Goldbeutel, Stiefel und Grubenlampe im Ausbau-Popup unter „Ausrüstung“ aufwerten, Lager und Schatztruhe unter ihrem eigenen Abschnitt.
@@ -39,6 +39,6 @@ npm test
 npm run build
 ```
 
-Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Savegames aus Schema 1–4 werden auf Schema 5 migriert; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
+Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Savegames aus Schema 1–8 werden auf Schema 9 migriert; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
 
 Die vollständigen Produktregeln und Architekturentscheidungen stehen in [docs/DESIGN.md](./docs/DESIGN.md), die Namen und Beschreibungen aller Ausbaustufen in [docs/stufen.md](./docs/stufen.md).

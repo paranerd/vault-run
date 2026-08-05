@@ -1,5 +1,5 @@
 import { advanceGame, createInitialState, emptyBeats, emptyTrips } from './engine'
-import type { GameState, SlotBeats, SlotLevels, SlotTrips, Trip } from './types'
+import type { GameState, GoldArrival, SlotBeats, SlotLevels, SlotTrips, Trip } from './types'
 
 const SAVE_KEY = 'vault-run-save-v1'
 
@@ -48,8 +48,9 @@ function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, un
   return {
     ...withoutConvoy,
     ...equipment,
-    schemaVersion: 8,
+    schemaVersion: 9,
     stockGold: (equipment.stockGold as number) + stranded,
+    stockArrivals: [],
     minerLevels: normalizeLevels(parsed.minerLevels),
     transporterLevels: normalizeLevels(parsed.transporterLevels),
     guardLevels: normalizeLevels(parsed.guardLevels),
@@ -80,6 +81,19 @@ function normalizeBeats(value: unknown): SlotBeats {
   return [0, 1, 2, 3].map((index) => timestamp(value[index])) as SlotBeats
 }
 
+/** Förderungen, die beim Schließen noch zum Lager unterwegs waren. Ältere Spielstände kennen sie
+    nicht — dort war gefördertes Gold sofort im Lager, es fliegt also nichts mehr. */
+function normalizeArrivals(value: unknown): GoldArrival[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const arrival = entry as Record<string, unknown>
+    const at = timestamp(arrival.at)
+    const gold = Math.max(0, Number(arrival.gold) || 0)
+    return at === null || gold <= 0 ? [] : [{ gold, at }]
+  })
+}
+
 function normalizeTrip(value: unknown): Trip | null {
   if (!value || typeof value !== 'object') return null
   const trip = value as Record<string, unknown>
@@ -104,12 +118,14 @@ export function migrateGame(value: unknown): GameState | null {
   } = parsed
   const version = Number(parsed.schemaVersion)
   // Schema 6 kennt die eigenen Takte bereits, Schema 7 die Erschöpfung; Schema 8 trennt das Lager
-  // vom Beutel des Spielers und gibt ihm Stiefel und Grubenlampe dazu.
-  if (version === 6 || version === 7 || version === 8) {
+  // vom Beutel des Spielers und gibt ihm Stiefel und Grubenlampe dazu. Schema 9 lässt gefördertes
+  // Gold erst bei der Ankunft ins Lager zählen und führt dafür die Liste der fliegenden Ladungen.
+  if (version >= 6 && version <= 9) {
     return {
       ...withoutCooldown,
       ...withPlayerEquipment(parsed),
-      schemaVersion: 8,
+      schemaVersion: 9,
+      stockArrivals: normalizeArrivals(parsed.stockArrivals),
       minerLevels: normalizeLevels(parsed.minerLevels),
       transporterLevels: normalizeLevels(parsed.transporterLevels),
       guardLevels: normalizeLevels(parsed.guardLevels),
