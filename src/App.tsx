@@ -394,14 +394,18 @@ function SlotGrid({
         const index = rawIndex as SlotIndex
         return (
           <button key={index} className={level === 0 ? 'is-empty' : ''} onClick={() => onOpen(index)} aria-label={`Slot ${index + 1}, ${level === 0 ? 'unbesetzt' : `Stufe ${level}`}`}>
-            {/* Ein unbesetzter Slot zeigt kein Bild mehr, sondern das Wort. Die ausgegraute Grafik
-                war die des ersten Rangs und damit ein Bild von jemandem, der gar nicht da ist —
-                aus zwei Metern Abstand sah der leere Slot aus wie ein besetzter, nur blasser. Das
-                „+“ in der Ecke bleibt: An seiner Stelle steht bei besetzten Slots die Stufe. */}
+            {/* Ein unbesetzter Slot zeigt kein Bild mehr, sondern ein großes „+“ in der Mitte. Die
+                ausgegraute Grafik war die des ersten Rangs und damit ein Bild von jemandem, der
+                gar nicht da ist — aus zwei Metern Abstand sah der leere Slot aus wie ein
+                besetzter, nur blasser. Das Eck-Badge trägt der leere Slot dafür nicht mehr: Es
+                zeigte dasselbe „+“ ein zweites Mal, klein und am Rand. Bei besetzten Slots steht
+                dort weiterhin die Stufe. */}
             {level === 0
-              ? <span className="slot-grid__empty">Leer</span>
-              : <PixelSprite family={family} level={slotVisualLevel(SECTION_SLOT_GROUP[section], level)} />}
-            <b>{level === 0 ? '+' : level}</b>
+              ? <span className="slot-grid__empty" aria-hidden="true">+</span>
+              : <>
+                  <PixelSprite family={family} level={slotVisualLevel(SECTION_SLOT_GROUP[section], level)} />
+                  <b>{level}</b>
+                </>}
           </button>
         )
       })}

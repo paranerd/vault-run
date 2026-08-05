@@ -345,10 +345,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 }
 .slot-grid button.is-empty { filter: saturate(.62); background: rgba(142,99,57,.42); }
 .slot-grid img { width: 47px; height: 47px; object-fit: contain; image-rendering: pixelated; }
-/* Ein leerer Slot trägt statt eines Bildes das Wort. Die ausgegraute Grafik war die des ersten
-   Rangs — ein Bild von jemandem, der gar nicht da ist, und aus zwei Metern Abstand kaum von einem
-   besetzten Slot zu unterscheiden. Der Ton ist derselbe blasse, den die Kachel schon hatte. */
-.slot-grid__empty { color: rgba(58,36,24,.5); font-family: var(--pixel-font); font-size: 17px; line-height: 1; letter-spacing: .04em; text-shadow: 1px 1px rgba(255,241,199,.25); }
+/* Ein leerer Slot trägt statt eines Bildes ein großes „+“. Die ausgegraute Grafik war die des
+   ersten Rangs — ein Bild von jemandem, der gar nicht da ist, und aus zwei Metern Abstand kaum von
+   einem besetzten Slot zu unterscheiden. Das Zeichen steht dort, wo bei besetzten Slots das Sprite
+   steht, und ist entsprechend groß; der Ton ist derselbe blasse, den die Kachel schon hatte. */
+.slot-grid__empty { color: rgba(58,36,24,.5); font-family: var(--pixel-font); font-size: 38px; line-height: 1; text-shadow: 1px 1px rgba(255,241,199,.25); }
 .slot-grid b { position: absolute; right: 2px; bottom: 2px; min-width: 15px; height: 15px; display: grid; place-items: center; border: 1px solid #432718; border-radius: 2px; color: #fff0bc; background: #6d4328; font-family: var(--pixel-font); font-size: 8px; line-height: 1; }
 .slot-grid__badge { position: absolute; z-index: 3; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 4px; display: grid; place-items: center; border: 2px solid #301a10; border-radius: 3px; color: #fff2c8; background: var(--red); box-shadow: 2px 2px 0 rgba(25,11,7,.55); font-family: var(--pixel-font); font-size: 8px; font-style: normal; }
 
@@ -575,7 +576,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .slot-grid { padding: 4px; }
   .slot-grid button { border-width: 1px; }
   .slot-grid img { width: 45px; height: 45px; }
-  .slot-grid__empty { font-size: 16px; }
+  .slot-grid__empty { font-size: 36px; }
   .section-action { width: 94px; }
   .dock__inner { gap: 5px; }
   .dock-button { font-size: 12px; }
@@ -617,7 +618,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-action img { width: 50px; height: 50px; }
   .section-action__label { margin-top: 1px; font-size: 13px; }
   .slot-grid img { width: 36px; height: 36px; }
-  .slot-grid__empty { font-size: 13px; }
+  .slot-grid__empty { font-size: 29px; }
   .slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
 }
 
@@ -634,7 +635,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside__fill strong { font-size: 22px; }
   .section-action { width: 128px; height: 122px; }.section-action img { width: 78px; height: 78px; }.section-action__label { font-size: 19px; }
   .slot-grid img { width: 58px; height: 58px; }
-  .slot-grid__empty { font-size: 21px; }
+  .slot-grid__empty { font-size: 47px; }
   .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); transform: translateX(100%); }
   .management-sheet.is-open { transform: translateX(0); }
   .dock { padding-right: 22px; padding-left: 22px; }
