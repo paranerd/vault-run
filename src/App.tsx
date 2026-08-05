@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import {
   BarChart3,
@@ -273,22 +273,20 @@ const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: numb
   )
 })
 
-/** Die linke Spalte eines Abschnitts: das Bild dessen, worum es hier geht, und darunter sein Stand.
-    Bis eben standen dort Raten — Gold je Sekunde in Mine und Lager, der Verlustanteil in der Truhe.
-    Sie beschrieben den Durchsatz des Reiches, nicht den Ort, an dem der Spieler steht; was ihn zum
-    Handeln bringt, ist der Füllstand, und der steht jetzt hier: Truhe und Lager nennen ihre
-    Kapazität und darunter, wie viel davon belegt ist. Das Bild trägt keine Kachel mehr — es steht
-    frei im Abschnitt, wie die Sprites in der Szene auch. */
-function SectionAside({ icon, facts }: { icon: ReactNode; facts?: readonly [string, string][] }) {
+/** Die linke Spalte eines Abschnitts: das Bild des Behälters und darunter, wie viel er fasst.
+    Beschriftung über dem Wert statt daneben — nebeneinander teilten sich Wort und Zahl die Breite
+    der Kachel, und eine Truhe im Millionenbereich hätte dort nur noch als Stummel Platz gehabt.
+    Übereinander bekommt die Zahl die ganze Kachelbreite, und die Zeile darüber ändert sich nie.
+    Die Mine hat keinen Behälter und trägt darum nur ihr Bild. */
+function SectionAside({ icon, capacity, panelRef }: { icon: ReactNode; capacity?: string; panelRef?: RefObject<HTMLDivElement | null> }) {
   return (
-    <div className={`section-aside ${facts ? '' : 'section-aside--plain'}`}>
+    <div className={`section-aside ${capacity ? '' : 'section-aside--plain'}`} ref={panelRef}>
       {icon}
-      {facts && (
-        <dl className="section-aside__facts">
-          {facts.map(([label, value]) => (
-            <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
-          ))}
-        </dl>
+      {capacity && (
+        <p className="section-aside__capacity">
+          <span>Kapazität</span>
+          <strong>{capacity}</strong>
+        </p>
       )}
     </div>
   )
@@ -351,6 +349,7 @@ function SlotGrid({
   notifying,
   noticeCount,
   onOpen,
+  panelRef,
 }: {
   section: SectionId
   levels: readonly number[]
@@ -358,9 +357,12 @@ function SlotGrid({
   notifying: boolean
   noticeCount: number
   onOpen: (index: SlotIndex) => void
+  /** Ausgangspunkt der Goldflüge dieses Abschnitts: Was seine Angestellten liefern, kommt aus
+      ihrem Raster — nicht aus dem Button, den der Spieler selbst drückt. */
+  panelRef?: RefObject<HTMLDivElement | null>
 }) {
   return (
-    <div className={`slot-grid ${notifying ? 'is-notifying' : ''}`} aria-label={`${SECTION_LABEL[section]}: vier Slot-Upgrades`}>
+    <div className={`slot-grid ${notifying ? 'is-notifying' : ''}`} ref={panelRef} aria-label={`${SECTION_LABEL[section]}: vier Slot-Upgrades`}>
       {levels.map((level, rawIndex) => {
         const index = rawIndex as SlotIndex
         return (
@@ -438,9 +440,15 @@ function App() {
   })
   const sceneRef = useRef<HTMLDivElement>(null)
   const sheetContentRef = useRef<HTMLDivElement>(null)
+  // Woher und wohin Gold fliegt: Der Spieler startet an dem Button, den er drückt, seine
+  // Angestellten am Slot-Raster ihres Abschnitts — beide liefern an den Behälter, der das Gold
+  // aufnimmt, und der steht seit dem Umbau links im nächsten Abschnitt.
   const stockButtonRef = useRef<HTMLButtonElement>(null)
-  const chestButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
+  const stockPanelRef = useRef<HTMLDivElement>(null)
+  const vaultPanelRef = useRef<HTMLDivElement>(null)
+  const mineSlotsRef = useRef<HTMLDivElement>(null)
+  const stockSlotsRef = useRef<HTMLDivElement>(null)
   const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
   /** Je Slot der zuletzt gesehene Takt bzw. Fuhrbeginn. Weil kein Takt schneller als eine Sekunde
@@ -590,10 +598,19 @@ function App() {
     setDockPanel((current) => (current === kind ? null : kind))
   }
 
-  const launchGold = useCallback((value: number, kind: GoldFlight['kind']) => {
+  /** Ein Goldflug von einem Element zum anderen. Beides sind Angaben über die Szene, nicht über die
+      Handlung: Dieselbe Münze fliegt vom Minen-Button, wenn der Spieler selbst schlägt, und vom
+      Slot-Raster daneben, wenn ein Bergmann liefert — sie kommt eben von woanders her. Ziel ist
+      immer der Behälter, in dem das Gold landet. */
+  const launchGold = useCallback((
+    value: number,
+    kind: GoldFlight['kind'],
+    from: RefObject<HTMLElement | null>,
+    to: RefObject<HTMLElement | null>,
+  ) => {
     const scene = sceneRef.current?.getBoundingClientRect()
-    const source = (kind === 'coin' ? mineButtonRef : stockButtonRef).current?.getBoundingClientRect()
-    const target = (kind === 'coin' ? stockButtonRef : chestButtonRef).current?.getBoundingClientRect()
+    const source = from.current?.getBoundingClientRect()
+    const target = to.current?.getBoundingClientRect()
     if (!scene || !source || !target) return
     const left = source.left + source.width / 2 - scene.left
     const top = source.top + source.height / 2 - scene.top
@@ -632,7 +649,7 @@ function App() {
         if (beat === null || seen === null || beat === seen || level === 0) return
         const ticks = Math.round((beat - seen) / (minerInterval(level) * 1_000))
         const sent = Math.round(ticks * minerYield(level) + seenMinerCarry.current[index] - state.minerCarry[index])
-        if (sent > 0) launchGold(sent, 'coin')
+        if (sent > 0) launchGold(sent, 'coin', mineSlotsRef, stockPanelRef)
       })
     }
     seenMinerBeats.current = [...beats]
@@ -644,13 +661,13 @@ function App() {
     state.transporterTrips.forEach((trip, index) => {
       const started = trip?.startedAt ?? null
       if (trip && started !== null && started !== seenTransporterStarts.current[index] && trip.gold > 0) {
-        launchGold(trip.gold, 'pile')
+        launchGold(trip.gold, 'pile', stockSlotsRef, vaultPanelRef)
       }
       seenTransporterStarts.current[index] = started
     })
     const playerStart = state.playerTrip?.startedAt ?? null
     if (state.playerTrip && playerStart !== lastPlayerTripStart.current && state.playerTrip.gold > 0) {
-      launchGold(state.playerTrip.gold, 'pile')
+      launchGold(state.playerTrip.gold, 'pile', stockButtonRef, vaultPanelRef)
     }
     lastPlayerTripStart.current = playerStart
   }, [state.transporterTrips, state.playerTrip, launchGold])
@@ -739,7 +756,7 @@ function App() {
     if (playerBusy || stockFull || exhausted) return
     const earned = Math.min(tapValue(state), Math.max(0, stockMax - state.stockGold))
     setState((current) => tap(current, now))
-    launchGold(earned, 'coin')
+    launchGold(earned, 'coin', mineButtonRef, stockPanelRef)
     playTone('coin', sound)
     haptic(haptics, 8)
   }
@@ -828,15 +845,15 @@ function App() {
           <article className="game-section game-section--vault">
             <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
             <div className="section-layout">
-              {/* Die Truhe selbst steht jetzt links mit ihrem Fassungsvermögen und ihrem Inhalt —
-                  der Button daneben zeigt die Handlung, nicht mehr den Behälter. */}
+              {/* Die Truhe selbst steht links mit ihrem Fassungsvermögen — der Button daneben zeigt
+                  die Handlung, nicht mehr den Behälter. Hier landet auch jede Fuhre. */}
               <SectionAside
+                panelRef={vaultPanelRef}
                 icon={<PixelSprite family="vault" level={state.vaultLevel} />}
-                facts={[['Kapazität', formatFullGold(treasureMax)], ['Füllstand', formatFullGold(state.vaultGold)]]}
+                capacity={formatFullGold(treasureMax)}
               />
               <div className="section-center">
                 <button
-                  ref={chestButtonRef}
                   className={`section-action section-action--vault ${chestRevealed ? 'is-revealed' : 'is-unrevealed'} ${securing ? 'is-progressing' : ''} ${playerTravelling ? 'is-blocked' : ''} ${riskAlarming ? 'is-alarming' : ''} ${guardPulse ? 'is-secured' : ''}`}
                   disabled={!canSecure}
                   onClick={handleSecure}
@@ -855,8 +872,9 @@ function App() {
             <SectionMeter fill={stockFill} label="Lager" value={`${Math.round(stockFill)}%`} marker="gold" />
             <div className="section-layout">
               <SectionAside
+                panelRef={stockPanelRef}
                 icon={<PixelSprite family="stock" level={state.stockLevel} />}
-                facts={[['Kapazität', formatFullGold(stockMax)], ['Füllstand', formatFullGold(state.stockGold)]]}
+                capacity={formatFullGold(stockMax)}
               />
               <div className="section-center">
                 <button
@@ -871,7 +889,7 @@ function App() {
                   <ActionLabel>Transportieren</ActionLabel>
                 </button>
               </div>
-              <SlotGrid section="stock" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('stock', index)} />
+              <SlotGrid section="stock" levels={state.transporterLevels} family="transport" panelRef={stockSlotsRef} notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('stock', index)} />
             </div>
           </article>
 
@@ -894,7 +912,7 @@ function App() {
                   <ActionLabel>Graben</ActionLabel>
                 </button>
               </div>
-              <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
+              <SlotGrid section="mine" levels={state.minerLevels} family="miner" panelRef={mineSlotsRef} notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
           </article>
 
