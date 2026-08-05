@@ -405,7 +405,12 @@ function fact(label: string, before: number | null, after: number, format: (valu
 
 /** Alles, was eine Ausrüstungskarte von den anderen unterscheidet. Die sechs Karten unterschieden
     sich vorher in drei ausgeschriebenen Zweigen um jeweils vier Zeilen; hier steht je Stück nur
-    noch das, was ihm allein gehört. */
+    noch das, was ihm allein gehört.
+ *
+ *  Einen Fließtext trägt keine von ihnen mehr. Er stand als einziger Teil der Karte neben der
+ *  Tabelle statt in ihr, wiederholte auf den vier Spielerstücken viermal denselben Satz („wirkt
+ *  nur, wenn du selbst …“) und war auf den beiden Behältern die Regel, die der Füllstand in der
+ *  Szene ohnehin zeigt. Was für eine ganze Gruppe gilt, steht weiterhin über ihr. */
 interface EquipmentSpec {
   section: SectionId
   /** Der Reiter, unter dem das Stück steht. Die vier Stücke am Körper des Spielers teilen sich den
@@ -415,9 +420,6 @@ interface EquipmentSpec {
   names: readonly string[]
   accent: UpgradeView['accent']
   spriteFamily: UpgradeView['spriteFamily']
-  /** Die Folge, die aus keiner Zahl der Tabelle hervorgeht — bei der Spielerausrüstung immer
-      zuerst: dass sie nur wirkt, wenn er selbst zugreift. */
-  hint: string
   /** Die Attributzeilen unter der Stufenzeile, vorher und nachher. */
   facts: (state: GameState, next: GameState) => UpgradeFact[]
 }
@@ -425,7 +427,6 @@ interface EquipmentSpec {
 const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   tap: {
     section: 'mine', category: 'equipment', names: PICKAXES, accent: 'business', spriteFamily: 'pickaxe',
-    hint: 'Wirkt nur, wenn du selbst in der Mine schlägst.',
     facts: (state, next) => [
       fact('Fördermenge', tapValue(state), tapValue(next), effectValue),
       fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), effectRate),
@@ -433,27 +434,22 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   },
   pack: {
     section: 'stock', category: 'equipment', names: PACKS, accent: 'logistics', spriteFamily: 'pack',
-    hint: 'Wirkt nur, wenn du selbst trägst. Mehr, als im Lager Platz hat, schulterst du nie.',
     facts: (state, next) => [fact('Ladung', packCargo(state), packCargo(next), effectGold)],
   },
   boots: {
     section: 'stock', category: 'equipment', names: BOOTS, accent: 'logistics', spriteFamily: 'boots',
-    hint: 'Fuhre und Wachgang sind beides Wege, die du selbst gehst. Unter eine halbe Sekunde drückst du den Wachgang nicht.',
     facts: (state, next) => [fact('Geschwindigkeit', bootsPace(state), bootsPace(next), effectRate)],
   },
   lamp: {
     section: 'vault', category: 'equipment', names: LAMPS, accent: 'vault', spriteFamily: 'lamp',
-    hint: 'Wirkt nur, wenn du selbst Wache gehst. Dieselben Punkte, die eine Wache abträgt.',
     facts: (state, next) => [fact('Sichtweite', lampSight(state), lampSight(next), effectValue)],
   },
   stock: {
     section: 'stock', category: 'transporters', names: STOCKPILES, accent: 'logistics', spriteFamily: 'stock',
-    hint: 'Ist das Lager voll, ruht die Mine bis zur nächsten Fuhre.',
     facts: (state, next) => [fact('Kapazität', stockCapacity(state), stockCapacity(next), effectGold)],
   },
   vault: {
     section: 'vault', category: 'guards', names: TREASURE_CHESTS, accent: 'vault', spriteFamily: 'vault',
-    hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
     facts: (state, next) => [fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold)],
   },
 }
@@ -465,7 +461,6 @@ export function getEquipmentUpgrade(state: GameState, id: EquipmentUpgradeId): U
   const name = stageName(spec.names, level)
   return {
     key: `equipment:${id}`, section: spec.section, category: spec.category, equipmentId: id, name,
-    hint: spec.hint,
     facts: [stageFact(level + 1), ...spec.facts(state, next)],
     stage: level + 1, cost: equipmentUpgradeCost(state, id), available: true,
     accent: spec.accent, spriteFamily: spec.spriteFamily, spriteLevel: level,

@@ -413,7 +413,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   /* Bild links über beide Kopfzeilen, daneben Name über Attributtabelle, Preis rechts.
      Der Hinweis läuft darunter über die volle Breite. */
   grid-template-columns: 52px minmax(0,1fr) 72px;
-  grid-template-areas: 'sprite name price' 'sprite facts price' 'hint hint hint';
+  grid-template-areas: 'sprite name price' 'sprite facts price';
   gap: 4px 9px;
   align-items: center;
   padding: 11px 10px 12px 13px; border: 2px solid #74492c; border-radius: 5px; background: #f8e2b3; box-shadow: 3px 3px 0 rgba(69,37,18,.24),inset 2px 2px rgba(255,251,220,.4); }
@@ -423,13 +423,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .upgrade-card.is-focused { outline: 3px solid #e0a63d; outline-offset: 2px; }
 .upgrade-card.is-unowned { border-color: #827667; background: #d9ccb4; }
 .upgrade-card.is-unowned::before { filter: grayscale(1); opacity: .52; }
-.upgrade-card.is-unowned .upgrade-card__sprite,.upgrade-card.is-unowned h3,.upgrade-card.is-unowned .upgrade-facts,.upgrade-card.is-unowned .upgrade-card__hint { filter: grayscale(1); opacity: .52; }
+.upgrade-card.is-unowned .upgrade-card__sprite,.upgrade-card.is-unowned h3,.upgrade-card.is-unowned .upgrade-facts { filter: grayscale(1); opacity: .52; }
 .upgrade-card__sprite { grid-area: sprite; align-self: center; width: 52px; height: 52px; display: grid; place-items: center; border: 2px solid #7d5030; border-radius: 3px; background: #d3ad70; box-shadow: inset 2px 2px rgba(255,239,188,.3); }
 .upgrade-card__sprite img { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
 .upgrade-card h3 { grid-area: name; align-self: end; display: flex; gap: 7px; align-items: baseline; margin: 0 0 4px; min-width: 0; color: #3e2516; font-family: var(--pixel-font); font-size: 17px; font-weight: 400; line-height: 1; }
 .upgrade-card h3 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upgrade-card h3 em { flex: 0 0 auto; color: var(--muted); font-size: 11px; font-style: normal; }
-.upgrade-card__hint { grid-area: hint; margin: 6px 0 0; padding: 7px 0 0; border-top: 1px solid rgba(112,70,41,.35); color: var(--muted); font-size: 12.5px; font-weight: 400; line-height: 1.15; }
 /* Attributtabelle: Vorher-Wert, Pfeil, Nachher-Wert, Name. Die drei ersten Spalten sind
    inhaltsbreit und über alle Zeilen geteilt, damit Pfeile und Nachher-Werte exakt fluchten; die
    Namensspalte nimmt den Rest und kürzt notfalls. `dd` steht vor `dt`, weil die Zahl gelesen
@@ -586,7 +585,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .sheet-filters { gap: 2px; }
   .sheet-filters button { padding: 0 6px; font-size: 12px; }
   .sheet-filters button b { width: 5px; height: 5px; margin: 0 -7px 0 2px; }
-  .upgrade-card { grid-template-columns: 46px minmax(0,1fr) 66px; grid-template-areas: 'sprite name price' 'facts facts facts' 'hint hint hint'; gap: 6px 8px; }
+  .upgrade-card { grid-template-columns: 46px minmax(0,1fr) 66px; grid-template-areas: 'sprite name price' 'facts facts facts'; gap: 6px 8px; }
   .upgrade-card h3 { align-self: center; }
   .upgrade-card__sprite { width: 46px; height: 46px; }
   .upgrade-card__sprite img { width: 50px; height: 50px; }

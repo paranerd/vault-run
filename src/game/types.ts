@@ -142,9 +142,6 @@ export interface UpgradeView {
       Stufe nennt die Karte nicht mehr: Er war die einzige Zeile der Attributtabelle, die keinen
       Wert verglich. */
   name: string
-  /** Kurzer Hinweis auf einen Effekt, der sich aus keiner Zahl ablesen lässt. Slots tragen ihn
-      nicht — dort steht der gemeinsame Hinweis einmal über der Gruppe statt viermal je Karte. */
-  hint?: string
   /** Spielerseitige Stufennummer; die nächste Stufe ist immer `stage + 1`. */
   stage: number
   /** Alle Attribute der Einheit, jeweils vorher und nachher. Erste Zeile ist die Stufe. */

@@ -447,7 +447,6 @@ const UpgradeCard = memo(function UpgradeCard({ upgrade, affordable, focused, on
       <button className="buy-button" disabled={disabled} onClick={() => onBuy(upgrade)} aria-label={`${upgrade.name}${upgrade.slot ? `, Slot ${upgrade.slot.index + 1}` : ''} für ${formatGold(upgrade.cost)} Gold verbessern: ${upgrade.facts.map((entry) => `${entry.label ? `${entry.label} ` : ''}${entry.from} wird ${entry.to}`).join(', ')}`}>
         {upgrade.maxed ? <><Check size={18} /><span>Erledigt</span></> : <><PixelCoin /><span>{formatGold(upgrade.cost)}</span></>}
       </button>
-      {upgrade.hint && <p className="upgrade-card__hint">{upgrade.hint}</p>}
     </article>
   )
 })

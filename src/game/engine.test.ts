@@ -772,16 +772,16 @@ describe('Vault Run engine', () => {
     }
   })
 
-  // Der Gruppenhinweis gilt für alle vier Karten und steht deshalb genau einmal über ihnen; die
-  // Ausrüstungskarten erklären sich einzeln und tragen ihren Hinweis selbst.
-  it('carries shared wording on the group and per-card wording only on equipment', () => {
+  // Fließtext steht nur noch über einer Gruppe, nie auf einer einzelnen Karte: Was für alle vier
+  // Karten gilt, gehört einmal darüber; was nur für eine gilt, steht in ihrer Tabelle oder gar
+  // nicht. Die Ausrüstungskarten trugen bis eben jede einen eigenen Satz.
+  it('carries wording on the group and never on a single card', () => {
     const state = createInitialState(0)
     const [equipment] = getUpgradeGroups(state, 'equipment')
     const [miners] = getUpgradeGroups(state, 'miners')
     expect(equipment.hint).toBeUndefined()
-    expect(equipment.upgrades.every((upgrade) => Boolean(upgrade.hint))).toBe(true)
     expect(miners.hint).toBeTruthy()
-    expect(miners.upgrades.every((upgrade) => upgrade.hint === undefined)).toBe(true)
+    expect(getAllUpgrades(state).every((upgrade) => !('hint' in upgrade))).toBe(true)
   })
 
   // Der Hinweis über den Angestellten darf nicht über dem Behälter stehen: „Jeder Fuhrknecht fährt
