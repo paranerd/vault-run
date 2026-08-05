@@ -187,10 +187,47 @@ export const MIN_CYCLE_SECONDS = 1
 export const packCargo = (state: GameState) => Math.min(Math.round(25 * 1.5 ** state.packLevel), stockCapacity(state))
 
 /** Die beiden Wege, die der Spieler zu Fuß geht, als **Länge**: die Sekunden, die er auf seinem
-    Anfangstempo für Hin- und Rückweg zusammen braucht. Die Strecke ändert sich nie — was sich
-    ändert, ist, wie schnell er sie zurücklegt. */
-const TRIP_ROUTE_SECONDS = 12
-const SECURE_ROUTE_SECONDS = 1.5
+    Anfangstempo für Hin- und Rückweg zusammen braucht. Die Länge ist getrennt vom Tempo, und beide
+    Seiten wachsen: Die Stiefel machen ihn schneller, sein Reich macht die Wege länger. */
+const TRIP_ROUTE_BASE_SECONDS = 12
+const SECURE_ROUTE_BASE_SECONDS = 1.5
+
+/** Die Ladung, auf die sich `TRIP_ROUTE_BASE_SECONDS` bezieht: der Beutel auf seiner ersten Stufe. */
+const BASE_CARGO = 25
+/** Wie stark die Ladung den Weg verlängert. Unter eins, weil die Fuhre sonst nichts mehr brächte:
+    Der Beutel trägt je Stufe die anderthalbfache Ladung, der Weg wird dabei nur um gut 15 % länger,
+    der Durchsatz wächst also weiter — um rund 30 % je Stufe statt der früheren 50 %.
+    Der Preis des Beutels folgt diesem kleineren Zuwachs (`equipmentUpgradeCost`), sonst wäre er
+    plötzlich der schlechteste Kauf im Spiel. */
+const CARGO_WEIGHT_EXPONENT = 0.35
+
+/** Die **Länge der Fuhre**. Sie hängt daran, wie schwer der Spieler trägt: Ein größerer Beutel
+    bringt mehr Gold pro Weg und macht denselben Weg zugleich zäher.
+ *
+ *  Gemessen wird an der **tatsächlich geschulterten** Ladung, nicht an der Beutelstufe. Das ist
+ *  nicht bloß genauer, sondern notwendig: `packCargo` ist auf das Lager gedeckelt, und ein Beutel
+ *  über der Lagergröße trägt kein Gramm mehr. Hinge das Gewicht an der Stufe, wäre so ein Kauf
+ *  rein schädlich — mehr Weg für dieselbe Ladung. So wächst beides zusammen oder gar nicht. */
+export const tripRouteSeconds = (state: GameState) =>
+  TRIP_ROUTE_BASE_SECONDS * (packCargo(state) / BASE_CARGO) ** CARGO_WEIGHT_EXPONENT
+
+/** Wie stark jede Truhenstufe den Wachweg verlängert. Der Wachgang ist die Runde **um** die Truhe,
+    und eine prächtigere Truhe hat mehr Umfang: Der Drachenhort lässt sich nicht in derselben Zeit
+    ablaufen wie eine morsche Holzkiste.
+ *
+ *  Das ist die zweite Kehrseite des Truhenausbaus neben dem Risiko-Faktor — und die einzige, die
+ *  man sehen kann. Bewusst klein gewählt: Beide Größen ziehen in dieselbe Richtung, und der
+ *  Wachgang sperrt währenddessen alle drei Aktionen des Spielers.
+ *
+ *  Nebenbei hält sie die Stiefel am Leben. Ohne sie erreicht der Wachgang seinen Boden von einer
+ *  halben Sekunde bei Stiefelstufe 9, und von da an wirkt die Hälfte der Stiefel auf nichts mehr.
+ *  Mit einem mitwachsenden Weg wandert der Boden mit — dieselbe Überlegung wie beim Risiko-Faktor
+ *  je Truhenstufe: Eine Konstante gegen eine unbegrenzte Gegenkraft geht nur einmal aus. */
+export const SECURE_ROUTE_PER_VAULT_LEVEL = 1.1
+
+/** Die **Länge des Wachgangs**, eine Runde um die Truhe in ihrer aktuellen Größe. */
+export const secureRouteSeconds = (state: GameState) =>
+  SECURE_ROUTE_BASE_SECONDS * SECURE_ROUTE_PER_VAULT_LEVEL ** state.vaultLevel
 
 /** Die **Geschwindigkeit** des Spielers, als Vielfaches seines Anfangstempos. Das ist die Größe,
     die die Stiefel ausbauen, und sie **wächst** — anders als die Dauer, die vorher an dieser
@@ -208,7 +245,7 @@ export const bootsSpeed = (state: GameState) => 1 / 0.88 ** state.bootsLevel
 /** Die **Dauer** eines Weges: seine Länge durch das Tempo, gegen den Boden von einer Sekunde —
     derselbe Boden wie bei jeder anderen Einheit. */
 export const manualTripSeconds = (state: GameState) =>
-  Math.max(MIN_CYCLE_SECONDS, TRIP_ROUTE_SECONDS / bootsSpeed(state))
+  Math.max(MIN_CYCLE_SECONDS, tripRouteSeconds(state) / bootsSpeed(state))
 
 /** Der Wachgang ist kein Takt einer Automatik, sondern ein Tastendruck; sein Boden liegt deshalb
     unter `MIN_CYCLE_SECONDS`, der die Zahl gleichzeitiger Animationen deckelt. Eine halbe Sekunde
@@ -216,7 +253,7 @@ export const manualTripSeconds = (state: GameState) =>
     wäre — und genau diese Sperre ist der Preis des Wachgangs. */
 export const MANUAL_SECURE_FLOOR_SECONDS = 0.5
 export const manualSecureSeconds = (state: GameState) =>
-  Math.max(MANUAL_SECURE_FLOOR_SECONDS, SECURE_ROUTE_SECONDS / bootsSpeed(state))
+  Math.max(MANUAL_SECURE_FLOOR_SECONDS, secureRouteSeconds(state) / bootsSpeed(state))
 
 /** Das Tempo, das auf der Stiefelkarte steht: nicht das rohe `bootsSpeed`, sondern das, was der
     Spieler auf der Fuhre tatsächlich erreicht. Beides ist dasselbe, solange kein Boden greift.
@@ -225,7 +262,7 @@ export const manualSecureSeconds = (state: GameState) =>
  *  eine Karte, die dort weiter steigende Zahlen zeigte, forderte zu einem Kauf ohne Wirkung auf.
  *  Gemessen wird an der Fuhre, weil sie ihren Boden von beiden Wegen als Letzte erreicht — solange
  *  sie noch schneller wird, tun die Stiefel noch etwas. */
-export const bootsPace = (state: GameState) => TRIP_ROUTE_SECONDS / manualTripSeconds(state)
+export const bootsPace = (state: GameState) => tripRouteSeconds(state) / manualTripSeconds(state)
 
 /** Die **Sichtweite** eines Wachgangs, in denselben Punkten der Hundert-Punkte-Skala, die auch eine
     Wache abträgt (`guardSight`). Dieselbe Beschriftung heißt dieselbe Skala: Lampe und Wache sind
@@ -352,10 +389,15 @@ export const equipmentLevel = (state: GameState, id: EquipmentUpgradeId): number
 /** Die Preise der Spielerausrüstung liegen bewusst über der Pickhacke: Sie wirkt auf jeden Schlag,
     die anderen drei nur, solange der Spieler selbst zugreift. Die Stiefel sind das teuerste Stück,
     weil sie als einziges auf zwei Handlungen wirkt und sich mit dem Beutel multipliziert
-    (Ladung ÷ Dauer) — an diesem Paar hängt der ganze manuelle Durchsatz. */
+    (Ladung ÷ Dauer) — an diesem Paar hängt der ganze manuelle Durchsatz.
+ *
+ *  Der Beutel wächst im Preis langsamer als früher (1,5 statt 1,7). Seit sein Gewicht den Weg
+ *  verlängert, bringt eine Stufe rund 30 % Durchsatz statt 50 %; bliebe der Preis auf der alten
+ *  Kurve, wäre er der schlechteste Kauf im Spiel. Preis und Zuwachs bleiben so im selben
+ *  Verhältnis wie vorher. */
 export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
   const bases: Record<EquipmentUpgradeId, number> = { tap: 12, pack: 60, boots: 150, lamp: 80, stock: 45, vault: 300 }
-  const factors: Record<EquipmentUpgradeId, number> = { tap: 1.58, pack: 1.7, boots: 1.8, lamp: 1.7, stock: 1.62, vault: 1.85 }
+  const factors: Record<EquipmentUpgradeId, number> = { tap: 1.58, pack: 1.5, boots: 1.8, lamp: 1.7, stock: 1.62, vault: 1.85 }
   return cost(bases[id], factors[id], equipmentLevel(state, id))
 }
 
@@ -434,7 +476,13 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   },
   pack: {
     section: 'stock', category: 'equipment', names: PACKS, accent: 'logistics', spriteFamily: 'pack',
-    facts: (state, next) => [fact('Ladung', packCargo(state), packCargo(next), effectGold)],
+    // Beide Seiten des Handels, in dieser Reihenfolge: erst was er gewinnt, dann was es kostet.
+    // Die zweite Zeile wächst und ist trotzdem der Preis — eine längere Fuhre ist keine bessere.
+    // Sie muss stehen, weil sie sonst die einzige Wirkung eines Kaufs wäre, die man nirgends liest.
+    facts: (state, next) => [
+      fact('Ladung', packCargo(state), packCargo(next), effectGold),
+      fact('Dauer Fuhre', manualTripSeconds(state), manualTripSeconds(next), effectRate),
+    ],
   },
   boots: {
     section: 'stock', category: 'equipment', names: BOOTS, accent: 'logistics', spriteFamily: 'boots',
@@ -450,7 +498,13 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   },
   vault: {
     section: 'vault', category: 'guards', names: TREASURE_CHESTS, accent: 'vault', spriteFamily: 'vault',
-    facts: (state, next) => [fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold)],
+    // Dasselbe hier: Eine größere Truhe ist eine längere Runde. Der Risiko-Faktor je Truhenstufe
+    // steht daneben weiterhin nirgends — er ist keine Eigenschaft der Truhe, sondern des Horts
+    // darin, und ändert sich mit jedem Goldstück.
+    facts: (state, next) => [
+      fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold),
+      fact('Dauer Wachgang', manualSecureSeconds(state), manualSecureSeconds(next), effectRate),
+    ],
   },
 }
 

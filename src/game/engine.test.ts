@@ -1029,6 +1029,67 @@ describe('Ausrüstung des Spielers', () => {
     expect(walks.every((seconds, index) => index === 0 || seconds < walks[index - 1])).toBe(true)
   })
 
+  // Ein größerer Beutel bringt mehr pro Weg und macht denselben Weg zäher. Beides muss auf der
+  // Karte stehen — die zweite Zeile wächst und ist trotzdem der Preis. Unterm Strich lohnt sich der
+  // Kauf weiterhin: Die Ladung wächst schneller als der Weg.
+  it('pays for a heavier bag with a longer trip and still comes out ahead', () => {
+    // Lager groß genug, damit der Deckel nicht mitspielt.
+    const bags = [0, 1, 2, 3, 4].map((packLevel) => withLevels({ packLevel, stockLevel: 9 }))
+    const trips = bags.map(manualTripSeconds)
+    const throughput = bags.map((state) => packCargo(state) / manualTripSeconds(state))
+
+    expect(trips.every((seconds, index) => index === 0 || seconds > trips[index - 1])).toBe(true)
+    expect(throughput.every((rate, index) => index === 0 || rate > throughput[index - 1])).toBe(true)
+    // Rund 30 % Zuwachs je Stufe — der Beutel trägt anderthalbmal so viel, der Weg wächst weniger.
+    for (let index = 1; index < throughput.length; index += 1) {
+      expect(throughput[index] / throughput[index - 1]).toBeCloseTo(1.3, 1)
+    }
+
+    const card = getEquipmentUpgrade(bags[1], 'pack')
+    expect(card.facts.map((entry) => entry.label)).toEqual(['', 'Ladung', 'Dauer Fuhre'])
+  })
+
+  // Das Gewicht hängt an der geschulterten Ladung, nicht an der Beutelstufe. Sonst wäre ein Beutel
+  // über der Lagergröße ein rein schädlicher Kauf: mehr Weg für dieselbe Ladung. So stehen beide
+  // Zeilen der Karte still und sagen gemeinsam, dass zuerst das Lager wachsen muss.
+  it('stops charging for bag levels the stockpile cannot fill', () => {
+    const capped = withLevels({ packLevel: 2, stockLevel: 0 })
+    const bigger = withLevels({ packLevel: 4, stockLevel: 0 })
+
+    expect(packCargo(bigger)).toBe(packCargo(capped))
+    expect(manualTripSeconds(bigger)).toBe(manualTripSeconds(capped))
+
+    const [, load, walk] = getEquipmentUpgrade(capped, 'pack').facts
+    expect(load.to).toBe(load.from)
+    expect(walk.to).toBe(walk.from)
+  })
+
+  // Der Wachgang ist die Runde **um** die Truhe: Ein Drachenhort lässt sich nicht in derselben Zeit
+  // ablaufen wie eine morsche Holzkiste. Das ist die zweite, sichtbare Kehrseite des Truhenausbaus
+  // neben dem Risiko-Faktor — und der Grund, warum die Stiefel bis zuletzt etwas tun.
+  it('walks a longer round around a bigger chest', () => {
+    const chests = [0, 1, 2, 3, 5].map((vaultLevel) => withLevels({ vaultLevel }))
+    const walks = chests.map(manualSecureSeconds)
+    expect(walks.every((seconds, index) => index === 0 || seconds > walks[index - 1])).toBe(true)
+
+    const card = getEquipmentUpgrade(chests[0], 'vault')
+    expect(card.facts.map((entry) => entry.label)).toEqual(['', 'Kapazität', 'Dauer Wachgang'])
+
+    // Und die Stiefel holen es zurück: Dieselbe Truhe, bessere Stiefel, kürzerer Weg.
+    const shod = withLevels({ vaultLevel: 5, bootsLevel: 6 })
+    expect(manualSecureSeconds(shod)).toBeLessThan(manualSecureSeconds(withLevels({ vaultLevel: 5 })))
+  })
+
+  // Ohne mitwachsenden Weg erreicht der Wachgang seinen Boden bei Stiefelstufe 9 — von da an wirkte
+  // die Hälfte der Stiefel auf nichts mehr. Mit der Truhe wandert der Boden mit.
+  it('moves the securing floor out of reach as the chest grows', () => {
+    expect(manualSecureSeconds(withLevels({ bootsLevel: 9 }))).toBe(MANUAL_SECURE_FLOOR_SECONDS)
+    expect(manualSecureSeconds(withLevels({ bootsLevel: 9, vaultLevel: 5 }))).toBeGreaterThan(MANUAL_SECURE_FLOOR_SECONDS)
+    // Dort trägt die nächste Stiefelstufe also wieder etwas ein.
+    expect(manualSecureSeconds(withLevels({ bootsLevel: 10, vaultLevel: 5 })))
+      .toBeLessThan(manualSecureSeconds(withLevels({ bootsLevel: 9, vaultLevel: 5 })))
+  })
+
   // Kein Weg wird beliebig kurz: Die Fuhre liegt auf demselben Boden wie jeder andere Takt, der
   // Wachgang darunter, weil er kein Takt einer Automatik ist, sondern ein Tastendruck — aber nicht
   // so weit, dass die Sperre der beiden anderen Aktionen nicht mehr zu spüren wäre.
