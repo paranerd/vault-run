@@ -4,6 +4,8 @@ import {
   GOLD_FLIGHT_DURATION_MS,
   OFFLINE_THEFT_SHARE,
   automaticTransportRate,
+  bootsPace,
+  bootsSpeed,
   getCategoryUpgrades,
   lampSight,
   LOSS_PER_MIGHT,
@@ -1002,6 +1004,31 @@ describe('Ausrüstung des Spielers', () => {
     expect(securing.secureEndsAt).toBe(manualSecureSeconds(shod) * 1_000)
   })
 
+  // Die Stiefel bauen die **Geschwindigkeit** aus, und die wächst. Dass die Wege dabei kürzer
+  // werden, ist keine Sonderregel, sondern die Definition von Tempo: Eine Strecke kostet
+  // `Länge ÷ Geschwindigkeit`, die wachsende Zahl steht also im Nenner. Damit kann die Richtung
+  // nicht mehr auseinanderlaufen — es gibt keine Stelle, an der ein „mehr“ von Hand in ein
+  // „weniger“ übersetzt würde.
+  it('turns rising boot speed into falling walk times', () => {
+    const levels = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    const states = levels.map((bootsLevel) => withLevels({ bootsLevel }))
+
+    const speeds = states.map(bootsSpeed)
+    expect(speeds.every((speed, index) => index === 0 || speed > speeds[index - 1])).toBe(true)
+    expect(speeds[0]).toBe(1)
+
+    // Und jede Dauer ist genau die Streckenlänge geteilt durch dieses Tempo.
+    for (const state of states) {
+      expect(manualTripSeconds(state)).toBeCloseTo(manualTripSeconds(createInitialState(0)) / bootsSpeed(state), 9)
+      expect(manualSecureSeconds(state)).toBeCloseTo(manualSecureSeconds(createInitialState(0)) / bootsSpeed(state), 9)
+    }
+
+    const trips = states.map(manualTripSeconds)
+    const walks = states.map(manualSecureSeconds)
+    expect(trips.every((seconds, index) => index === 0 || seconds < trips[index - 1])).toBe(true)
+    expect(walks.every((seconds, index) => index === 0 || seconds < walks[index - 1])).toBe(true)
+  })
+
   // Kein Weg wird beliebig kurz: Die Fuhre liegt auf demselben Boden wie jeder andere Takt, der
   // Wachgang darunter, weil er kein Takt einer Automatik ist, sondern ein Tastendruck — aber nicht
   // so weit, dass die Sperre der beiden anderen Aktionen nicht mehr zu spüren wäre.
@@ -1009,6 +1036,26 @@ describe('Ausrüstung des Spielers', () => {
     const winged = withLevels({ bootsLevel: 40 })
     expect(manualTripSeconds(winged)).toBe(MIN_CYCLE_SECONDS)
     expect(manualSecureSeconds(winged)).toBe(MANUAL_SECURE_FLOOR_SECONDS)
+  })
+
+  // Am Boden angekommen macht keine weitere Stufe einen Weg noch kürzer — und die Karte darf dann
+  // auch keine steigende Zahl zeigen. Sie nennt deshalb nicht das rohe Tempo, sondern das, was auf
+  // der Fuhre tatsächlich ankommt: Das steht still, sobald der Boden greift.
+  it('stops the promised speed where no walk can get shorter', () => {
+    const winged = withLevels({ bootsLevel: 40 })
+    const faster = withLevels({ bootsLevel: 41 })
+    expect(bootsSpeed(faster)).toBeGreaterThan(bootsSpeed(winged))
+    expect(bootsPace(faster)).toBe(bootsPace(winged))
+
+    const [, speed] = getEquipmentUpgrade(winged, 'boots').facts
+    expect(speed.label).toBe('Geschwindigkeit')
+    expect(speed.to).toBe(speed.from)
+
+    // Solange noch kein Boden greift, ist die Karte dagegen das rohe Tempo.
+    const walking = withLevels({ bootsLevel: 3 })
+    expect(bootsPace(walking)).toBeCloseTo(bootsSpeed(walking), 9)
+    const [, growing] = getEquipmentUpgrade(walking, 'boots').facts
+    expect(Number(growing.to.replace(',', '.'))).toBeGreaterThan(Number(growing.from.replace(',', '.')))
   })
 
   // Die Lampe zählt in denselben Punkten wie eine Wache — dieselbe Beschriftung, dieselbe Skala.

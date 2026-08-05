@@ -186,9 +186,29 @@ export const MIN_CYCLE_SECONDS = 1
     nachher dieselbe Zahl und sagt damit selbst, dass zuerst das Lager wachsen muss. */
 export const packCargo = (state: GameState) => Math.min(Math.round(25 * 1.5 ** state.packLevel), stockCapacity(state))
 
-/** Die **Dauer** der beiden Wege. Hin- und Rückweg zusammen, gegen den Boden von einer Sekunde
-    hin immer kürzer — derselbe Boden wie bei jeder anderen Einheit. */
-export const manualTripSeconds = (state: GameState) => Math.max(MIN_CYCLE_SECONDS, 12 * 0.88 ** state.bootsLevel)
+/** Die beiden Wege, die der Spieler zu Fuß geht, als **Länge**: die Sekunden, die er auf seinem
+    Anfangstempo für Hin- und Rückweg zusammen braucht. Die Strecke ändert sich nie — was sich
+    ändert, ist, wie schnell er sie zurücklegt. */
+const TRIP_ROUTE_SECONDS = 12
+const SECURE_ROUTE_SECONDS = 1.5
+
+/** Die **Geschwindigkeit** des Spielers, als Vielfaches seines Anfangstempos. Das ist die Größe,
+    die die Stiefel ausbauen, und sie **wächst** — anders als die Dauer, die vorher an dieser
+    Stelle stand und mit jeder Stufe kleiner wurde.
+ *
+ *  Dass die Wege trotzdem kürzer werden, ist keine Sonderregel, sondern die Definition von Tempo:
+ *  Eine Strecke kostet `Länge ÷ Geschwindigkeit`. Die wachsende Zahl steht damit im Nenner, und
+ *  die Richtung stimmt von selbst — es gibt keine Stelle mehr, an der ein „mehr ist besser“ per
+ *  Hand in ein „weniger ist besser“ übersetzt werden müsste.
+ *
+ *  Der Faktor ist der Kehrwert des früheren 0,88: Jede Stufe macht denselben Sprung wie vorher,
+ *  nur von der anderen Seite gelesen. */
+export const bootsSpeed = (state: GameState) => 1 / 0.88 ** state.bootsLevel
+
+/** Die **Dauer** eines Weges: seine Länge durch das Tempo, gegen den Boden von einer Sekunde —
+    derselbe Boden wie bei jeder anderen Einheit. */
+export const manualTripSeconds = (state: GameState) =>
+  Math.max(MIN_CYCLE_SECONDS, TRIP_ROUTE_SECONDS / bootsSpeed(state))
 
 /** Der Wachgang ist kein Takt einer Automatik, sondern ein Tastendruck; sein Boden liegt deshalb
     unter `MIN_CYCLE_SECONDS`, der die Zahl gleichzeitiger Animationen deckelt. Eine halbe Sekunde
@@ -196,7 +216,16 @@ export const manualTripSeconds = (state: GameState) => Math.max(MIN_CYCLE_SECOND
     wäre — und genau diese Sperre ist der Preis des Wachgangs. */
 export const MANUAL_SECURE_FLOOR_SECONDS = 0.5
 export const manualSecureSeconds = (state: GameState) =>
-  Math.max(MANUAL_SECURE_FLOOR_SECONDS, 1.5 * 0.88 ** state.bootsLevel)
+  Math.max(MANUAL_SECURE_FLOOR_SECONDS, SECURE_ROUTE_SECONDS / bootsSpeed(state))
+
+/** Das Tempo, das auf der Stiefelkarte steht: nicht das rohe `bootsSpeed`, sondern das, was der
+    Spieler auf der Fuhre tatsächlich erreicht. Beides ist dasselbe, solange kein Boden greift.
+ *
+ *  Der Unterschied zählt erst ganz oben: Ab dem Boden der Fuhre wird kein Weg mehr kürzer, und
+ *  eine Karte, die dort weiter steigende Zahlen zeigte, forderte zu einem Kauf ohne Wirkung auf.
+ *  Gemessen wird an der Fuhre, weil sie ihren Boden von beiden Wegen als Letzte erreicht — solange
+ *  sie noch schneller wird, tun die Stiefel noch etwas. */
+export const bootsPace = (state: GameState) => TRIP_ROUTE_SECONDS / manualTripSeconds(state)
 
 /** Die **Sichtweite** eines Wachgangs, in denselben Punkten der Hundert-Punkte-Skala, die auch eine
     Wache abträgt (`guardSight`). Dieselbe Beschriftung heißt dieselbe Skala: Lampe und Wache sind
@@ -409,11 +438,8 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   },
   boots: {
     section: 'stock', category: 'equipment', names: BOOTS, accent: 'logistics', spriteFamily: 'boots',
-    hint: 'Fuhre und Wachgang sind beides Wege, die du selbst gehst.',
-    facts: (state, next) => [
-      fact('Dauer Fuhre', manualTripSeconds(state), manualTripSeconds(next), effectRate),
-      fact('Dauer Wachgang', manualSecureSeconds(state), manualSecureSeconds(next), effectRate),
-    ],
+    hint: 'Fuhre und Wachgang sind beides Wege, die du selbst gehst. Unter eine halbe Sekunde drückst du den Wachgang nicht.',
+    facts: (state, next) => [fact('Geschwindigkeit', bootsPace(state), bootsPace(next), effectRate)],
   },
   lamp: {
     section: 'vault', category: 'equipment', names: LAMPS, accent: 'vault', spriteFamily: 'lamp',
