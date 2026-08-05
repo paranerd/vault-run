@@ -15,44 +15,71 @@ import type {
 export const MAX_OFFLINE_SECONDS = 8 * 60 * 60
 export const GOLD_FLIGHT_DURATION_MS = 900
 
+/** Alle Stufennamen stehen in `docs/stufen.md` mit ihren Beschreibungen; hier steht nur, was das
+    Spiel selbst anzeigt. Zehn Namen je Strang, und darüber hinaus zählt die Stufennummer weiter,
+    während der letzte Name stehen bleibt — die Stufen sind nicht gedeckelt. */
 export const PICKAXES = [
-  'Rostige Pickhacke',
-  'Eiserne Pickhacke',
-  'Stählerne Pickhacke',
-  'Goldene Pickhacke',
+  'Rostige Pickhacke', 'Geflickte Pickhacke', 'Eiserne Pickhacke', 'Gehärtete Stahlhaue',
+  'Doppelspitzhaue', 'Silberstahlhaue', 'Zwergenhaue', 'Goldene Pickhacke', 'Runenhaue',
+  'Drachenzahnhaue',
 ] as const
 
-export const BAGS = [
-  'Alter Lederbeutel',
-  'Verstärkter Goldbeutel',
-  'Großer Bergmannssack',
-  'Königlicher Goldsack',
+/** Was der Spieler selbst schultert — nicht der Puffer, in den seine Bergleute fördern. Der heißt
+    seit dieser Trennung `STOCKPILES`. */
+export const PACKS = [
+  'Löchriger Lederbeutel', 'Genähter Lederbeutel', 'Verstärkter Goldbeutel', 'Doppelte Gürteltasche',
+  'Großer Bergmannssack', 'Zunftranzen', 'Eisenbeschlagener Packsack', 'Königlicher Goldsack',
+  'Runenbeutel', 'Beutel der Leere',
+] as const
+
+export const BOOTS = [
+  'Durchgelaufene Schuhe', 'Genagelte Arbeitsschuhe', 'Geschnürte Lederstiefel', 'Grubenstiefel',
+  'Marschstiefel', 'Federleichte Stiefel', 'Zwergenstiefel', 'Siebenmeilenstiefel', 'Runenstiefel',
+  'Windschuhe',
+] as const
+
+export const LAMPS = [
+  'Rußige Talgfunzel', 'Blechlaterne', 'Hornlaterne', 'Spiegelöllampe', 'Karbidlampe',
+  'Zwergenleuchte', 'Bannlaterne', 'Spiegelkranzlaterne', 'Runenlicht', 'Sonnenstein',
+] as const
+
+export const STOCKPILES = [
+  'Loser Erzhaufen', 'Bretterverschlag', 'Geflochtene Erzkörbe', 'Gezimmerter Schuppen',
+  'Steinernes Erzlager', 'Grubenspeicher', 'Zunftdepot', 'Gewölbelager', 'Runenspeicher',
+  'Hallenlager',
 ] as const
 
 export const TREASURE_CHESTS = [
-  'Einfache Holzkiste',
-  'Eisenbeschlagene Truhe',
-  'Vergoldete Prunktruhe',
-  'Ultimative Juwelentruhe',
+  'Morsche Holzkiste', 'Beschlagene Holztruhe', 'Eisentruhe', 'Riegeltruhe', 'Steinschrein',
+  'Vergoldete Prunktruhe', 'Zwergentresor', 'Juwelentruhe', 'Runentruhe', 'Drachenhort',
 ] as const
 
 export const SECTION_SLOT_GROUP: Record<SectionId, SlotGroup> = {
   mine: 'miners',
-  bag: 'transporters',
-  chest: 'guards',
+  stock: 'transporters',
+  vault: 'guards',
 }
 
 export const SECTION_LABEL: Record<SectionId, string> = {
   mine: 'Mine',
-  bag: 'Beutel',
-  chest: 'Truhe',
+  stock: 'Lager',
+  vault: 'Truhe',
 }
 
-/** Sprechende Stufennamen, parallel zu den Sprite-Stufen; darüber hinaus gilt der letzte Name. */
+/** Sprechende Stufennamen, zehn je Strang; darüber hinaus gilt der letzte Name. */
 const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
-  miners: ['Tagelöhner', 'Grubenknappe', 'Steinbrecher', 'Erzmeister'],
-  transporters: ['Läufer', 'Packpferd', 'Schatzkarren', 'Königskutsche'],
-  guards: ['Eisenschloss', 'Wachhund', 'Wachturm', 'Königsgarde', 'Schatzfestung'],
+  miners: [
+    'Tagelöhner', 'Grubenknappe', 'Hauer', 'Steinbrecher', 'Sprengmeister', 'Erzmeister',
+    'Zwergenhauer', 'Rutengänger', 'Runenbrecher', 'Steingolem',
+  ],
+  transporters: [
+    'Laufbursche', 'Packesel', 'Schubkarre', 'Packpferd', 'Ochsenkarren', 'Panzerkarren',
+    'Vierspänner', 'Königskutsche', 'Greifengespann', 'Torstein',
+  ],
+  guards: [
+    'Nachtwächter', 'Wachhund', 'Speerknecht', 'Söldnerwache', 'Rüdenmeister', 'Wachhauptmann',
+    'Schattenspäher', 'Ordensritter', 'Königsgardist', 'Greifenreiter',
+  ],
 }
 
 const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
@@ -79,8 +106,8 @@ export function slotStageName(group: SlotGroup, level: number): string {
 
 const SLOT_SECTION: Record<SlotGroup, SectionId> = {
   miners: 'mine',
-  transporters: 'bag',
-  guards: 'chest',
+  transporters: 'stock',
+  guards: 'vault',
 }
 
 const SLOT_ACCENT: Record<SlotGroup, UpgradeView['accent']> = {
@@ -97,7 +124,11 @@ const SLOT_SPRITE: Record<SlotGroup, UpgradeView['spriteFamily']> = {
 
 const cost = (base: number, factor: number, level: number) => Math.ceil(base * factor ** level)
 const effectGold = (value: number) => formatGold(value)
-const visualStage = (level: number) => Math.min(3, Math.max(0, level))
+/** Der Name zur Stufe. Oberhalb des letzten benannten Rangs bleibt er stehen, während die
+    Stufennummer weiterzählt — die Namenstabellen decken zehn Stufen ab, die Stufen selbst sind
+    nicht gedeckelt. */
+const stageName = (names: readonly string[], level: number) =>
+  names[Math.min(names.length - 1, Math.max(0, level))]
 const effectValue = (value: number) => formatInteger(Math.floor(value))
 const effectRate = (value: number) => formatDecimal(value)
 const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
@@ -114,12 +145,12 @@ export const exhaustionRecoveryRate = (_state: GameState) => 20
 export const EXHAUSTION_BREAK_MS = 750
 
 /** Ein voller Balken ist in jedem Abschnitt dasselbe: der Punkt, an dem gehandelt werden muss.
-    Risiko, Beutel und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
+    Risiko, Lager und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
     dann überall dasselbe, statt dass jeder Abschnitt sein eigenes „bald" hätte. */
 export const METER_WARNING = 75
 export const METER_ALERT = 90
 
-export const chestCapacity = (state: GameState) => 50 * 1.55 ** state.chestLevel
+export const stockCapacity = (state: GameState) => 50 * 1.55 ** state.stockLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
 /** Jede Einheit im Spiel — Bergmann, Fuhrknecht, Wache — arbeitet nach demselben Muster: eine
@@ -134,10 +165,40 @@ export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
  *  ausschließlich die Menge das weitere Wachstum. */
 export const MIN_CYCLE_SECONDS = 1
 
-/** Was der Spieler selbst auf dem Rücken zur Truhe trägt, und wie lange er dafür braucht. Eine
-    eigene Größe neben den Fuhrknechten, so wie der eigene Schlag neben den Bergleuten steht. */
-export const MANUAL_CARGO = 20
-export const MANUAL_TRIP_SECONDS = 12
+// --- Die Ausrüstung des Spielers: eine eigene Größe je Handlung -------------------------------
+/** Der Spieler hat drei Handlungen — schürfen, seine eigene Fuhre tragen, von Hand Wache gehen —
+    und für jede ein Ausrüstungsstück, das sie besser macht. Ohne sie wäre nur der Schlag
+    ausbaubar gewesen, und Fuhre wie Wachgang blieben Konstanten in einem Spiel, dessen Automatik
+    unbegrenzt wächst: Aktives Spiel hörte damit zwangsläufig auf, sich zu lohnen.
+ *
+ *  Die Stiefel sind das einzige Stück, das auf zwei Handlungen wirkt. Das ist kein Sonderfall,
+ *  sondern dieselbe Regel: Fuhre und Wachgang sind beide Wege, die er zu Fuß zurücklegt. Wären
+ *  sie nur der Fuhre zugeschlagen, bliebe der Wachgang der einzige Teil von ihm, der nie besser
+ *  wird — und damit ab dem dritten Wachposten überflüssig. */
+
+/** Die **Ladung**: was er in einer Fuhre schultert. Gedeckelt auf das, was im Lager überhaupt
+    Platz hat — mehr als der Haufen fasst, kann niemand daraus wegtragen. Ohne diesen Deckel wäre
+    ein Beutel über der Lagergröße ein Kauf ohne Wirkung; mit ihm zeigt die Karte vorher und
+    nachher dieselbe Zahl und sagt damit selbst, dass zuerst das Lager wachsen muss. */
+export const packCargo = (state: GameState) => Math.min(Math.round(25 * 1.5 ** state.packLevel), stockCapacity(state))
+
+/** Die **Dauer** der beiden Wege. Hin- und Rückweg zusammen, gegen den Boden von einer Sekunde
+    hin immer kürzer — derselbe Boden wie bei jeder anderen Einheit. */
+export const manualTripSeconds = (state: GameState) => Math.max(MIN_CYCLE_SECONDS, 12 * 0.88 ** state.bootsLevel)
+
+/** Der Wachgang ist kein Takt einer Automatik, sondern ein Tastendruck; sein Boden liegt deshalb
+    unter `MIN_CYCLE_SECONDS`, der die Zahl gleichzeitiger Animationen deckelt. Eine halbe Sekunde
+    ist die Grenze, unterhalb derer die Sperre der beiden anderen Aktionen nicht mehr zu spüren
+    wäre — und genau diese Sperre ist der Preis des Wachgangs. */
+export const MANUAL_SECURE_FLOOR_SECONDS = 0.5
+export const manualSecureSeconds = (state: GameState) =>
+  Math.max(MANUAL_SECURE_FLOOR_SECONDS, 1.5 * 0.88 ** state.bootsLevel)
+
+/** Die **Kraft** eines Wachgangs, in denselben Punkten der Hundert-Punkte-Skala, die auch eine
+    Wache abträgt (`guardPower`). Dieselbe Beschriftung heißt dieselbe Skala: Lampe und Wache sind
+    damit unmittelbar gegeneinander abwägbar. Der Spieler liegt dabei weit über jeder einzelnen
+    Wache — er bezahlt seine Punkte mit eigener Zeit, in der er weder fördert noch trägt. */
+export const lampPower = (state: GameState) => Math.round(25 * 1.25 ** state.lampLevel)
 
 // --- Bergleute: eine Förderung je Sekunde, die Stufe bestimmt allein die Menge ---
 /** Bergleute arbeiten immer im Sekundentakt. Damit ist ihre Fördermenge zugleich ihre Rate, und
@@ -169,7 +230,7 @@ export const automaticTransportRate = (state: GameState) =>
 export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
 
 /** Anteil der Schatztruhe, den ein Diebeszug mitnimmt. Deutlich kleiner als der frühere
-    Beutel-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt einer Tasche. */
+    Lager-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt eines Haufens. */
 export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 ** guardStrength(state))
 
 /** Ab `METER_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Diebeszug. */
@@ -182,7 +243,7 @@ export const RISK_ALERT = METER_ALERT
 export const RISK_PER_VAULT_LEVEL = 0.25
 
 /** Risiko-Zuwachs pro Sekunde. Wächst nur, solange etwas in der Schatztruhe liegt, und hängt am
-    Füllstand — die Diebe zielen auf den Hort, nicht auf den Beutel. Dazu wächst er mit der Größe
+    Füllstand — die Diebe zielen auf den Hort, nicht auf das Lager. Dazu wächst er mit der Größe
     des Horts: Eine prächtigere Truhe ist ein lohnenderes Ziel, und nur so bleibt der Trupp über
     das ganze Spiel gefordert statt nach den ersten Käufen überflüssig.
  *
@@ -202,10 +263,6 @@ export const riskGrowth = (state: GameState) => {
     Nacht die Truhe restlos leer. */
 export const OFFLINE_THEFT_SHARE = 0.25
 
-/** Eine manuelle Sicherung nimmt ein Viertel der vollen Risikoskala. */
-export const MANUAL_SECURE_AMOUNT = 25
-export const SECURE_COOLDOWN_MS = 1_500
-
 export const activeGuards = (state: GameState) => state.guardLevels.filter((level) => level > 0).length
 export const hasAutomaticSecurity = (state: GameState) => activeGuards(state) > 0
 
@@ -222,12 +279,27 @@ export const guardRate = (level: number) => level === 0 ? 0 : guardPower(level) 
 export const securingRate = (state: GameState) =>
   state.guardLevels.reduce((total, level) => total + guardRate(level), 0)
 
-export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
+/** Die Stufe, auf der jedes Ausrüstungsstück gerade steht. Eine Stelle statt sechs verstreuter
+    Feldzugriffe — Preis, Karte und Kauf lesen alle hierüber. */
+export const equipmentLevel = (state: GameState, id: EquipmentUpgradeId): number => {
   switch (id) {
-    case 'tap': return cost(12, 1.58, state.tapLevel)
-    case 'chest': return cost(45, 1.62, state.chestLevel)
-    case 'vault': return cost(300, 1.85, state.vaultLevel)
+    case 'tap': return state.tapLevel
+    case 'pack': return state.packLevel
+    case 'boots': return state.bootsLevel
+    case 'lamp': return state.lampLevel
+    case 'stock': return state.stockLevel
+    case 'vault': return state.vaultLevel
   }
+}
+
+/** Die Preise der Spielerausrüstung liegen bewusst über der Pickhacke: Sie wirkt auf jeden Schlag,
+    die anderen drei nur, solange der Spieler selbst zugreift. Die Stiefel sind das teuerste Stück,
+    weil sie als einziges auf zwei Handlungen wirkt und sich mit dem Beutel multipliziert
+    (Ladung ÷ Dauer) — an diesem Paar hängt der ganze manuelle Durchsatz. */
+export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
+  const bases: Record<EquipmentUpgradeId, number> = { tap: 12, pack: 60, boots: 150, lamp: 80, stock: 45, vault: 300 }
+  const factors: Record<EquipmentUpgradeId, number> = { tap: 1.58, pack: 1.7, boots: 1.8, lamp: 1.7, stock: 1.62, vault: 1.85 }
+  return cost(bases[id], factors[id], equipmentLevel(state, id))
 }
 
 export function slotUpgradeCost(state: GameState, group: SlotGroup, index: SlotIndex): number {
@@ -241,10 +313,14 @@ export function slotUpgradeCost(state: GameState, group: SlotGroup, index: SlotI
   return cost(bases[group], factors[group], levels[index])
 }
 
-function withEquipmentLevel(state: GameState, id: EquipmentUpgradeId): GameState {
-  if (id === 'tap') return { ...state, tapLevel: state.tapLevel + 1 }
-  if (id === 'chest') return { ...state, chestLevel: state.chestLevel + 1 }
-  return { ...state, vaultLevel: state.vaultLevel + 1 }
+const EQUIPMENT_LEVEL_KEY: Record<EquipmentUpgradeId, keyof GameState & `${string}Level`> = {
+  tap: 'tapLevel', pack: 'packLevel', boots: 'bootsLevel', lamp: 'lampLevel',
+  stock: 'stockLevel', vault: 'vaultLevel',
+}
+
+export function withEquipmentLevel(state: GameState, id: EquipmentUpgradeId): GameState {
+  const key = EQUIPMENT_LEVEL_KEY[id]
+  return { ...state, [key]: state[key] + 1 }
 }
 
 export function withSlotLevel(state: GameState, group: SlotGroup, index: SlotIndex): GameState {
@@ -271,50 +347,76 @@ function fact(label: string, before: number | null, after: number, format: (valu
   return { from: before === null ? '–' : format(before), to: format(after), label }
 }
 
-export function getEquipmentUpgrade(state: GameState, section: SectionId): UpgradeView {
-  if (section === 'mine') {
-    const next = withEquipmentLevel(state, 'tap')
-    const name = PICKAXES[visualStage(state.tapLevel)]
-    return {
-      key: 'equipment:tap', section, equipmentId: 'tap', name,
-      nextName: changedName(name, PICKAXES[visualStage(state.tapLevel + 1)]),
-      hint: 'Wirkt nur, wenn du selbst in der Mine klickst.',
-      facts: [
-        stageFact(state.tapLevel + 1, changedName(name, PICKAXES[visualStage(state.tapLevel + 1)])),
-        fact('Fördermenge', tapValue(state), tapValue(next), effectValue),
-        fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), effectRate),
-      ],
-      stage: state.tapLevel + 1, cost: equipmentUpgradeCost(state, 'tap'), available: true, accent: 'business',
-      spriteFamily: 'pickaxe', spriteLevel: state.tapLevel,
-    }
-  }
-  if (section === 'bag') {
-    const next = withEquipmentLevel(state, 'chest')
-    const name = BAGS[visualStage(state.chestLevel)]
-    return {
-      key: 'equipment:chest', section, equipmentId: 'chest', name,
-      nextName: changedName(name, BAGS[visualStage(state.chestLevel + 1)]),
-      hint: 'Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre.',
-      facts: [
-        stageFact(state.chestLevel + 1, changedName(name, BAGS[visualStage(state.chestLevel + 1)])),
-        fact('Kapazität', chestCapacity(state), chestCapacity(next), effectGold),
-      ],
-      stage: state.chestLevel + 1, cost: equipmentUpgradeCost(state, 'chest'), available: true, accent: 'logistics',
-      spriteFamily: 'bag', spriteLevel: state.chestLevel,
-    }
-  }
-  const next = withEquipmentLevel(state, 'vault')
-  const name = TREASURE_CHESTS[visualStage(state.vaultLevel)]
-  return {
-    key: 'equipment:vault', section, equipmentId: 'vault', name,
-    nextName: changedName(name, TREASURE_CHESTS[visualStage(state.vaultLevel + 1)]),
-    hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
-    facts: [
-      stageFact(state.vaultLevel + 1, changedName(name, TREASURE_CHESTS[visualStage(state.vaultLevel + 1)])),
-      fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold),
+/** Alles, was eine Ausrüstungskarte von den anderen unterscheidet. Die sechs Karten unterschieden
+    sich vorher in drei ausgeschriebenen Zweigen um jeweils vier Zeilen; hier steht je Stück nur
+    noch das, was ihm allein gehört. */
+interface EquipmentSpec {
+  section: SectionId
+  names: readonly string[]
+  accent: UpgradeView['accent']
+  spriteFamily: UpgradeView['spriteFamily']
+  /** Die Folge, die aus keiner Zahl der Tabelle hervorgeht — bei der Spielerausrüstung immer
+      zuerst: dass sie nur wirkt, wenn er selbst zugreift. */
+  hint: string
+  /** Die Attributzeilen unter der Stufenzeile, vorher und nachher. */
+  facts: (state: GameState, next: GameState) => UpgradeFact[]
+}
+
+/** Erst die vier Stücke, die der Spieler am Körper trägt, dann die beiden Behälter des Reiches.
+    In dieser Reihenfolge stehen sie im Ausbau-Sheet. */
+export const EQUIPMENT_ORDER: readonly EquipmentUpgradeId[] = ['tap', 'pack', 'boots', 'lamp', 'stock', 'vault']
+
+const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
+  tap: {
+    section: 'mine', names: PICKAXES, accent: 'business', spriteFamily: 'pickaxe',
+    hint: 'Wirkt nur, wenn du selbst in der Mine schlägst.',
+    facts: (state, next) => [
+      fact('Fördermenge', tapValue(state), tapValue(next), effectValue),
+      fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), effectRate),
     ],
-    stage: state.vaultLevel + 1, cost: equipmentUpgradeCost(state, 'vault'), available: true, accent: 'vault',
-    spriteFamily: 'chest', spriteLevel: state.vaultLevel,
+  },
+  pack: {
+    section: 'stock', names: PACKS, accent: 'logistics', spriteFamily: 'pack',
+    hint: 'Wirkt nur, wenn du selbst trägst. Mehr, als im Lager Platz hat, schulterst du nie.',
+    facts: (state, next) => [fact('Ladung', packCargo(state), packCargo(next), effectGold)],
+  },
+  boots: {
+    section: 'stock', names: BOOTS, accent: 'logistics', spriteFamily: 'boots',
+    hint: 'Fuhre und Wachgang sind beides Wege, die du selbst gehst.',
+    facts: (state, next) => [
+      fact('Dauer Fuhre', manualTripSeconds(state), manualTripSeconds(next), effectRate),
+      fact('Dauer Wachgang', manualSecureSeconds(state), manualSecureSeconds(next), effectRate),
+    ],
+  },
+  lamp: {
+    section: 'vault', names: LAMPS, accent: 'vault', spriteFamily: 'lamp',
+    hint: 'Wirkt nur, wenn du selbst Wache gehst. Dieselben Punkte, die eine Wache abträgt.',
+    facts: (state, next) => [fact('Kraft', lampPower(state), lampPower(next), effectValue)],
+  },
+  stock: {
+    section: 'stock', names: STOCKPILES, accent: 'logistics', spriteFamily: 'stock',
+    hint: 'Ist das Lager voll, ruht die Mine bis zur nächsten Fuhre.',
+    facts: (state, next) => [fact('Kapazität', stockCapacity(state), stockCapacity(next), effectGold)],
+  },
+  vault: {
+    section: 'vault', names: TREASURE_CHESTS, accent: 'vault', spriteFamily: 'vault',
+    hint: 'Ist die Truhe voll, bleiben die Fuhren stehen.',
+    facts: (state, next) => [fact('Kapazität', vaultCapacity(state), vaultCapacity(next), effectGold)],
+  },
+}
+
+export function getEquipmentUpgrade(state: GameState, id: EquipmentUpgradeId): UpgradeView {
+  const spec = EQUIPMENT[id]
+  const level = equipmentLevel(state, id)
+  const next = withEquipmentLevel(state, id)
+  const name = stageName(spec.names, level)
+  const nextName = changedName(name, stageName(spec.names, level + 1))
+  return {
+    key: `equipment:${id}`, section: spec.section, equipmentId: id, name, nextName,
+    hint: spec.hint,
+    facts: [stageFact(level + 1, nextName), ...spec.facts(state, next)],
+    stage: level + 1, cost: equipmentUpgradeCost(state, id), available: true,
+    accent: spec.accent, spriteFamily: spec.spriteFamily, spriteLevel: level,
   }
 }
 
@@ -369,8 +471,11 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
 }
 
 export function getAllUpgrades(state: GameState): UpgradeView[] {
-  const sections: SectionId[] = ['mine', 'bag', 'chest']
-  return sections.flatMap((section) => [getEquipmentUpgrade(state, section), ...getSlotUpgrades(state, section)])
+  const sections: SectionId[] = ['mine', 'stock', 'vault']
+  return [
+    ...EQUIPMENT_ORDER.map((id) => getEquipmentUpgrade(state, id)),
+    ...sections.flatMap((section) => getSlotUpgrades(state, section)),
+  ]
 }
 
 export const UPGRADE_CATEGORIES: readonly UpgradeCategory[] = ['equipment', 'miners', 'transporters', 'guards']
@@ -396,7 +501,7 @@ export const UPGRADE_FILTER_PREFIX: Record<UpgradeFilter, string> = {
 export const SECTION_FILTER: Record<SectionId, UpgradeCategory> = SECTION_SLOT_GROUP
 
 export function getCategoryUpgrades(state: GameState, category: UpgradeCategory): UpgradeView[] {
-  if (category === 'equipment') return [getEquipmentUpgrade(state, 'mine'), getEquipmentUpgrade(state, 'bag'), getEquipmentUpgrade(state, 'chest')]
+  if (category === 'equipment') return EQUIPMENT_ORDER.map((id) => getEquipmentUpgrade(state, id))
   return getSlotUpgrades(state, SLOT_SECTION[category])
 }
 

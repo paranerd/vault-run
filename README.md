@@ -41,4 +41,4 @@ npm run build
 
 Die Anwendung wird nach Änderungen an `main` automatisch über GitHub Pages veröffentlicht. Savegames aus Schema 1–4 werden auf Schema 5 migriert; bis zu acht Stunden Offline-Fortschritt werden nachberechnet.
 
-Die vollständigen Produktregeln und Architekturentscheidungen stehen in [DESIGN.md](./DESIGN.md).
+Die vollständigen Produktregeln und Architekturentscheidungen stehen in [docs/DESIGN.md](./docs/DESIGN.md), die Namen und Beschreibungen aller Ausbaustufen in [docs/stufen.md](./docs/stufen.md).

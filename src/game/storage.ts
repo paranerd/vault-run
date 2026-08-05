@@ -18,20 +18,38 @@ function timestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+/** Bis Schema 7 hieß das Lager „Beutel" und lag als `chestGold`/`chestLevel` im Spielstand — ein
+    Name, den seit Schema 8 der Beutel des Spielers trägt. Beide Felder wandern deshalb auf ihren
+    neuen Namen; ein alter `chestLevel` ist die Stufe des **Lagers**, nicht die des Beutels.
+    Die vier Ausrüstungsstücke des Spielers beginnen bei 0, also auf ihrer ersten Stufe: Wer
+    zurückkehrt, hat sie noch nicht gekauft, aber auch nichts verloren. */
+function withPlayerEquipment(parsed: Record<string, unknown>): Record<string, unknown> {
+  return {
+    stockGold: Math.max(0, Number(parsed.chestGold ?? parsed.stockGold) || 0),
+    stockLevel: Math.max(0, Math.floor(Number(parsed.chestLevel ?? parsed.stockLevel) || 0)),
+    packLevel: Math.max(0, Math.floor(Number(parsed.packLevel) || 0)),
+    bootsLevel: Math.max(0, Math.floor(Number(parsed.bootsLevel) || 0)),
+    lampLevel: Math.max(0, Math.floor(Number(parsed.lampLevel) || 0)),
+  }
+}
+
 /** Schema 6 kennt keine gemeinsame Fuhre mehr, sondern eine je Einheit. Gold, das beim Wechsel
-    noch auf der Straße lag, wandert zurück in den Beutel: Es dort abzulegen ist die einzige
+    noch auf der Straße lag, wandert zurück ins Lager: Es dort abzulegen ist die einzige
     Variante, bei der weder etwas verschwindet noch ungeprüft in der Truhe auftaucht. */
 function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, unknown>): GameState {
   const {
     inTransitGold: _inTransit, transportStartedAt: _started, transportDeliveredAt: _delivered,
     transportEndsAt: _ends, expressGold: _express, expressStartedAt: _expressStarted,
-    expressDeliveredAt: _expressDelivered, expressEndsAt: _expressEnds, ...withoutConvoy
+    expressDeliveredAt: _expressDelivered, expressEndsAt: _expressEnds,
+    chestGold: _chestGold, chestLevel: _chestLevel, ...withoutConvoy
   } = base
   const stranded = (Number(parsed.inTransitGold) || 0) + (Number(parsed.expressGold) || 0)
+  const equipment = withPlayerEquipment(parsed)
   return {
     ...withoutConvoy,
-    schemaVersion: 7,
-    chestGold: (Number(parsed.chestGold) || 0) + stranded,
+    ...equipment,
+    schemaVersion: 8,
+    stockGold: (equipment.stockGold as number) + stranded,
     minerLevels: normalizeLevels(parsed.minerLevels),
     transporterLevels: normalizeLevels(parsed.transporterLevels),
     guardLevels: normalizeLevels(parsed.guardLevels),
@@ -80,13 +98,18 @@ function normalizeTrips(value: unknown): SlotTrips {
 export function migrateGame(value: unknown): GameState | null {
   if (!value || typeof value !== 'object') return null
   const parsed = value as Record<string, unknown>
-  const { tapReadyAt: _legacyTapReadyAt, ...withoutCooldown } = parsed
+  const {
+    tapReadyAt: _legacyTapReadyAt, chestGold: _legacyStockGold, chestLevel: _legacyStockLevel,
+    ...withoutCooldown
+  } = parsed
   const version = Number(parsed.schemaVersion)
-  // Schema 6 kennt die eigenen Takte bereits; Schema 7 ergänzt die Erschöpfung.
-  if (version === 6 || version === 7) {
+  // Schema 6 kennt die eigenen Takte bereits, Schema 7 die Erschöpfung; Schema 8 trennt das Lager
+  // vom Beutel des Spielers und gibt ihm Stiefel und Grubenlampe dazu.
+  if (version === 6 || version === 7 || version === 8) {
     return {
       ...withoutCooldown,
-      schemaVersion: 7,
+      ...withPlayerEquipment(parsed),
+      schemaVersion: 8,
       minerLevels: normalizeLevels(parsed.minerLevels),
       transporterLevels: normalizeLevels(parsed.transporterLevels),
       guardLevels: normalizeLevels(parsed.guardLevels),

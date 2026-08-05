@@ -141,8 +141,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .game-section { position: relative; min-height: 0; display: grid; grid-template-rows: auto minmax(0,1fr); overflow: hidden; }
 .game-section + .game-section { border-top: 3px solid #352016; }
 .game-section--mine { background: linear-gradient(rgba(55,31,17,.07),rgba(55,31,17,.16)), #a87945; }
-.game-section--bag { background: linear-gradient(rgba(221,178,100,.08),rgba(69,40,22,.08)), #bb8d55; }
-.game-section--chest { background: linear-gradient(rgba(66,87,46,.07),rgba(57,31,16,.13)), #ad7e4c; }
+.game-section--stock { background: linear-gradient(rgba(221,178,100,.08),rgba(69,40,22,.08)), #bb8d55; }
+.game-section--vault { background: linear-gradient(rgba(66,87,46,.07),rgba(57,31,16,.13)), #ad7e4c; }
 .game-section::before {
   content: '';
   position: absolute;
@@ -195,7 +195,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: inset 0 2px rgba(255,239,159,.36), inset 0 -2px rgba(77,38,14,.3);
   /* Genau ein Tick lang und linear: Damit überbrückt die Leiste die Lücke zwischen zwei
      Spielzuständen und ist am nächsten Tick wieder auf dem Ist-Wert. Eine lange, weiche Kurve tat
-     Werten gut, die in Sprüngen kommen (Beutel), dämpfte aber den stetig wachsenden Räuber zur
+     Werten gut, die in Sprüngen kommen (Lager), dämpfte aber den stetig wachsenden Räuber zur
      Zeitlupe: Von einer 850-ms-Kurve, die alle 100 ms neu ansetzt, bleiben pro Tick nur die ersten,
      flachsten Prozent übrig. So laufen beide gleich schnell — nämlich so schnell wie ihr Wert. */
   transition: width .1s linear;
@@ -288,7 +288,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-action:active:not(:disabled) { transform: translateY(3px); box-shadow: 2px 1px 0 #2a160d; }
 .section-action:disabled { cursor: not-allowed; filter: grayscale(.45) brightness(.76); }
 .section-action.is-progressing:disabled { filter: none; }
-.section-action--chest.is-revealed:disabled { filter: none; }
+.section-action--vault.is-revealed:disabled { filter: none; }
 .section-action.is-full { animation: bag-full-pulse 1.1s steps(2,end) infinite; }
 .section-action.is-exhausted { animation: exhaustion-pulse .48s steps(2,end) infinite; }
 /* Vorwarnung vor dem Diebeszug: ab RISK_ALERT pocht die Sicherung, bis der Spieler reagiert. */
@@ -362,7 +362,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .upgrade-group__title::after { content: ''; flex: 1; height: 4px; background: repeating-linear-gradient(90deg,#b0844e 0 6px,transparent 6px 10px); }
 /* Kurzes Aufleuchten, sobald eine Wache Punkte abgetragen hat — die Sicherung ist ein Ereignis
    wie eine Ankunft und soll auch eines sein. */
-.section-action--chest.is-secured { animation: guard-secured .36s ease-out; }
+.section-action--vault.is-secured { animation: guard-secured .36s ease-out; }
 @keyframes guard-secured {
   0% { filter: brightness(1); }
   35% { filter: brightness(1.35) drop-shadow(0 0 6px rgba(120,220,140,.75)); }
