@@ -271,11 +271,19 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .section-aside img { width: 68px; max-width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 3px 0 rgba(38,19,10,.28)); }
 .section-aside--plain img { width: 104px; }
 /* Beschriftung über dem Wert, beides mittig: Nebeneinander teilten sich Wort und Zahl die
-   Kachelbreite, und ein Hort im Millionenbereich hätte dort nur noch als Stummel Platz. */
-.section-aside__capacity { max-width: 100%; margin: 0; display: grid; gap: 1px; justify-items: center; font-family: var(--pixel-font); line-height: 1.05; text-align: center; }
-.section-aside__capacity > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-aside__capacity span { color: rgba(67,41,26,.72); font-size: 13px; letter-spacing: .04em; }
-.section-aside__capacity strong { color: #43291a; font-size: 18px; font-weight: 400; }
+   Kachelbreite, und die Beschriftung wäre als erstes weggeschnitten worden. */
+.section-aside__fill { max-width: 100%; margin: 0; display: grid; gap: 1px; justify-items: center; font-family: var(--pixel-font); line-height: 1.05; text-align: center; }
+.section-aside__fill > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-aside__fill span { color: rgba(67,41,26,.72); font-size: 13px; letter-spacing: .04em; }
+.section-aside__fill strong { color: #43291a; font-size: 18px; font-weight: 400; transition: color .15s linear; }
+/* Dieselbe Ampel wie auf den Leisten — gelb ab 75 %, rot ab 90 %, kräftiges Rot bei 100 % —, aber
+   in dunkleren Tönen: `--meter-warning` und `--meter-alert` sind für helle Schrift auf dunklem
+   Braun gemischt und verschwänden auf dem hellen Pergament dieser Kachel. Gefärbt wird
+   ausschließlich die Zahl: Sie ist es, die sich ändert. Die Beschriftung darüber steht in jedem
+   Zustand da und hieße mitgefärbt nur, dass zweimal dasselbe gesagt wird. */
+.section-aside.is-warning .section-aside__fill strong { color: #92560f; }
+.section-aside.is-alert .section-aside__fill strong { color: var(--red); }
+.section-aside.is-full .section-aside__fill strong { color: #c0301c; }
 
 /* Die mittlere Spalte trägt nur den Button; seine Beschriftung steht in ihm. */
 .section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -337,7 +345,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 }
 .slot-grid button.is-empty { filter: saturate(.62); background: rgba(142,99,57,.42); }
 .slot-grid img { width: 47px; height: 47px; object-fit: contain; image-rendering: pixelated; }
-.slot-grid button.is-empty img { opacity: .38; filter: grayscale(.6); }
+/* Ein leerer Slot trägt statt eines Bildes ein großes „+“. Die ausgegraute Grafik war die des
+   ersten Rangs — ein Bild von jemandem, der gar nicht da ist, und aus zwei Metern Abstand kaum von
+   einem besetzten Slot zu unterscheiden. Das Zeichen steht dort, wo bei besetzten Slots das Sprite
+   steht, und ist entsprechend groß; der Ton ist derselbe blasse, den die Kachel schon hatte. */
+.slot-grid__empty { color: rgba(58,36,24,.5); font-family: var(--pixel-font); font-size: 38px; line-height: 1; text-shadow: 1px 1px rgba(255,241,199,.25); }
 .slot-grid b { position: absolute; right: 2px; bottom: 2px; min-width: 15px; height: 15px; display: grid; place-items: center; border: 1px solid #432718; border-radius: 2px; color: #fff0bc; background: #6d4328; font-family: var(--pixel-font); font-size: 8px; line-height: 1; }
 .slot-grid__badge { position: absolute; z-index: 3; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 4px; display: grid; place-items: center; border: 2px solid #301a10; border-radius: 3px; color: #fff2c8; background: var(--red); box-shadow: 2px 2px 0 rgba(25,11,7,.55); font-family: var(--pixel-font); font-size: 8px; font-style: normal; }
 
@@ -401,7 +413,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   /* Bild links über beide Kopfzeilen, daneben Name über Attributtabelle, Preis rechts.
      Der Hinweis läuft darunter über die volle Breite. */
   grid-template-columns: 52px minmax(0,1fr) 72px;
-  grid-template-areas: 'sprite name price' 'sprite facts price' 'hint hint hint';
+  grid-template-areas: 'sprite name price' 'sprite facts price';
   gap: 4px 9px;
   align-items: center;
   padding: 11px 10px 12px 13px; border: 2px solid #74492c; border-radius: 5px; background: #f8e2b3; box-shadow: 3px 3px 0 rgba(69,37,18,.24),inset 2px 2px rgba(255,251,220,.4); }
@@ -411,13 +423,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 .upgrade-card.is-focused { outline: 3px solid #e0a63d; outline-offset: 2px; }
 .upgrade-card.is-unowned { border-color: #827667; background: #d9ccb4; }
 .upgrade-card.is-unowned::before { filter: grayscale(1); opacity: .52; }
-.upgrade-card.is-unowned .upgrade-card__sprite,.upgrade-card.is-unowned h3,.upgrade-card.is-unowned .upgrade-facts,.upgrade-card.is-unowned .upgrade-card__hint { filter: grayscale(1); opacity: .52; }
+.upgrade-card.is-unowned .upgrade-card__sprite,.upgrade-card.is-unowned h3,.upgrade-card.is-unowned .upgrade-facts { filter: grayscale(1); opacity: .52; }
 .upgrade-card__sprite { grid-area: sprite; align-self: center; width: 52px; height: 52px; display: grid; place-items: center; border: 2px solid #7d5030; border-radius: 3px; background: #d3ad70; box-shadow: inset 2px 2px rgba(255,239,188,.3); }
 .upgrade-card__sprite img { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
 .upgrade-card h3 { grid-area: name; align-self: end; display: flex; gap: 7px; align-items: baseline; margin: 0 0 4px; min-width: 0; color: #3e2516; font-family: var(--pixel-font); font-size: 17px; font-weight: 400; line-height: 1; }
 .upgrade-card h3 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upgrade-card h3 em { flex: 0 0 auto; color: var(--muted); font-size: 11px; font-style: normal; }
-.upgrade-card__hint { grid-area: hint; margin: 6px 0 0; padding: 7px 0 0; border-top: 1px solid rgba(112,70,41,.35); color: var(--muted); font-size: 12.5px; font-weight: 400; line-height: 1.15; }
 /* Attributtabelle: Vorher-Wert, Pfeil, Nachher-Wert, Name. Die drei ersten Spalten sind
    inhaltsbreit und über alle Zeilen geteilt, damit Pfeile und Nachher-Werte exakt fluchten; die
    Namensspalte nimmt den Rest und kürzt notfalls. `dd` steht vor `dt`, weil die Zahl gelesen
@@ -559,11 +570,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside { padding: 4px 5px; }
   .section-aside img { width: 58px; }
   .section-aside--plain img { width: 80px; }
-  .section-aside__capacity span { font-size: 11px; }
-  .section-aside__capacity strong { font-size: 16px; }
+  .section-aside__fill span { font-size: 11px; }
+  .section-aside__fill strong { font-size: 16px; }
   .slot-grid { padding: 4px; }
   .slot-grid button { border-width: 1px; }
   .slot-grid img { width: 45px; height: 45px; }
+  .slot-grid__empty { font-size: 36px; }
   .section-action { width: 94px; }
   .dock__inner { gap: 5px; }
   .dock-button { font-size: 12px; }
@@ -573,7 +585,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .sheet-filters { gap: 2px; }
   .sheet-filters button { padding: 0 6px; font-size: 12px; }
   .sheet-filters button b { width: 5px; height: 5px; margin: 0 -7px 0 2px; }
-  .upgrade-card { grid-template-columns: 46px minmax(0,1fr) 66px; grid-template-areas: 'sprite name price' 'facts facts facts' 'hint hint hint'; gap: 6px 8px; }
+  .upgrade-card { grid-template-columns: 46px minmax(0,1fr) 66px; grid-template-areas: 'sprite name price' 'facts facts facts'; gap: 6px 8px; }
   .upgrade-card h3 { align-self: center; }
   .upgrade-card__sprite { width: 46px; height: 46px; }
   .upgrade-card__sprite img { width: 50px; height: 50px; }
@@ -598,13 +610,15 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside { gap: 3px; padding: 3px 5px; }
   .section-aside img { width: 48px; }
   .section-aside--plain img { width: 70px; }
-  .section-aside__capacity span { font-size: 11px; }
-  .section-aside__capacity strong { font-size: 15px; }
+  .section-aside__fill span { font-size: 11px; }
+  .section-aside__fill strong { font-size: 15px; }
   .section-center { gap: 2px; }
   .section-action { width: 88px; height: 80px; border-width: 2px; box-shadow: 2px 2px 0 #2a160d; }
   .section-action img { width: 50px; height: 50px; }
   .section-action__label { margin-top: 1px; font-size: 13px; }
-  .slot-grid img { width: 36px; height: 36px; }.slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
+  .slot-grid img { width: 36px; height: 36px; }
+  .slot-grid__empty { font-size: 29px; }
+  .slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
 }
 
 @media (min-width: 760px) {
@@ -616,10 +630,11 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .section-aside { gap: 9px; padding: 9px 11px; }
   .section-aside img { width: 92px; }
   .section-aside--plain img { width: 126px; }
-  .section-aside__capacity span { font-size: 16px; }
-  .section-aside__capacity strong { font-size: 22px; }
+  .section-aside__fill span { font-size: 16px; }
+  .section-aside__fill strong { font-size: 22px; }
   .section-action { width: 128px; height: 122px; }.section-action img { width: 78px; height: 78px; }.section-action__label { font-size: 19px; }
   .slot-grid img { width: 58px; height: 58px; }
+  .slot-grid__empty { font-size: 47px; }
   .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); transform: translateX(100%); }
   .management-sheet.is-open { transform: translateX(0); }
   .dock { padding-right: 22px; padding-left: 22px; }

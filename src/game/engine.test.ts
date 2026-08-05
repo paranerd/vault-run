@@ -4,6 +4,8 @@ import {
   GOLD_FLIGHT_DURATION_MS,
   OFFLINE_THEFT_SHARE,
   automaticTransportRate,
+  bootsPace,
+  bootsSpeed,
   getCategoryUpgrades,
   lampSight,
   LOSS_PER_MIGHT,
@@ -27,16 +29,20 @@ import {
   transporterTripSeconds,
   riskGrowth,
   guardSight,
+  guardSpeed,
   guardRate,
   minerRate,
   minerYield,
   securingRate,
   securityLoss,
+  slotStageName,
   slotVisualLevel,
   slotUpgradeCost,
   tapValue,
   transporterCapacity,
   transporterRate,
+  transporterSpeed,
+  UPGRADE_FILTERS,
   vaultCapacity,
   withSlotLevel,
 } from './config'
@@ -46,6 +52,8 @@ import {
   buyEquipmentUpgrade,
   buySlotUpgrade,
   createInitialState,
+  goldToStock,
+  stockSpace,
   isPlayerBusy,
   isSecuringManually,
   lowerThreat,
@@ -69,6 +77,11 @@ const MANUAL_SECURE_AMOUNT = lampSight(START)
     ist die Summe darum immer der abgerundete Ertrag der Rate. */
 const mined = (level: number, ticks: number) => Math.floor(ticks * minerYield(level))
 
+/** Seit Schema 9 liegt gefördertes Gold erst im Lager, wenn seine Münze angekommen ist — genau wie
+    eine Fuhre erst in der Truhe liegt, wenn ihr Goldhaufen angekommen ist. Wer den Bestand des
+    Lagers messen will, muss also bis zur Ankunft des letzten Takts weiterlaufen. */
+const afterArrival = (at: number) => at + GOLD_FLIGHT_DURATION_MS
+
 describe('Vault Run engine', () => {
   // Jede Fördermenge ist eine ganze Zahl — und bleibt es über alle Stufen hinweg, damit jeder Takt
   // ein sichtbares Goldstück liefert statt eines Bruchteils.
@@ -87,38 +100,84 @@ describe('Vault Run engine', () => {
   it('sends only whole gold from the mine into the bag', () => {
     const state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
     const beat = minerInterval(1) * 1_000
-    const banked = [1, 2, 3, 4, 5, 6].map((ticks) => advanceGame(state, ticks * beat).stockGold)
+    const banked = [1, 2, 3, 4, 5, 6].map((ticks) => advanceGame(state, afterArrival(ticks * beat)).stockGold)
 
     expect(banked).toEqual([1, 2, 3, 4, 5, 6])
     expect(banked.every(Number.isInteger)).toBe(true)
     expect(advanceGame(state, beat).minerCarry).toEqual([0, 0, 0, 0])
+
+    // Am Takt selbst ist das Goldstück noch unterwegs: gefördert und für das Lager reserviert,
+    // aber noch nicht darin.
+    const justMined = advanceGame(state, beat)
+    expect(justMined.stockGold).toBe(0)
+    expect(justMined.stockArrivals).toEqual([{ gold: 1, at: afterArrival(beat) }])
+    expect(justMined.lifetimeGold).toBe(1)
 
     // Über viele Takte hinweg ist die Summe exakt die Rate.
     const long = advanceGame(state, 40 * beat)
     expect(long.lifetimeGold).toBe(mined(1, 40))
   })
 
+  // Beide Strecken laufen nach derselben Regel: Gold gehört dem Behälter, wenn es angekommen ist.
+  // Erst fliegen zehn Münzen zum Lager, dann fliegt der Haufen daraus zur Truhe.
   it('moves gold from the bag into the treasure chest in a timed trip', () => {
     let state = createInitialState(0)
-    for (let index = 0; index < 10; index += 1) state = tap(state)
-    state = startTransport(state, 0)
+    for (let index = 0; index < 10; index += 1) state = tap(state, 0)
 
+    expect(state.stockGold).toBe(0)
+    state = advanceGame(state, afterArrival(0))
+    expect(state.stockGold).toBe(10)
+
+    const departure = afterArrival(0)
+    state = startTransport(state, departure)
     expect(state.stockGold).toBe(0)
     expect(state.playerTrip?.gold).toBe(10)
     expect(state.vaultGold).toBe(0)
 
-    state = advanceGame(state, GOLD_FLIGHT_DURATION_MS - 1)
+    state = advanceGame(state, afterArrival(departure) - 1)
     expect(state.playerTrip?.gold).toBe(10)
     expect(state.vaultGold).toBe(0)
 
-    state = advanceGame(state, GOLD_FLIGHT_DURATION_MS)
+    state = advanceGame(state, afterArrival(departure))
     expect(state.playerTrip?.gold).toBe(0)
     expect(state.vaultGold).toBe(10)
-    expect(state.playerTrip?.endsAt).toBe(MANUAL_TRIP_SECONDS * 1_000)
+    expect(state.playerTrip?.endsAt).toBe(departure + MANUAL_TRIP_SECONDS * 1_000)
 
-    state = advanceGame(state, MANUAL_TRIP_SECONDS * 1_000)
+    state = advanceGame(state, departure + MANUAL_TRIP_SECONDS * 1_000)
     expect(state.tripCount).toBe(1)
     expect(state.playerTrip).toBeNull()
+  })
+
+  // Beide Strecken folgen derselben Regel: Gold gehört einem Behälter, wenn es dort **angekommen**
+  // ist. Vorher buchte der Schlag sein Gold sofort ins Lager, während die Fuhre ihres erst nach der
+  // Ankunftsanimation in der Truhe ablegte — dieselbe fliegende Ladung bedeutete an den beiden
+  // Enden der Kette Verschiedenes.
+  it('credits both containers on arrival, never on departure', () => {
+    const swung = tap(createInitialState(0), 0)
+    expect(swung.stockGold).toBe(0)
+    expect(goldToStock(swung)).toBe(tapValue(swung))
+    expect(advanceGame(swung, afterArrival(0) - 1).stockGold).toBe(0)
+    expect(advanceGame(swung, afterArrival(0)).stockGold).toBe(tapValue(swung))
+
+    const departed = startTransport({ ...createInitialState(0), stockGold: MANUAL_CARGO }, 0)
+    expect(departed.vaultGold).toBe(0)
+    expect(advanceGame(departed, afterArrival(0) - 1).vaultGold).toBe(0)
+    expect(advanceGame(departed, afterArrival(0)).vaultGold).toBe(MANUAL_CARGO)
+  })
+
+  // Der Platz im Lager ist ab dem Losfliegen belegt. Ohne diese Reservierung schlüge der Spieler
+  // weiter gegen ein Lager, das gleich voll ist, und bezahlte jeden dieser Schläge mit Erschöpfung
+  // für Gold, das bei der Ankunft keinen Platz mehr fände.
+  it('reserves the stock space while the gold is still on its way', () => {
+    const state = createInitialState(0)
+    const brim = { ...state, stockGold: stockCapacity(state) - tapValue(state) }
+    const swung = tap(brim, 0)
+
+    expect(goldToStock(swung)).toBe(tapValue(state))
+    expect(stockSpace(swung)).toBe(0)
+    // Der nächste Schlag wird abgelehnt, obwohl im Lager rechnerisch noch Platz ist.
+    expect(swung.stockGold).toBeLessThan(stockCapacity(state))
+    expect(tap(swung, 0)).toBe(swung)
   })
 
   // Angestellte legen die Hacke nicht weg, weil ihr Dienstherr einen Sack trägt: Die eigene Fuhre
@@ -130,7 +189,7 @@ describe('Vault Run engine', () => {
     state = startTransport(state, 0)
     expect(state.stockGold).toBe(0)
 
-    state = advanceGame(state, 5_000)
+    state = advanceGame(state, afterArrival(5_000))
     expect(state.stockGold).toBe(mined(1, 5))
   })
 
@@ -164,7 +223,7 @@ describe('Vault Run engine', () => {
 
     // Und die Ruhe endet, sobald eine Fuhre Platz schafft — ohne die Ruhezeit nachzuholen.
     const room = { ...ticked, stockGold: ticked.stockGold - MANUAL_CARGO }
-    const resumed = advanceGame(room, 5 * 60_000 + 10_000 + minerInterval(1) * 1_000)
+    const resumed = advanceGame(room, afterArrival(5 * 60_000 + 10_000 + minerInterval(1) * 1_000))
     // Angerechnet wird der Takt mitsamt dem Fund, der seit der Ruhe am Fels liegt — ins Beutel
     // wandert davon nur, was zusammen ein ganzes Goldstück ergibt.
     const portion = Math.floor(room.minerCarry[0] + minerYield(1))
@@ -183,24 +242,27 @@ describe('Vault Run engine', () => {
     // zehn Minuten Ruhe auf einen Schlag.
     const room = { ...idle, stockGold: capacity - MANUAL_CARGO }
     const beat = minerInterval(1) * 1_000
-    expect(advanceGame(room, 10 * 60_000 + beat - 1).stockGold).toBeCloseTo(capacity - MANUAL_CARGO, 5)
+    expect(advanceGame(room, afterArrival(10 * 60_000 + beat) - 1).stockGold).toBeCloseTo(capacity - MANUAL_CARGO, 5)
     // Zwei Takte ergeben zusammen das erste ganze Goldstück — und nur dieses eine, nicht die zehn
     // Minuten Ruhe davor.
-    expect(advanceGame(room, 10 * 60_000 + 2 * beat).stockGold).toBeCloseTo(capacity - MANUAL_CARGO + mined(1, 2), 5)
+    expect(advanceGame(room, afterArrival(10 * 60_000 + 2 * beat)).stockGold).toBeCloseTo(capacity - MANUAL_CARGO + mined(1, 2), 5)
   })
 
   // Die eigene Fuhre nimmt den Beutel mit und lässt die Mine laufen: Bei der Rückkehr liegt darin
   // genau das, was die Bergleute währenddessen gefördert haben — nicht mehr und nicht weniger.
   it('fills the bag with what the miners dig while the player is on the road', () => {
     let state = { ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
-    state = advanceGame(state, 5_000)
+    state = advanceGame(state, afterArrival(5_000))
     expect(state.stockGold).toBeCloseTo(mined(1, 5), 5)
 
-    const travelling = startTransport(state, 5_000)
+    const departure = afterArrival(5_000)
+    const travelling = startTransport(state, departure)
     expect(travelling.stockGold).toBe(0)
     expect(travelling.minerBeats[0]).not.toBeNull()
 
-    const returned = advanceGame(travelling, 5_000 + MANUAL_TRIP_SECONDS * 1_000)
+    // Die Fuhre nimmt nur mit, was schon im Lager liegt. Zurück ist er nach seiner Reisezeit; im
+    // Lager liegt dann, was die Bergleute in dieser Zeit gefördert **und geliefert** haben.
+    const returned = advanceGame(travelling, departure + MANUAL_TRIP_SECONDS * 1_000)
     expect(returned.playerTrip).toBeNull()
     expect(returned.stockGold).toBe(mined(1, MANUAL_TRIP_SECONDS))
   })
@@ -208,17 +270,17 @@ describe('Vault Run engine', () => {
   // Dasselbe für die Sicherung von Hand: Sie bindet den Spieler, nicht seine Bergleute. Auch ohne
   // eine einzige Wache läuft die Mine durch — was er selbst tut, hält keine Automatik an.
   it('keeps the miners working through a manual securing', () => {
-    const mining = advanceGame({ ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number], threat: 50 }, 5_000)
-    const securing = lowerThreat(mining, 5_000)
+    const mining = advanceGame({ ...createInitialState(0), minerLevels: [1, 0, 0, 0] as [number, number, number, number], threat: 50 }, afterArrival(5_000))
+    const securing = lowerThreat(mining, afterArrival(5_000))
     expect(isSecuringManually(securing)).toBe(true)
     expect(isPlayerBusy(securing)).toBe(true)
 
-    const held = advanceGame(securing, 6_000)
+    const held = advanceGame(securing, afterArrival(6_000))
     expect(held.stockGold).toBe(mining.stockGold + mined(1, 1))
     expect(held.minerBeats[0]).not.toBeNull()
 
     // Und über die Sicherung hinaus läuft der Takt einfach weiter, ohne Bruch.
-    const released = advanceGame(held, 8_000)
+    const released = advanceGame(held, afterArrival(8_000))
     expect(released.secureEndsAt).toBeNull()
     expect(released.stockGold).toBe(mined(1, 8))
   })
@@ -245,10 +307,12 @@ describe('Vault Run engine', () => {
 
   it('accepts consecutive mining taps without a cooldown', () => {
     let state = createInitialState(0)
-    state = tap(state)
-    expect(state.stockGold).toBe(1)
-    state = tap(state)
-    expect(state.stockGold).toBe(2)
+    state = tap(state, 0)
+    state = tap(state, 0)
+    // Beide Schläge sind angenommen; ihr Gold fliegt und liegt eine Flugzeit später im Lager.
+    expect(state.lifetimeGold).toBe(2)
+    expect(goldToStock(state)).toBe(2)
+    expect(advanceGame(state, afterArrival(0)).stockGold).toBe(2)
   })
 
   it('forces a break only after exhaustion reaches 100 percent', () => {
@@ -434,14 +498,14 @@ describe('Vault Run engine', () => {
     expect(upgrades.every((upgrade) => upgrade.facts.every((entry) => entry.from && entry.to))).toBe(true)
 
     expect(upgrades[0].facts).toEqual([
-      { from: 'Stufe 1', to: 'Stufe 2', label: 'Geflickte Pickhacke' },
+      { from: 'Stufe 1', to: 'Stufe 2', label: '' },
       { from: '1', to: '2', label: 'Fördermenge' },
       { from: '6', to: '5,4', label: 'Erschöpfung' },
     ])
     // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
     // Bergleute takten immer im Sekundentakt — ihre Karte braucht deshalb keine Taktzeile.
     expect(upgrades[1].facts).toEqual([
-      { from: 'Stufe 0', to: 'Stufe 1', label: 'Tagelöhner' },
+      { from: 'Stufe 0', to: 'Stufe 1', label: '' },
       { from: '–', to: `${minerRate(1)}`, label: 'Fördermenge' },
     ])
   })
@@ -453,14 +517,25 @@ describe('Vault Run engine', () => {
     expect(hit.to).toBe(hit.from)
   })
 
-  // Der Rangname ist der einzige Vorteil eines Aufstiegs, der in keiner Zahl steckt — und oberhalb
-  // der letzten benannten Stufe gibt es ihn nicht mehr. Dann darf die Karte auch keinen versprechen.
-  it('announces the next rank only while the upgrade still changes it', () => {
+  // Die Karte nennt den Rang, auf dem die Einheit **steht** — nicht den nach dem Kauf. Oberhalb
+  // der letzten benannten Stufe bleibt der Name stehen, während die Stufennummer weiterzählt.
+  it('names the rank an upgrade stands on and keeps it above the last named stage', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'mine')[0]).toMatchObject({ name: 'Leerer Stollen', nextName: 'Tagelöhner' })
-    expect(getSlotUpgrades({ ...state, minerLevels: [10, 0, 0, 0] }, 'mine')[0]).toMatchObject({ name: 'Steingolem', nextName: undefined })
-    expect(getEquipmentUpgrade(state, 'tap')).toMatchObject({ name: 'Rostige Pickhacke', nextName: 'Geflickte Pickhacke' })
-    expect(getEquipmentUpgrade({ ...state, tapLevel: 9 }, 'tap').nextName).toBeUndefined()
+    expect(getSlotUpgrades(state, 'mine')[0].name).toBe('Leerer Stollen')
+    expect(getSlotUpgrades({ ...state, minerLevels: [1, 0, 0, 0] }, 'mine')[0].name).toBe('Tagelöhner')
+    expect(slotStageName('miners', 10)).toBe('Steingolem')
+    expect(slotStageName('miners', 11)).toBe(slotStageName('miners', 10))
+    expect(getEquipmentUpgrade(state, 'tap').name).toBe('Rostige Pickhacke')
+    expect(getEquipmentUpgrade({ ...state, tapLevel: 10 }, 'tap').name)
+      .toBe(getEquipmentUpgrade({ ...state, tapLevel: 9 }, 'tap').name)
+  })
+
+  // Die Stufenzeile vergleicht als einzige keinen Wert; ihr Namensfeld stand deshalb quer zur
+  // Spalte, in der überall sonst das Attribut steht. Sie besteht jetzt nur noch aus zwei Nummern.
+  it('reduces the stage row to its two numbers', () => {
+    for (const card of getAllUpgrades(createInitialState(0))) {
+      expect(card.facts[0]).toEqual({ from: `Stufe ${card.stage}`, to: `Stufe ${card.stage + 1}`, label: '' })
+    }
   })
 
   it('uses the promised integer pickaxe value in gameplay and upgrade stats', () => {
@@ -468,7 +543,7 @@ describe('Vault Run engine', () => {
     const upgraded = getEquipmentUpgrade(state, 'tap')
     expect(tapValue(state)).toBe(5)
     expect(upgraded.facts[1]).toEqual({ from: '5', to: '6', label: 'Fördermenge' })
-    expect(tap(state).stockGold).toBe(5)
+    expect(advanceGame(tap(state, 0), afterArrival(0)).stockGold).toBe(5)
   })
 
   it('reduces attention by clicking the treasure chest action', () => {
@@ -504,10 +579,12 @@ describe('Vault Run engine', () => {
 
     // Und die Mine fördert während der Sicherung durch — stillgelegt wird sie nur ohne Wachen.
     // Der Bergmann steht auf Stufe 3, damit schon sein erster Takt ein ganzes Goldstück ergibt und
-    // die Förderung noch innerhalb der laufenden Sicherung im Beutel ankommt.
+    // dieser Takt noch in die laufende Sicherung fällt; im Lager liegt seine Förderung eine
+    // Flugzeit später.
     const mining = { ...guarded, minerLevels: [3, 0, 0, 0] as [number, number, number, number] }
-    expect(minerInterval(3) * 1_000).toBeLessThan(SECURE_COOLDOWN_MS)
-    expect(advanceGame(lowerThreat(mining, 0), minerInterval(3) * 1_000).stockGold).toBeCloseTo(mined(3, 1), 5)
+    const beat = minerInterval(3) * 1_000
+    expect(beat).toBeLessThan(SECURE_COOLDOWN_MS)
+    expect(advanceGame(lowerThreat(mining, 0), afterArrival(beat)).stockGold).toBeCloseTo(mined(3, 1), 5)
   })
 
   // Der Spieler ist eine Person: Was er tut, tut er mit beiden Händen. Jede laufende Aktion sperrt
@@ -536,7 +613,7 @@ describe('Vault Run engine', () => {
 
     const released = advanceGame(lowerThreat(busy, 0), SECURE_COOLDOWN_MS)
     expect(isPlayerBusy(released)).toBe(false)
-    expect(tap(released).stockGold).toBeGreaterThan(40)
+    expect(goldToStock(tap(released, SECURE_COOLDOWN_MS))).toBeGreaterThan(0)
     expect(startTransport(released, SECURE_COOLDOWN_MS).playerTrip).not.toBeNull()
 
     const returned = advanceGame(startTransport(busy, 0), MANUAL_TRIP_SECONDS * 1_000)
@@ -647,16 +724,16 @@ describe('Vault Run engine', () => {
   })
 
   // Die Wachen-Karte nennt die Punkte, die der Trupp je Sicherung zusätzlich abträgt — dieselbe
-  // Einheit, in der die Risikokachel steigt. Der Takt gehört ebenfalls der einzelnen Wache; nur
+  // Einheit, in der die Risikokachel steigt. Das Tempo gehört ebenfalls der einzelnen Wache; nur
   // die Kraft wirkt erst als Summe und trägt ihre Erklärung darum im Gruppenhinweis.
   it('measures a guard in the risk it takes off per second by itself', () => {
     const state = createInitialState(0)
-    // Sichtweite, Dauer und Kraft — was eine Sicherung abträgt, wie lange die Wache bis zur
-    // nächsten braucht und was sie beiträgt, wenn die Diebe doch durchkommen.
+    // Sichtweite, Geschwindigkeit und Kraft — was eine Sicherung abträgt, wie schnell die Wache
+    // ihre Runde geht und was sie beiträgt, wenn die Diebe doch durchkommen.
     expect(getSlotUpgrades(state, 'vault')[0].facts).toEqual([
-      { from: 'Stufe 0', to: 'Stufe 1', label: 'Nachtwächter' },
+      { from: 'Stufe 0', to: 'Stufe 1', label: '' },
       { from: '–', to: `${guardSight(1)}`, label: 'Sichtweite' },
-      { from: '–', to: `${formatDecimal(guardInterval(1))}`, label: 'Dauer' },
+      { from: '–', to: `${formatDecimal(guardSpeed(1))}`, label: 'Geschwindigkeit' },
       { from: '–', to: `${guardMight(1)}`, label: 'Kraft' },
     ])
 
@@ -665,12 +742,12 @@ describe('Vault Run engine', () => {
     expect(getSlotUpgrades(guarded, 'vault')[0].facts).toEqual(getSlotUpgrades(state, 'vault')[0].facts)
   })
 
-  // Ein Fuhrknecht nennt, was er trägt und wie lange er dafür braucht — nicht den Quotienten.
-  it('describes a transporter by its load and its travel time', () => {
+  // Ein Fuhrknecht nennt, was er trägt und wie schnell er läuft — nicht den Quotienten.
+  it('describes a transporter by its load and its speed', () => {
     const state = createInitialState(0)
     const [, load, travel] = getSlotUpgrades(state, 'stock')[0].facts
     expect(load).toEqual({ from: '–', to: formatGold(transporterCapacity(1)), label: 'Ladung' })
-    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterTripSeconds(1)), label: 'Dauer' })
+    expect(travel).toEqual({ from: '–', to: formatDecimal(transporterSpeed(1)), label: 'Geschwindigkeit' })
 
     const staffed = { ...state, transporterLevels: [3, 0, 0, 0] as [number, number, number, number] }
     expect(getSlotUpgrades(staffed, 'stock')[0].facts[1]).toEqual({
@@ -697,15 +774,49 @@ describe('Vault Run engine', () => {
     }
   })
 
-  // Der Gruppenhinweis gilt für alle vier Karten und steht deshalb genau einmal über ihnen; die
-  // Ausrüstungskarten erklären sich einzeln und tragen ihren Hinweis selbst.
-  it('carries shared wording on the group and per-card wording only on equipment', () => {
+  // Fließtext steht nur noch über einer Gruppe, nie auf einer einzelnen Karte: Was für alle vier
+  // Karten gilt, gehört einmal darüber; was nur für eine gilt, steht in ihrer Tabelle oder gar
+  // nicht. Die Ausrüstungskarten trugen bis eben jede einen eigenen Satz.
+  it('carries wording on the group and never on a single card', () => {
     const state = createInitialState(0)
-    const [equipment, miners] = getUpgradeGroups(state, 'all')
+    const [equipment] = getUpgradeGroups(state, 'equipment')
+    const [miners] = getUpgradeGroups(state, 'miners')
     expect(equipment.hint).toBeUndefined()
-    expect(equipment.upgrades.every((upgrade) => Boolean(upgrade.hint))).toBe(true)
     expect(miners.hint).toBeTruthy()
-    expect(miners.upgrades.every((upgrade) => upgrade.hint === undefined)).toBe(true)
+    expect(getAllUpgrades(state).every((upgrade) => !('hint' in upgrade))).toBe(true)
+  })
+
+  // Der Hinweis über den Angestellten darf nicht über dem Behälter stehen: „Jeder Fuhrknecht fährt
+  // für sich“ erklärt keine Lagererweiterung. Behälter und Angestellte sind deshalb zwei Blöcke
+  // unter demselben Reiter — der Behälter zuerst, wie in der Szene links der Ort steht.
+  it('splits a section tab into its container and its staff', () => {
+    const state = createInitialState(0)
+    for (const [filter, equipmentId] of [['transporters', 'stock'], ['guards', 'vault']] as const) {
+      const [container, staff] = getUpgradeGroups(state, filter)
+      expect(container.upgrades.map((card) => card.equipmentId)).toEqual([equipmentId])
+      expect(container.hint).toBeUndefined()
+      expect(staff.hint).toBeTruthy()
+      expect(staff.upgrades).toHaveLength(4)
+      expect(container.key).not.toBe(staff.key)
+    }
+    // Die Mine hat keinen Behälter und darum auch nur einen Block.
+    expect(getUpgradeGroups(state, 'miners')).toHaveLength(1)
+  })
+
+  // Jede Karte gehört genau einem Reiter. Sonst zählte der rote Punkt eines Reiters Angebote mit,
+  // die dort gar nicht liegen — oder ein bezahlbares Upgrade meldete sich nirgends.
+  it('files every upgrade under exactly one tab', () => {
+    const state = createInitialState(0)
+    const all = getAllUpgrades(state)
+    const filed = UPGRADE_FILTERS.flatMap((filter) => getCategoryUpgrades(state, filter))
+    expect(filed.map((card) => card.key).sort()).toEqual(all.map((card) => card.key).sort())
+    expect(new Set(all.map((card) => card.key)).size).toBe(all.length)
+    expect(all.every((card) => getCategoryUpgrades(state, card.category).some((sibling) => sibling.key === card.key))).toBe(true)
+    // Und die Reiter eines Abschnitts zeigen dieselben Karten wie seine Gruppen.
+    for (const filter of UPGRADE_FILTERS) {
+      const grouped = getUpgradeGroups(state, filter).flatMap((group) => group.upgrades)
+      expect(grouped.map((card) => card.key)).toEqual(getCategoryUpgrades(state, filter).map((card) => card.key))
+    }
   })
 
   it('reports a securing rate that can be read against the risk growth', () => {
@@ -801,7 +912,7 @@ describe('Vault Run engine', () => {
     const hired = { ...ticked, minerLevels: [1, 0, 0, 0] as [number, number, number, number] }
     const beat = minerInterval(1) * 1_000
     expect(advanceGame(hired, 10_000 + beat - 1).minerCarry[0]).toBe(0)
-    expect(advanceGame(hired, 10_000 + 2 * beat).stockGold).toBeCloseTo(mined(1, 2), 5)
+    expect(advanceGame(hired, afterArrival(10_000 + 2 * beat)).stockGold).toBeCloseTo(mined(1, 2), 5)
   })
 
   it('keeps advancing once anything is actually in motion', () => {
@@ -830,7 +941,7 @@ describe('Vault Run engine', () => {
       guardLevels: undefined,
     }
     const migrated = migrateGame(legacy)
-    expect(migrated?.schemaVersion).toBe(8)
+    expect(migrated?.schemaVersion).toBe(9)
     expect(migrated?.minerLevels).toEqual([2, 1, 1, 1])
     expect(migrated?.transporterLevels).toEqual([1, 1, 1, 1])
     expect(migrated?.guardLevels).toEqual([1, 1, 1, 0])
@@ -843,9 +954,12 @@ describe('Vault Run engine', () => {
   it('moves the old bag of schema 7 onto the stockpile, not onto the player', () => {
     const { stockGold: _gold, stockLevel: _level, ...rest } = createInitialState(0)
     const migrated = migrateGame({ ...rest, schemaVersion: 7, chestGold: 30, chestLevel: 4 })
-    expect(migrated?.schemaVersion).toBe(8)
+    expect(migrated?.schemaVersion).toBe(9)
     expect(migrated?.stockGold).toBe(30)
     expect(migrated?.stockLevel).toBe(4)
+    // Schema 9 führt die fliegenden Förderungen; ein älterer Spielstand hat keine — dort lag
+    // gefördertes Gold sofort im Lager.
+    expect(migrated?.stockArrivals).toEqual([])
     // Die vier Stücke des Spielers beginnen auf ihrer ersten Stufe — nichts gewonnen, nichts verloren.
     expect([migrated?.packLevel, migrated?.bootsLevel, migrated?.lampLevel]).toEqual([0, 0, 0])
     expect(migrated && 'chestGold' in migrated).toBe(false)
@@ -892,6 +1006,71 @@ describe('Ausrüstung des Spielers', () => {
     expect(securing.secureEndsAt).toBe(manualSecureSeconds(shod) * 1_000)
   })
 
+  // Die Stiefel bauen die **Geschwindigkeit** aus, und die wächst. Dass die Wege dabei kürzer
+  // werden, ist keine Sonderregel, sondern die Definition von Tempo: Eine Strecke kostet
+  // `Länge ÷ Geschwindigkeit`, die wachsende Zahl steht also im Nenner. Damit kann die Richtung
+  // nicht mehr auseinanderlaufen — es gibt keine Stelle, an der ein „mehr“ von Hand in ein
+  // „weniger“ übersetzt würde.
+  it('turns rising boot speed into falling walk times', () => {
+    const levels = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    const states = levels.map((bootsLevel) => withLevels({ bootsLevel }))
+
+    const speeds = states.map(bootsSpeed)
+    expect(speeds.every((speed, index) => index === 0 || speed > speeds[index - 1])).toBe(true)
+    expect(speeds[0]).toBe(1)
+
+    // Und jede Dauer ist genau die Streckenlänge geteilt durch dieses Tempo.
+    for (const state of states) {
+      expect(manualTripSeconds(state)).toBeCloseTo(manualTripSeconds(createInitialState(0)) / bootsSpeed(state), 9)
+      expect(manualSecureSeconds(state)).toBeCloseTo(manualSecureSeconds(createInitialState(0)) / bootsSpeed(state), 9)
+    }
+
+    const trips = states.map(manualTripSeconds)
+    const walks = states.map(manualSecureSeconds)
+    expect(trips.every((seconds, index) => index === 0 || seconds < trips[index - 1])).toBe(true)
+    expect(walks.every((seconds, index) => index === 0 || seconds < walks[index - 1])).toBe(true)
+  })
+
+  // Dieselbe Beschriftung heißt dieselbe Skala — das gilt seit jeher für die **Sichtweite** von
+  // Lampe und Wache und jetzt auch für die **Geschwindigkeit** von Stiefeln, Fuhrknecht und Wache.
+  // Alle drei messen an derselben Standardstrecke: Wer sie in zwölf Sekunden zurücklegt, hat
+  // Tempo 1. Damit ist die Zahl auf der Stiefelkarte gegen die auf der Fuhrknecht-Karte lesbar,
+  // ohne dass man wüsste, wie lang die Wege sind.
+  it('measures every speed against the same standard route', () => {
+    const bare = createInitialState(0)
+    expect(bootsPace(bare)).toBe(1)
+    expect(transporterSpeed(1)).toBe(1)
+    expect(guardSpeed(1)).toBe(1)
+
+    // Und Tempo 1 heißt überall dasselbe: zwölf Sekunden für die volle Strecke.
+    expect(manualTripSeconds(bare)).toBe(12)
+    expect(transporterTripSeconds(1)).toBe(12)
+    expect(guardInterval(1)).toBe(12)
+
+    // Der Wachgang des Spielers ist kein schnellerer Weg, sondern ein kürzerer: Er späht um die
+    // Truhe, statt sie zu umrunden. Sein Tempo ist dasselbe.
+    expect(manualSecureSeconds(bare)).toBeLessThan(guardInterval(1))
+  })
+
+  // Jede der drei Geschwindigkeiten wächst mit der Stufe, und jede Dauer ist die Strecke geteilt
+  // durch sie. Steht eine Zahl am Boden still, tut es die andere auch.
+  it('turns every rising speed into a falling duration', () => {
+    const levels = [1, 2, 3, 4, 5, 6]
+    for (const speeds of [levels.map(transporterSpeed), levels.map(guardSpeed)]) {
+      expect(speeds.every((speed, index) => index === 0 || speed > speeds[index - 1])).toBe(true)
+    }
+    const trips = levels.map(transporterTripSeconds)
+    const rounds = levels.map(guardInterval)
+    expect(trips.every((seconds, index) => index === 0 || seconds < trips[index - 1])).toBe(true)
+    expect(rounds.every((seconds, index) => index === 0 || seconds < rounds[index - 1])).toBe(true)
+
+    // Am Boden von einer Sekunde steht beides still — die Karte verspricht dort nichts mehr.
+    expect(transporterTripSeconds(80)).toBe(MIN_CYCLE_SECONDS)
+    expect(transporterSpeed(80)).toBe(transporterSpeed(81))
+    expect(guardInterval(80)).toBe(MIN_CYCLE_SECONDS)
+    expect(guardSpeed(80)).toBe(guardSpeed(81))
+  })
+
   // Kein Weg wird beliebig kurz: Die Fuhre liegt auf demselben Boden wie jeder andere Takt, der
   // Wachgang darunter, weil er kein Takt einer Automatik ist, sondern ein Tastendruck — aber nicht
   // so weit, dass die Sperre der beiden anderen Aktionen nicht mehr zu spüren wäre.
@@ -899,6 +1078,26 @@ describe('Ausrüstung des Spielers', () => {
     const winged = withLevels({ bootsLevel: 40 })
     expect(manualTripSeconds(winged)).toBe(MIN_CYCLE_SECONDS)
     expect(manualSecureSeconds(winged)).toBe(MANUAL_SECURE_FLOOR_SECONDS)
+  })
+
+  // Am Boden angekommen macht keine weitere Stufe einen Weg noch kürzer — und die Karte darf dann
+  // auch keine steigende Zahl zeigen. Sie nennt deshalb nicht das rohe Tempo, sondern das, was auf
+  // der Fuhre tatsächlich ankommt: Das steht still, sobald der Boden greift.
+  it('stops the promised speed where no walk can get shorter', () => {
+    const winged = withLevels({ bootsLevel: 40 })
+    const faster = withLevels({ bootsLevel: 41 })
+    expect(bootsSpeed(faster)).toBeGreaterThan(bootsSpeed(winged))
+    expect(bootsPace(faster)).toBe(bootsPace(winged))
+
+    const [, speed] = getEquipmentUpgrade(winged, 'boots').facts
+    expect(speed.label).toBe('Geschwindigkeit')
+    expect(speed.to).toBe(speed.from)
+
+    // Solange noch kein Boden greift, ist die Karte dagegen das rohe Tempo.
+    const walking = withLevels({ bootsLevel: 3 })
+    expect(bootsPace(walking)).toBeCloseTo(bootsSpeed(walking), 9)
+    const [, growing] = getEquipmentUpgrade(walking, 'boots').facts
+    expect(Number(growing.to.replace(',', '.'))).toBeGreaterThan(Number(growing.from.replace(',', '.')))
   })
 
   // Die Lampe zählt in denselben Punkten wie eine Wache — dieselbe Beschriftung, dieselbe Skala.
@@ -912,11 +1111,17 @@ describe('Ausrüstung des Spielers', () => {
     expect(getSlotUpgrades(bright, 'vault')[0].facts[1].label).toBe('Sichtweite')
   })
 
-  // Vier Stücke am Körper, dann die beiden Behälter des Reiches — in dieser Reihenfolge stehen sie
-  // im Ausbau-Sheet, und jedes trägt sein eigenes Bild.
-  it('offers the player gear before the containers', () => {
-    const cards = getCategoryUpgrades(createInitialState(0), 'equipment')
-    expect(cards.map((card) => card.equipmentId)).toEqual(['tap', 'pack', 'boots', 'lamp', 'stock', 'vault'])
-    expect(new Set(cards.map((card) => card.spriteFamily)).size).toBe(cards.length)
+  // Der Reiter „Ausrüstung“ trägt genau die vier Stücke am Körper des Spielers. Die beiden
+  // Behälter des Reiches stehen bei ihrem Abschnitt — dorthin zeigt, wer sie in der Szene antippt.
+  // Jedes Stück trägt sein eigenes Bild.
+  it('keeps the player gear together and the containers with their section', () => {
+    const state = createInitialState(0)
+    const gear = getCategoryUpgrades(state, 'equipment')
+    expect(gear.map((card) => card.equipmentId)).toEqual(['tap', 'pack', 'boots', 'lamp'])
+    expect(new Set(gear.map((card) => card.spriteFamily)).size).toBe(gear.length)
+    expect(getEquipmentUpgrade(state, 'stock').category).toBe('transporters')
+    expect(getEquipmentUpgrade(state, 'vault').category).toBe('guards')
+    expect(getCategoryUpgrades(state, 'guards')[0].equipmentId).toBe('vault')
+    expect(getCategoryUpgrades(state, 'transporters')[0].equipmentId).toBe('stock')
   })
 })

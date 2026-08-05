@@ -37,10 +37,11 @@ export const emptyTrips = (): SlotTrips => [null, null, null, null]
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 8,
+    schemaVersion: 9,
     savedAt: now,
     lastTick: now,
     stockGold: 0,
+    stockArrivals: [],
     vaultGold: 0,
     lifetimeGold: 0,
     lostGold: 0,
@@ -76,21 +77,54 @@ function addEvent(state: GameState, kind: GameEvent['kind'], message: string): v
   state.events = [{ id: state.eventSequence, kind, message }, ...state.events].slice(0, 5)
 }
 
-/** Was noch ins Lager passt. Ist hier nichts mehr frei, ruht die Mine — das Lager ist die Grenze
-    der Förderung, nicht bloß ein Trichter, durch den Gold ins Leere läuft. */
-function stockSpace(state: GameState): number {
-  return Math.max(0, stockCapacity(state) - state.stockGold)
+/** Gold, das bereits zum Lager unterwegs ist und dort schon Platz beansprucht. Das Gegenstück zu
+    `goldInTransit` auf der zweiten Strecke. */
+export function goldToStock(state: GameState): number {
+  return state.stockArrivals.reduce((total, arrival) => total + arrival.gold, 0)
 }
 
-function storeGold(state: GameState, amount: number, report?: OfflineReport): number {
+/** Was noch ins Lager passt. Ist hier nichts mehr frei, ruht die Mine — das Lager ist die Grenze
+    der Förderung, nicht bloß ein Trichter, durch den Gold ins Leere läuft.
+ *
+ *  Was schon fliegt, zählt mit. Ohne diese Reservierung förderten die Bergleute weiter gegen ein
+ *  Lager, das in einer halben Sekunde voll ist, und jeder Schlag, dessen Gold bei der Ankunft
+ *  keinen Platz mehr fände, kostete den Spieler trotzdem Erschöpfung. */
+export function stockSpace(state: GameState): number {
+  return Math.max(0, stockCapacity(state) - state.stockGold - goldToStock(state))
+}
+
+/** Schickt frisch geschlagenes Gold auf den Weg ins Lager. Es kommt `GOLD_FLIGHT_DURATION_MS`
+    später an — genau dann, wenn die Münze auf der Kachel landet.
+ *
+ *  Gezählt wird zum Zeitpunkt des Schlages, nicht der Ankunft: `lifetimeGold` ist, was **gefördert**
+ *  wurde, und der Überlauf entsteht am Fels, wo er nicht mehr ins Lager passt. Beides ist in
+ *  diesem Moment entschieden — weil der Platz hier reserviert wird, kommt jedes losgeschickte
+ *  Goldstück auch an. */
+function storeGold(state: GameState, amount: number, at: number, report?: OfflineReport): number {
   if (amount <= 0) return 0
   const free = stockSpace(state)
   const stored = Math.min(free, amount)
-  state.stockGold += stored
   state.lifetimeGold += stored
   state.lostGold += amount - stored
   if (report) report.earned += stored
+  if (stored > 0) state.stockArrivals = [...state.stockArrivals, { gold: stored, at: at + GOLD_FLIGHT_DURATION_MS }]
   return stored
+}
+
+/** Legt an `cursor` fällige Förderungen im Lager ab. Der Deckel greift nur gegen die Unschärfe der
+    Fließkommaarithmetik — der Platz war beim Losschicken reserviert. */
+function settleArrivals(state: GameState, cursor: number): void {
+  if (state.stockArrivals.length === 0) return
+  const due = state.stockArrivals.filter((arrival) => cursor >= arrival.at)
+  if (due.length === 0) return
+  const arrived = due.reduce((total, arrival) => total + arrival.gold, 0)
+  state.stockGold = Math.min(stockCapacity(state), state.stockGold + arrived)
+  state.stockArrivals = state.stockArrivals.filter((arrival) => cursor < arrival.at)
+}
+
+/** Die nächste fällige Ankunft, damit der Tick genau auf ihr landet statt bis zu 100 ms daneben. */
+function nextArrival(state: GameState): number {
+  return state.stockArrivals.reduce((earliest, arrival) => Math.min(earliest, arrival.at), Number.POSITIVE_INFINITY)
 }
 
 /** Der Spieler sichert gerade selbst, ohne dass eine Wache die Arbeit ohnehin täte. Das ist eine
@@ -122,10 +156,12 @@ export function goldInTransit(state: GameState): number {
 
 export function tap(state: GameState, now = Date.now()): GameState {
   if (isPlayerBusy(state)) return state
-  if (state.stockGold >= stockCapacity(state)) return state
+  // Gemessen am freien Platz, nicht am Inhalt: Ein Schlag, dessen Gold bei der Ankunft nichts mehr
+  // vorfände, kostete sonst Erschöpfung für nichts.
+  if (stockSpace(state) <= 0) return state
   if (state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)) return state
   const next = structuredClone(state)
-  storeGold(next, tapValue(next))
+  storeGold(next, tapValue(next), now)
   next.exhaustion = Math.min(100, next.exhaustion + exhaustionPerTap(next))
   if (next.exhaustion >= 100) next.exhaustedUntil = now + EXHAUSTION_BREAK_MS
   return next
@@ -248,7 +284,9 @@ function runMiners(state: GameState, cursor: number, report?: OfflineReport): vo
         break
       }
       state.minerBeats[index] = (state.minerBeats[index] as number) + interval
-      mineWholeGold(state, index, level, report)
+      // Losgeschickt wird zum Takt selbst, nicht zum Cursor: Sonst hinge die Ankunftszeit daran,
+      // wie fein der Tick gerade schaut — und Zusehen ergäbe andere Zeiten als die Offline-Strecke.
+      mineWholeGold(state, index, level, state.minerBeats[index] as number, report)
     }
   }
 }
@@ -258,14 +296,14 @@ function runMiners(state: GameState, cursor: number, report?: OfflineReport): vo
     bleiben liegen) — die Rate stimmt über die Takte hinweg auf den Bruchteil genau, nur ist der
     Lager keine Kommazahl mehr. Der Rest steht im Zustand und übersteht damit Pause und
     Spielstand: Ohne ihn wäre der angebrochene Fund bei jedem Neuladen verloren. */
-function mineWholeGold(state: GameState, index: SlotIndex, level: number, report?: OfflineReport): number {
+function mineWholeGold(state: GameState, index: SlotIndex, level: number, at: number, report?: OfflineReport): number {
   const carried = state.minerCarry[index] + minerYield(level)
   const whole = Math.floor(carried)
   // Der Rest wird auf sechs Stellen gerundet: Ohne das sammeln sich die Ungenauigkeiten der
   // Fließkommaarithmetik über tausende Takte zu einem sichtbaren Versatz gegenüber der Rate.
   state.minerCarry[index] = Math.round((carried - whole) * 1e6) / 1e6
   if (whole <= 0) return 0
-  return storeGold(state, whole, report)
+  return storeGold(state, whole, at, report)
 }
 
 /** Dasselbe für die Wachen — jede trägt ihre eigenen Punkte in ihrem eigenen Takt ab. */
@@ -307,6 +345,7 @@ function nextBeat(state: GameState): number {
   }
   if (state.secureEndsAt !== null) consider(state.secureEndsAt)
   if (state.exhaustedUntil !== null) consider(state.exhaustedUntil)
+  consider(nextArrival(state))
   return earliest
 }
 
@@ -360,6 +399,7 @@ function mineIsIdle(state: GameState): boolean {
     und das volle Lager, das auf die erste Fuhre wartet. */
 function isDormant(state: GameState): boolean {
   return mineIsIdle(state)
+    && state.stockArrivals.length === 0
     && state.playerTrip === null
     && state.transporterTrips.every((trip) => trip === null)
     && state.secureEndsAt === null
@@ -420,9 +460,11 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
       state.secureEndsAt = null
     }
     settleTrips(state, cursor, report)
+    settleArrivals(state, cursor)
   }
   // Ein letzter Durchlauf auf dem Zielzeitpunkt: Was genau jetzt fällig ist, soll auch jetzt
   // gutgeschrieben werden und nicht erst beim nächsten Tick.
+  settleArrivals(state, target)
   runMiners(state, target, report)
   dispatchTransporters(state, target)
   runGuards(state, target)
