@@ -95,7 +95,7 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
   miners: 'Jeder Bergmann fördert für sich, jede Sekunde einmal. Jede Stufe erhöht allein seine Fördermenge.',
   transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigener Dauer. Deine eigene Fuhre läuft unabhängig daneben.',
-  guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Jede Stufe senkt zusätzlich den Verlust bei einem Diebeszug um 14 %.',
+  guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Ihre Kraft wirkt dagegen nur zusammen: Jeder Punkt des Trupps senkt den Verlust bei einem Diebeszug um 7 %.',
 }
 
 export function slotStageName(group: SlotGroup, level: number): string {
@@ -131,7 +131,6 @@ const stageName = (names: readonly string[], level: number) =>
   names[Math.min(names.length - 1, Math.max(0, level))]
 const effectValue = (value: number) => formatInteger(Math.floor(value))
 const effectRate = (value: number) => formatDecimal(value)
-const totalLevels = (levels: SlotLevels) => levels.reduce((total, level) => total + level, 0)
 
 export const slotVisualLevel = (group: SlotGroup, level: number) => {
   return Math.max(0, level - 1)
@@ -142,7 +141,12 @@ export const tapValue = (state: GameState) => Math.ceil(1.42 ** state.tapLevel)
 export const exhaustionPerTap = (state: GameState) => Math.max(1.5, 6 * 0.9 ** state.tapLevel)
 /** 20 Punkte pro Sekunde ergeben die abgestimmten fünf Sekunden von 100 auf 0. */
 export const exhaustionRecoveryRate = (_state: GameState) => 20
-export const EXHAUSTION_BREAK_MS = 750
+/** Die Zwangspause bei 100 %. Sie ist der einzige Preis des Dauerschürfens und war mit einer
+    Dreiviertelsekunde kürzer als die Reaktionszeit, die sie erzwingen sollte — wer schnell genug
+    tippte, merkte sie kaum. Vier Sekunden sind lang genug, dass die volle Leiste den Spieler
+    tatsächlich vom Fels wegschickt, und liegen dabei unter der Erholung selbst (5 s), sodass die
+    Pause nicht länger dauert als das Abkühlen danach. */
+export const EXHAUSTION_BREAK_MS = 4_000
 
 /** Ein voller Balken ist in jedem Abschnitt dasselbe: der Punkt, an dem gehandelt werden muss.
     Risiko, Lager und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
@@ -194,11 +198,15 @@ export const MANUAL_SECURE_FLOOR_SECONDS = 0.5
 export const manualSecureSeconds = (state: GameState) =>
   Math.max(MANUAL_SECURE_FLOOR_SECONDS, 1.5 * 0.88 ** state.bootsLevel)
 
-/** Die **Kraft** eines Wachgangs, in denselben Punkten der Hundert-Punkte-Skala, die auch eine
-    Wache abträgt (`guardPower`). Dieselbe Beschriftung heißt dieselbe Skala: Lampe und Wache sind
+/** Die **Sichtweite** eines Wachgangs, in denselben Punkten der Hundert-Punkte-Skala, die auch eine
+    Wache abträgt (`guardSight`). Dieselbe Beschriftung heißt dieselbe Skala: Lampe und Wache sind
     damit unmittelbar gegeneinander abwägbar. Der Spieler liegt dabei weit über jeder einzelnen
-    Wache — er bezahlt seine Punkte mit eigener Zeit, in der er weder fördert noch trägt. */
-export const lampPower = (state: GameState) => Math.round(25 * 1.25 ** state.lampLevel)
+    Wache — er bezahlt seine Punkte mit eigener Zeit, in der er weder fördert noch trägt.
+ *
+ *  Das Attribut hieß früher „Kraft“. Eine Lampe hat keine Kraft, sie leuchtet: Was sie abträgt,
+ *  ist entdeckte Umgebung, und genau das ist die Skala des Risikos. „Kraft“ ist seither die
+ *  Handfestigkeit der Wachen im Ernstfall — eine andere Größe, die auch anders heißen muss. */
+export const lampSight = (state: GameState) => Math.round(25 * 1.25 ** state.lampLevel)
 
 // --- Bergleute: eine Förderung je Sekunde, die Stufe bestimmt allein die Menge ---
 /** Bergleute arbeiten immer im Sekundentakt. Damit ist ihre Fördermenge zugleich ihre Rate, und
@@ -227,11 +235,13 @@ export const transporterRate = (level: number) => level === 0 ? 0 : transporterC
 export const automaticTransportRate = (state: GameState) =>
   state.transporterLevels.reduce((total, level) => total + transporterRate(level), 0)
 
-export const guardStrength = (state: GameState) => totalLevels(state.guardLevels)
-
 /** Anteil der Schatztruhe, den ein Diebeszug mitnimmt. Deutlich kleiner als der frühere
-    Lager-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt eines Haufens. */
-export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * 0.86 ** guardStrength(state))
+    Lager-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt eines Haufens.
+    Je Kraftpunkt des Trupps bleiben 93 % des Verlusts übrig; eine Wachenstufe bringt zwei Punkte
+    und senkt ihn damit um dieselben gut 13 %, die vorher als unsichtbarer Stufenbonus im Hinweis
+    über der Gruppe standen. */
+export const LOSS_PER_MIGHT = 0.93
+export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * LOSS_PER_MIGHT ** guardMightTotal(state))
 
 /** Ab `METER_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Diebeszug. */
 export const RISK_ALERT = METER_ALERT
@@ -266,13 +276,31 @@ export const OFFLINE_THEFT_SHARE = 0.25
 export const activeGuards = (state: GameState) => state.guardLevels.filter((level) => level > 0).length
 export const hasAutomaticSecurity = (state: GameState) => activeGuards(state) > 0
 
-// --- Wachen: Risikopunkte je Sicherung, Takt zwischen zwei Sicherungen ---
+// --- Wachen: Sichtweite je Sicherung, Takt zwischen zwei Sicherungen, Kraft im Ernstfall ---
 /** Punkte, die **diese** Wache je Sicherung abträgt — kein Trupp-Wert mehr. Der frühere Sockel von
     6 Punkten gehörte dem Trupp als Ganzem; je Wache gezählt hätte er sich mit jedem Posten
-    vervielfacht. Er steckt deshalb kleiner in jeder einzelnen Wache. */
-export const guardPower = (level: number) => level === 0 ? 0 : 4 + 2 * level
+    vervielfacht. Er steckt deshalb kleiner in jeder einzelnen Wache.
+ *
+ *  Hieß bis eben **Kraft**; die Umbenennung folgt der Grubenlampe. Was eine Runde abträgt, ist
+ *  abgesuchtes Gelände — dafür braucht es Augen und Licht, keine Fäuste. */
+export const guardSight = (level: number) => level === 0 ? 0 : 4 + 2 * level
 export const guardInterval = (level: number) => Math.max(MIN_CYCLE_SECONDS, 12 / (1 + (level - 1) * 0.35))
-export const guardRate = (level: number) => level === 0 ? 0 : guardPower(level) / guardInterval(level)
+export const guardRate = (level: number) => level === 0 ? 0 : guardSight(level) / guardInterval(level)
+
+/** Die **Kraft** dieser einen Wache: was sie beiträgt, wenn die Diebe trotz aller Runden zuschlagen.
+    Das dritte Attribut der Wachen und das einzige, das nicht am Takt hängt — Sichtweite und Dauer
+    verhindern den Diebeszug, Kraft begrenzt ihn.
+ *
+ *  Zwei Punkte je Stufe, additiv wie die Sichtweite: Damit gehört die Zeile der Wache allein und
+ *  bleibt stehen, wenn nebenan gekauft wird. Wirksam wird sie erst als Summe des Trupps
+ *  (`guardMightTotal`) — das steht als ein Satz über der Gruppe, nicht auf jeder Karte. */
+export const guardMight = (level: number) => level === 0 ? 0 : 2 * level
+
+/** Die Kraft des ganzen Trupps: die Summe dessen, was jede einzelne Wache mitbringt. Anders als
+    Sichtweite und Dauer wirkt Kraft nur gemeinsam — sie ist die eine Größe der Wachen, die kein
+    Takt ist, sondern der Moment, in dem der Takt nicht gereicht hat. */
+export const guardMightTotal = (state: GameState) =>
+  state.guardLevels.reduce((total, level) => total + guardMight(level), 0)
 
 /** Summe aller Wachen in Risikopunkten pro Sekunde — dieselbe Einheit wie `riskGrowth`, damit
     Kachel und Wachen-Karte direkt gegeneinander lesbar sind. */
@@ -391,7 +419,7 @@ const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   lamp: {
     section: 'vault', names: LAMPS, accent: 'vault', spriteFamily: 'lamp',
     hint: 'Wirkt nur, wenn du selbst Wache gehst. Dieselben Punkte, die eine Wache abträgt.',
-    facts: (state, next) => [fact('Kraft', lampPower(state), lampPower(next), effectValue)],
+    facts: (state, next) => [fact('Sichtweite', lampSight(state), lampSight(next), effectValue)],
   },
   stock: {
     section: 'stock', names: STOCKPILES, accent: 'logistics', spriteFamily: 'stock',
@@ -444,12 +472,14 @@ export function getSlotUpgrades(state: GameState, section: SectionId): UpgradeVi
         fact('Dauer', empty ? null : transporterTripSeconds(level), transporterTripSeconds(level + 1), effectRate),
       )
     } else {
-      // Kraft und Dauer: was eine Sicherung abträgt und wie lange die Wache bis zur nächsten
-      // braucht. Beides sind Eigenschaften der Wache selbst; die Dauerleistung ist ihr Quotient
-      // und stünde doppelt da.
+      // Sichtweite, Dauer und Kraft: was eine Sicherung abträgt, wie lange die Wache bis zur
+      // nächsten braucht und was sie beiträgt, wenn es doch knallt. Alle drei sind Eigenschaften
+      // der Wache selbst; die Dauerleistung ist der Quotient der ersten beiden und stünde doppelt
+      // da. Die Kraft steht zuletzt, weil sie als einzige erst als Summe des Trupps wirkt.
       slotFacts.push(
-        fact('Kraft', empty ? null : guardPower(level), guardPower(level + 1), effectValue),
+        fact('Sichtweite', empty ? null : guardSight(level), guardSight(level + 1), effectValue),
         fact('Dauer', empty ? null : guardInterval(level), guardInterval(level + 1), effectRate),
+        fact('Kraft', empty ? null : guardMight(level), guardMight(level + 1), effectValue),
       )
     }
 

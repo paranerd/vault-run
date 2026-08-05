@@ -15,7 +15,7 @@ denen er läuft:
 | Pickhacke | Fördermenge | seinen Schlag in der Mine |
 | Beutel | Ladung | seine eigene Fuhre |
 | Stiefel | Dauer | seine Fuhre **und** seinen Wachgang |
-| Grubenlampe | Kraft | seinen Wachgang an der Truhe |
+| Grubenlampe | Sichtweite | seinen Wachgang an der Truhe |
 | Lager | Kapazität | den Puffer zwischen Förderung und Abtransport |
 | Schatztruhe | Kapazität | den Hort, aus dem bezahlt wird |
 
@@ -71,11 +71,11 @@ wird — und damit spätestens ab der dritten Wache überflüssig.
 | 9 | **Runenstiefel** | Laufrunen an der Ferse ziehen den Boden unter dir hindurch, statt dich darüber. |
 | 10 | **Windschuhe** | Du setzt auf und bist da. Der Weg dazwischen ist eine Formsache. |
 
-## Grubenlampe (Ausrüstung – Kraft)
+## Grubenlampe (Ausrüstung – Sichtweite)
 
 Womit der Spieler seinen Wachgang macht. Der Hort wird nicht verteidigt, sondern ausgeleuchtet:
-Was im Licht liegt, stiehlt niemand. Die Kraft zählt in denselben Punkten wie die der Wachen und
-ist deshalb direkt gegen sie abwägbar.
+Was im Licht liegt, stiehlt niemand. Die Sichtweite zählt in denselben Punkten wie die der Wachen
+und ist deshalb direkt gegen sie abwägbar.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
@@ -155,6 +155,10 @@ Trichter.
 | 10 | **Torstein** | Ein offenes Portal am Stollenende. Das Gold liegt in der Truhe, kaum dass es hineingefallen ist. |
 
 ## Wachen (4 Slots, Truhe)
+
+Jede Wache hat drei Attribute: **Sichtweite** — was eine Runde an Risiko abträgt —, **Dauer** —
+wie lange sie bis zur nächsten braucht — und **Kraft**, die als Summe des ganzen Trupps begrenzt,
+wie viel ein Diebeszug mitnimmt, wenn er trotz aller Runden gelingt.
 
 | # | Name | Beschreibung |
 |---|------|--------------|

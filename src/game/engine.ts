@@ -7,10 +7,10 @@ import {
   exhaustionPerTap,
   exhaustionRecoveryRate,
   guardInterval,
-  guardPower,
+  guardSight,
   hasAutomaticSecurity,
   hasAutomaticTransport,
-  lampPower,
+  lampSight,
   manualSecureSeconds,
   manualTripSeconds,
   minerInterval,
@@ -277,7 +277,7 @@ function runGuards(state: GameState, cursor: number): void {
     if (state.guardBeats[index] === null) state.guardBeats[index] = cursor
     while (cursor >= (state.guardBeats[index] as number) + interval) {
       state.guardBeats[index] = (state.guardBeats[index] as number) + interval
-      state.threat = Math.max(0, state.threat - guardPower(level))
+      state.threat = Math.max(0, state.threat - guardSight(level))
     }
   }
 }
@@ -340,7 +340,7 @@ function runTheft(state: GameState, budget: number, report?: OfflineReport): num
 export function lowerThreat(state: GameState, now = Date.now()): GameState {
   if (state.threat <= 0 || isPlayerBusy(state)) return state
   const next = structuredClone(state)
-  next.threat = Math.max(0, next.threat - lampPower(next))
+  next.threat = Math.max(0, next.threat - lampSight(next))
   next.secureStartedAt = now
   next.secureEndsAt = now + manualSecureSeconds(next) * 1_000
   return next

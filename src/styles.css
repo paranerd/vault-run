@@ -215,56 +215,70 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   width: min(100%, 520px);
   height: 100%;
   margin: 0 auto;
-  padding: 7px 8px 8px;
+  /* Rechts liegt der Rand um die Breite des Schlagschattens höher: Der Schatten gehört zum Knopf,
+     fällt aber nur nach rechts. Mit gleichem Rand auf beiden Seiten stünde die rechte Kachel
+     sichtbar näher am Rand als die linke — symmetrisch ist erst, was man sieht, nicht was im
+     Kasten steht. Dieselben drei Pixel stecken darum in jedem Breakpoint. */
+  padding: 7px calc(8px + var(--panel-shadow)) 8px 8px;
   display: grid;
   grid-template-columns: minmax(0,1fr) minmax(100px,124px) minmax(0,1fr);
   gap: 7px;
   align-items: center;
+  justify-content: center;
   /* Gemeinsame Blockhöhe der drei Spalten: hält Stat-, Text- und Slot-Unterkante auf einer Linie. */
   --stat-block: min(146px, 90%);
+  /* Der harte Pixelschatten unter Kacheln und Aktions-Button — hier, weil das Layout ihn
+     ausgleichen muss. */
+  --panel-shadow: 3px;
 }
-.stats-grid,.slot-grid { min-width: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 4px; align-self: center; }
-.stats-grid { height: var(--stat-block); }
-/* Jeder Abschnitt zeigt nur noch seine eine handlungsrelevante Zahl — eine Kachel über die volle Fläche. */
-.stats-grid--single { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
-.stats-grid--single .stat-tile strong { font-size: clamp(24px,7.5vw,34px); }
-.stats-grid--single .stat-tile > span:not(.stat-tile__icon) { margin-top: 6px; font-size: clamp(10px,2.7vw,13px); }
-.stats-grid--single .stat-tile__icon { height: 21px; margin-bottom: 6px; }
-.stats-grid--single .stat-tile__icon svg { width: 21px; height: 21px; }
-.stat-tile {
+/* Beide Seitenspalten sitzen auf derselben Kachel: links der Behälter mit seiner Kapazität, rechts
+   die vier Slots. Ein Abschnitt liest sich damit als drei Blöcke gleicher Bauart — Ort, Handlung,
+   Leute —, statt als eine gerahmte Fläche neben vier frei schwebenden Knöpfen. Die Kachel ist
+   zugleich das, was die Goldflüge anfliegen und verlassen: Sie ist der sichtbare Ort im Abschnitt. */
+.section-aside,.slot-grid {
+  position: relative;
   min-width: 0;
-  min-height: 0;
-  padding: 4px 2px;
+  width: 100%;
+  height: var(--stat-block);
+  align-self: center;
+  /* Rahmen, Radius und harter Pixelschatten wie beim Aktions-Button: Alle drei Spalten sind
+     anklickbar — links die Ausrüstung, in der Mitte die Handlung, rechts die Leute —, und was
+     anklickbar ist, sieht im ganzen Spiel gleich aus. Die einzelnen Slot-Kacheln haben ihren
+     eigenen Schatten dafür abgegeben: Zwei gestapelte Schattenebenen lasen sich als Knöpfe auf
+     einem Brett statt als ein Knopf mit vier Feldern. */
+  border: 3px solid #321c11;
+  border-radius: 6px;
+  background: rgba(240,204,142,.72);
+  box-shadow: 3px 4px 0 #2a160d, inset 2px 2px rgba(255,246,206,.34), inset -2px -2px rgba(107,51,12,.12);
+}
+/* Derselbe Tastendruck wie beim Aktions-Button. `:active` greift auch, wenn eine der vier
+   Slot-Kacheln gedrückt wird: Der Druck gilt der Fläche, auf der sie liegen. */
+.section-aside:active,.slot-grid:active { transform: translateY(3px); box-shadow: 2px 1px 0 #2a160d, inset 2px 2px rgba(255,246,206,.34); }
+.slot-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 3px; padding: 5px; }
+.section-aside {
+  padding: 6px 7px;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   overflow: hidden;
-  border: 2px solid #674029;
-  border-radius: 3px;
+  color: inherit;
+  font: inherit;
   text-align: center;
-  background: rgba(240,204,142,.68);
-  box-shadow: 1px 2px 0 rgba(52,27,14,.3), inset 1px 1px rgba(255,243,202,.24);
 }
-.stat-tile.is-empty { opacity: .35; background: rgba(121,80,43,.2); }
-/* Die Risikokachel ist die einzige, die auf ein Ereignis zuläuft — sie heizt sich sichtbar auf. */
-.stat-tile.is-warning { border-color: #8a4c17; background: rgba(240,178,88,.72); }
-.stat-tile.is-warning .stat-tile__icon { color: #8a4113; }
-.stat-tile.is-alert { border-color: #7d2712; background: rgba(226,124,79,.78); }
-.stat-tile.is-alert strong,.stat-tile.is-alert .stat-tile__icon { color: #5c1c07; }
-.stat-tile.is-alert > span:not(.stat-tile__icon) { color: #6d2a12; }
-.stat-tile strong { max-width: 100%; overflow: hidden; color: #3a2317; font-family: var(--pixel-font); font-size: clamp(10px,2.7vw,13px); line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.stat-tile > span:not(.stat-tile__icon) { display: -webkit-box; margin-top: 3px; overflow: hidden; color: #684b35; font-size: clamp(8px,2.1vw,10px); font-weight: 400; line-height: 1; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.stat-tile__icon { height: 13px; margin-bottom: 2px; color: #74502f; }
-.stat-tile__icon svg { width: 13px; height: 13px; }
+.section-aside img { width: 68px; max-width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 3px 0 rgba(38,19,10,.28)); }
+.section-aside--plain img { width: 104px; }
+/* Beschriftung über dem Wert, beides mittig: Nebeneinander teilten sich Wort und Zahl die
+   Kachelbreite, und ein Hort im Millionenbereich hätte dort nur noch als Stummel Platz. */
+.section-aside__capacity { max-width: 100%; margin: 0; display: grid; gap: 1px; justify-items: center; font-family: var(--pixel-font); line-height: 1.05; text-align: center; }
+.section-aside__capacity > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-aside__capacity span { color: rgba(67,41,26,.72); font-size: 13px; letter-spacing: .04em; }
+.section-aside__capacity strong { color: #43291a; font-size: 18px; font-weight: 400; }
 
-/* Jede der drei Spalten trägt eine Zeile unter ihrem Button — die Buttons bleiben damit
-   untereinander auf derselben Linie. */
-.section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
-.section-caption { max-width: 100%; display: grid; gap: 1px; justify-items: center; color: #43291a; font-family: var(--pixel-font); line-height: 1.05; text-align: center; }
-.section-caption > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-caption span { color: rgba(67,41,26,.72); font-size: 14px; letter-spacing: .04em; }
-.section-caption strong { font-size: 19px; font-weight: 400; }
+/* Die mittlere Spalte trägt nur den Button; seine Beschriftung steht in ihm. */
+.section-center { min-width: 0; height: var(--stat-block); display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .section-action {
   position: relative;
   overflow: hidden;
@@ -282,13 +296,23 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: 3px 4px 0 #2a160d, inset 3px 3px rgba(255,244,176,.35), inset -3px -3px rgba(107,51,12,.16);
   cursor: pointer;
 }
-.section-action img { position: relative; z-index: 2; width: 74px; height: 74px; object-fit: contain; image-rendering: pixelated; }
+.section-action img { position: relative; z-index: 2; width: 68px; height: 68px; object-fit: contain; image-rendering: pixelated; }
+/* Die Handlung steht im Knopf, unter ihrem Bild — über der Fortschrittsfüllung, damit sie auch
+   während eines Cooldowns lesbar bleibt. */
+.section-action__label { position: relative; z-index: 2; max-width: 100%; margin-top: 2px; overflow: hidden; color: #4a2a13; font-family: var(--pixel-font); font-size: 16px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+/* Während eines Cooldowns läuft die goldene Füllung durch die Beschriftung hindurch: heller Text
+   auf dunklem Holz **und** auf hellem Gold. Eine harte Kontur nach allen vier Seiten hält ihn auf
+   beidem lesbar — dieselbe Lösung, mit der auch die Pixel-Sprites gegen ihren Hintergrund stehen. */
+.section-action.is-progressing .section-action__label { color: #fff3ca; text-shadow: 1px 1px #2c170c, -1px 1px #2c170c, 1px -1px #2c170c, -1px -1px #2c170c; }
 .section-action__progress { position: absolute; z-index: 1; right: 0; bottom: 0; left: 0; background: linear-gradient(#f8d96e,#df962d); box-shadow: inset 3px 3px rgba(255,246,186,.3),inset -3px -3px rgba(107,51,12,.12); transition: height .1s steps(12,end); }
 .section-action.is-progressing { background: #6a4b32; }
 .section-action:active:not(:disabled) { transform: translateY(3px); box-shadow: 2px 1px 0 #2a160d; }
 .section-action:disabled { cursor: not-allowed; filter: grayscale(.45) brightness(.76); }
+/* Der Button, der die laufende Aktion ausgelöst hat, zeigt ihren Fortschritt und bleibt farbig.
+   Die beiden anderen sind `is-blocked` und damit ausgegraut — auch die Truhe, die sonst ab der
+   ersten Lieferung nie ausgraut. Genau ein Button färbt sich, alle anderen sagen „jetzt nicht“. */
 .section-action.is-progressing:disabled { filter: none; }
-.section-action--vault.is-revealed:disabled { filter: none; }
+.section-action--vault.is-revealed:disabled:not(.is-blocked) { filter: none; }
 .section-action.is-full { animation: bag-full-pulse 1.1s steps(2,end) infinite; }
 .section-action.is-exhausted { animation: exhaustion-pulse .48s steps(2,end) infinite; }
 /* Vorwarnung vor dem Diebeszug: ab RISK_ALERT pocht die Sicherung, bis der Spieler reagiert. */
@@ -296,7 +320,6 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 
 .slot-grid.is-notifying { animation: full-alert .9s steps(2,end) 1; }
 
-.slot-grid { position: relative; width: 100%; max-width: 126px; height: var(--stat-block); justify-self: end; }
 .slot-grid button {
   position: relative;
   min-width: 0;
@@ -308,11 +331,12 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   border: 2px solid #573522;
   border-radius: 4px;
   background: rgba(222,177,105,.78);
-  box-shadow: 2px 2px 0 rgba(45,23,12,.42), inset 1px 1px rgba(255,239,191,.2);
+  /* Kein eigener Schlagschatten mehr — den trägt jetzt die Fläche unter allen vieren. */
+  box-shadow: inset 1px 1px rgba(255,239,191,.2);
   cursor: pointer;
 }
 .slot-grid button.is-empty { filter: saturate(.62); background: rgba(142,99,57,.42); }
-.slot-grid img { width: 51px; height: 51px; object-fit: contain; image-rendering: pixelated; }
+.slot-grid img { width: 47px; height: 47px; object-fit: contain; image-rendering: pixelated; }
 .slot-grid button.is-empty img { opacity: .38; filter: grayscale(.6); }
 .slot-grid b { position: absolute; right: 2px; bottom: 2px; min-width: 15px; height: 15px; display: grid; place-items: center; border: 1px solid #432718; border-radius: 2px; color: #fff0bc; background: #6d4328; font-family: var(--pixel-font); font-size: 8px; line-height: 1; }
 .slot-grid__badge { position: absolute; z-index: 3; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 4px; display: grid; place-items: center; border: 2px solid #301a10; border-radius: 3px; color: #fff2c8; background: var(--red); box-shadow: 2px 2px 0 rgba(25,11,7,.55); font-family: var(--pixel-font); font-size: 8px; font-style: normal; }
@@ -531,10 +555,15 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
 }
 
 @media (max-width: 360px) {
-  .section-layout { grid-template-columns: minmax(0,1fr) 92px minmax(0,1fr); gap: 4px; padding-right: 5px; padding-left: 5px; }
-  .stat-tile { border-width: 1px; }
+  .section-layout { grid-template-columns: minmax(0,1fr) 92px minmax(0,1fr); gap: 4px; padding-right: calc(5px + var(--panel-shadow)); padding-left: 5px; }
+  .section-aside { padding: 4px 5px; }
+  .section-aside img { width: 58px; }
+  .section-aside--plain img { width: 80px; }
+  .section-aside__capacity span { font-size: 11px; }
+  .section-aside__capacity strong { font-size: 16px; }
+  .slot-grid { padding: 4px; }
   .slot-grid button { border-width: 1px; }
-  .slot-grid img { width: 43px; height: 43px; }
+  .slot-grid img { width: 45px; height: 45px; }
   .section-action { width: 94px; }
   .dock__inner { gap: 5px; }
   .dock-button { font-size: 12px; }
@@ -563,33 +592,34 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   .dock-button svg { width: 19px; height: 19px; }
   .dock-button { font-size: 12px; gap: 2px; }
   .section-meter { height: 24px; padding: 0 5px; }.section-meter__progress { height: 12px; }.section-meter__marker { width: 31px; height: 31px; }.section-meter--gold .section-meter__marker,.section-meter--exhaustion .section-meter__marker { width: 28px; height: 28px; }
-  .section-caption span { font-size: 11px; }.section-caption strong { font-size: 16px; }
   .section-layout { padding-top: 3px; padding-bottom: 4px; grid-template-columns: minmax(0,1fr) 88px minmax(0,1fr); gap: 4px; }
   .section-layout { --stat-block: min(112px, 88%); }
-  .stats-grid,.slot-grid { gap: 2px; }
-  .stats-grid--single .stat-tile strong { font-size: 24px; }
-  .stats-grid--single .stat-tile > span:not(.stat-tile__icon) { margin-top: 3px; font-size: 9px; }
-  .stats-grid--single .stat-tile__icon { display: block; height: 15px; margin-bottom: 3px; }
-  .stats-grid--single .stat-tile__icon svg { width: 15px; height: 15px; }
-  .stat-tile { padding: 1px; }.stat-tile strong { font-size: 11px; }.stat-tile > span:not(.stat-tile__icon) { margin-top: 1px; font-size: 7px; }.stat-tile__icon { display: none; }
+  .slot-grid { gap: 2px; padding: 3px; }
+  .section-aside { gap: 3px; padding: 3px 5px; }
+  .section-aside img { width: 48px; }
+  .section-aside--plain img { width: 70px; }
+  .section-aside__capacity span { font-size: 11px; }
+  .section-aside__capacity strong { font-size: 15px; }
   .section-center { gap: 2px; }
   .section-action { width: 88px; height: 80px; border-width: 2px; box-shadow: 2px 2px 0 #2a160d; }
-  .section-action img { width: 58px; height: 58px; }
-  .slot-grid img { width: 38px; height: 38px; }.slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
+  .section-action img { width: 50px; height: 50px; }
+  .section-action__label { margin-top: 1px; font-size: 13px; }
+  .slot-grid img { width: 36px; height: 36px; }.slot-grid b { right: 1px; bottom: 1px; min-width: 12px; height: 12px; border: 0; font-size: 6px; }
 }
 
 @media (min-width: 760px) {
   .topbar { padding-right: 22px; padding-left: 22px; }
   .section-meter { height: 34px; }.section-meter__progress { height: 17px; }.section-meter__marker { width: 44px; height: 44px; }
-  .section-caption span { font-size: 16px; }.section-caption strong { font-size: 22px; }
-  .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px; }
+  .section-layout { width: min(100%,620px); grid-template-columns: 145px 150px 145px; gap: 22px; padding: 10px calc(10px + var(--panel-shadow)) 10px 10px; }
   .section-layout { --stat-block: min(168px, 86%); }
-  .stats-grid,.slot-grid { max-width: 145px; gap: 6px; }
-  .stat-tile strong { font-size: 15px; }.stat-tile > span:not(.stat-tile__icon) { font-size: 9px; }
-  .stats-grid--single .stat-tile strong { font-size: 38px; }.stats-grid--single .stat-tile > span:not(.stat-tile__icon) { font-size: 14px; }
-  .stats-grid--single .stat-tile__icon { height: 26px; }.stats-grid--single .stat-tile__icon svg { width: 26px; height: 26px; }
-  .section-action { width: 128px; height: 122px; }.section-action img { width: 84px; height: 84px; }.section-action strong { font-size: 13px; }
-  .slot-grid img { width: 64px; height: 64px; }
+  .slot-grid { gap: 6px; padding: 8px; }
+  .section-aside { gap: 9px; padding: 9px 11px; }
+  .section-aside img { width: 92px; }
+  .section-aside--plain img { width: 126px; }
+  .section-aside__capacity span { font-size: 16px; }
+  .section-aside__capacity strong { font-size: 22px; }
+  .section-action { width: 128px; height: 122px; }.section-action img { width: 78px; height: 78px; }.section-action__label { font-size: 19px; }
+  .slot-grid img { width: 58px; height: 58px; }
   .management-sheet { top: calc(64px + env(safe-area-inset-top)); left: auto; width: min(520px,48vw); padding: 18px 16px 0; border-top: 0; border-left: 4px solid #352016; border-radius: 0; box-shadow: -6px 0 0 rgba(24,12,7,.35); transform: translateX(100%); }
   .management-sheet.is-open { transform: translateX(0); }
   .dock { padding-right: 22px; padding-left: 22px; }
