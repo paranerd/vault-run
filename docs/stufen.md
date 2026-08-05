@@ -14,10 +14,32 @@ denen er läuft:
 |---|---|---|
 | Pickhacke | Fördermenge | seinen Schlag in der Mine |
 | Beutel | Ladung | seine eigene Fuhre |
-| Stiefel | Dauer | seine Fuhre **und** seinen Wachgang |
+| Stiefel | Geschwindigkeit | seine Fuhre **und** seinen Wachgang |
 | Grubenlampe | Sichtweite | seinen Wachgang an der Truhe |
 | Lager | Kapazität | den Puffer zwischen Förderung und Abtransport |
 | Schatztruhe | Kapazität | den Hort, aus dem bezahlt wird |
+
+**Wer dasselbe tut, trägt denselben Namen — und damit dieselbe Skala.** Jedem Attribut eines
+Angestellten steht ein Ausrüstungsstück gegenüber, das dasselbe für den Spieler tut:
+
+| Angestellter | seine Attribute | beim Spieler |
+|---|---|---|
+| Bergmann | Fördermenge | Pickhacke |
+| Fuhrknecht | Ladung, Geschwindigkeit | Beutel, Stiefel |
+| Wache | Sichtweite, Geschwindigkeit, Kraft | Lampe, Stiefel, — |
+
+Die **Kraft** der Wachen steht als einzige allein: Sie wirkt erst als Summe des ganzen Trupps und
+hat deshalb keine Entsprechung beim Einzelnen.
+
+Alle **Geschwindigkeiten** messen an derselben Standardstrecke: Wer sie in zwölf Sekunden
+zurücklegt, hat Tempo 1. Das ist keine Rechenkonvention, sondern fällt zusammen — die Fuhre des
+Spielers, die Fuhre eines Fuhrknechts der ersten Stufe und die Runde einer Wache der ersten Stufe
+dauern alle zwölf Sekunden. „Geschwindigkeit 1,9“ auf der Packesel-Karte ist damit unmittelbar
+gegen „1,3“ auf der Stiefelkarte lesbar. Der Wachgang des Spielers ist demgegenüber kein
+schnellerer Weg, sondern ein kürzerer (1,5 s): Er späht um die Truhe, statt sie zu umrunden.
+
+Alle **Sichtweiten** zählen in denselben Punkten der Hundert-Punkte-Skala des Risikos, Lampe wie
+Wache.
 
 ## Pickhacke (Ausrüstung – Fördermenge)
 
@@ -52,11 +74,15 @@ seine Bergleute fördern: Aus dem Lager füllt er den Beutel, mehr als dort lieg
 | 9 | **Runenbeutel** | Innen weiter als außen. Das Gold darin wiegt nur noch die Hälfte, passt aber doppelt hinein. |
 | 10 | **Beutel der Leere** | Sein Boden ist eine gefaltete Leere. Fast alles passt hinein — der Weg zur Truhe bleibt dir trotzdem. |
 
-## Stiefel (Ausrüstung – Dauer)
+## Stiefel (Ausrüstung – Geschwindigkeit)
 
 Das einzige Stück, das auf zwei Handlungen wirkt: Fuhre und Wachgang sind beide Wege, die der
 Spieler zu Fuß zurücklegt. Ohne sie wäre der Wachgang der einzige Teil von ihm, der nie besser
 wird — und damit spätestens ab der dritten Wache überflüssig.
+
+Gemessen wird das **Tempo**, nicht die Dauer: Die Zahl wächst mit jeder Stufe, und die Wege werden
+trotzdem kürzer, weil eine Strecke `Länge ÷ Geschwindigkeit` kostet. Dieselbe Größe tragen der
+Fuhrknecht und die Wache.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
@@ -75,7 +101,7 @@ wird — und damit spätestens ab der dritten Wache überflüssig.
 
 Womit der Spieler seinen Wachgang macht. Der Hort wird nicht verteidigt, sondern ausgeleuchtet:
 Was im Licht liegt, stiehlt niemand. Die Sichtweite zählt in denselben Punkten wie die der Wachen
-und ist deshalb direkt gegen sie abwägbar.
+und ist deshalb direkt gegen sie abwägbar — dieselbe Beschriftung, dieselbe Skala.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
@@ -141,6 +167,11 @@ Trichter.
 
 ## Fuhrknechte (4 Slots, Lager)
 
+Jeder Fuhrknecht hat zwei Attribute: **Ladung** — was er je Fahrt aus dem Lager mitnimmt — und
+**Geschwindigkeit**, wie schnell er die Strecke zur Truhe zurücklegt. Beim Spieler stehen dafür
+Beutel und Stiefel. Jeder fährt für sich, mit eigener Ladung und eigenem Tempo; die eigene Fuhre
+des Spielers läuft unabhängig daneben.
+
 | # | Name | Beschreibung |
 |---|------|--------------|
 | 1 | **Laufbursche** | Nimmt, was in zwei Hände passt, und rennt los. Zurück kommt er außer Atem, aber pünktlich. |
@@ -156,9 +187,11 @@ Trichter.
 
 ## Wachen (4 Slots, Truhe)
 
-Jede Wache hat drei Attribute: **Sichtweite** — was eine Runde an Risiko abträgt —, **Dauer** —
-wie lange sie bis zur nächsten braucht — und **Kraft**, die als Summe des ganzen Trupps begrenzt,
-wie viel ein Diebeszug mitnimmt, wenn er trotz aller Runden gelingt.
+Jede Wache hat drei Attribute: **Sichtweite** — was eine Runde an Risiko abträgt —,
+**Geschwindigkeit**, wie schnell sie ihre Runde um die Truhe geht, und **Kraft**, die als Summe des
+ganzen Trupps begrenzt, wie viel ein Diebeszug mitnimmt, wenn er trotz aller Runden gelingt. Für
+Sichtweite und Geschwindigkeit stehen beim Spieler Lampe und Stiefel; die Kraft hat als einzige
+keine Entsprechung, weil sie erst im Trupp wirkt.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
