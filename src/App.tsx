@@ -277,18 +277,28 @@ const HeaderWealth = memo(function HeaderWealth({ gold, capacity }: { gold: numb
     Beschriftung über dem Wert statt daneben — nebeneinander teilten sich Wort und Zahl die Breite
     der Kachel, und eine Truhe im Millionenbereich hätte dort nur noch als Stummel Platz gehabt.
     Übereinander bekommt die Zahl die ganze Kachelbreite, und die Zeile darüber ändert sich nie.
-    Die Mine hat keinen Behälter und trägt darum nur ihr Bild. */
-function SectionAside({ icon, capacity, panelRef }: { icon: ReactNode; capacity?: string; panelRef?: RefObject<HTMLDivElement | null> }) {
+    Die Mine hat keinen Behälter und trägt darum nur ihr Bild.
+ *
+ *  Die Kachel ist ein Knopf und öffnet den Ausbau bei der **Ausrüstung** — genau wie das
+ *  Slot-Raster gegenüber ihn bei den Angestellten des Abschnitts öffnet. Damit führt jeder
+ *  sichtbare Gegenstand der Szene zu der Karte, auf der er sich verbessern lässt. */
+function SectionAside({ icon, capacity, label, onOpen, panelRef }: {
+  icon: ReactNode
+  capacity?: string
+  label: string
+  onOpen: () => void
+  panelRef?: RefObject<HTMLButtonElement | null>
+}) {
   return (
-    <div className={`section-aside ${capacity ? '' : 'section-aside--plain'}`} ref={panelRef}>
+    <button className={`section-aside ${capacity ? '' : 'section-aside--plain'}`} ref={panelRef} onClick={onOpen} aria-label={label}>
       {icon}
       {capacity && (
-        <p className="section-aside__capacity">
+        <span className="section-aside__capacity">
           <span>Kapazität</span>
           <strong>{capacity}</strong>
-        </p>
+        </span>
       )}
-    </div>
+    </button>
   )
 }
 
@@ -445,8 +455,8 @@ function App() {
   // aufnimmt, und der steht seit dem Umbau links im nächsten Abschnitt.
   const stockButtonRef = useRef<HTMLButtonElement>(null)
   const mineButtonRef = useRef<HTMLButtonElement>(null)
-  const stockPanelRef = useRef<HTMLDivElement>(null)
-  const vaultPanelRef = useRef<HTMLDivElement>(null)
+  const stockPanelRef = useRef<HTMLButtonElement>(null)
+  const vaultPanelRef = useRef<HTMLButtonElement>(null)
   const mineSlotsRef = useRef<HTMLDivElement>(null)
   const stockSlotsRef = useRef<HTMLDivElement>(null)
   const flightSequence = useRef(0)
@@ -586,6 +596,10 @@ function App() {
   }
 
   const closeUpgrades = () => setPanel((current) => ({ ...current, open: false }))
+
+  /** Die Kachel links führt in jedem Abschnitt zur Ausrüstung — dort stehen Pickhacke, Beutel,
+      Stiefel, Grubenlampe und die beiden Behälter, also alles, was auf ihr zu sehen ist. */
+  const openEquipment = () => openUpgrades('equipment')
 
   const openSlotUpgrades = (section: SectionId, index: SlotIndex) => {
     const group = SECTION_SLOT_GROUP[section]
@@ -851,6 +865,8 @@ function App() {
                 panelRef={vaultPanelRef}
                 icon={<PixelSprite family="vault" level={state.vaultLevel} />}
                 capacity={formatFullGold(treasureMax)}
+                label={`Schatztruhe, Kapazität ${formatFullGold(treasureMax)}: Ausrüstung ausbauen`}
+                onOpen={openEquipment}
               />
               <div className="section-center">
                 <button
@@ -875,6 +891,8 @@ function App() {
                 panelRef={stockPanelRef}
                 icon={<PixelSprite family="stock" level={state.stockLevel} />}
                 capacity={formatFullGold(stockMax)}
+                label={`Lager, Kapazität ${formatFullGold(stockMax)}: Ausrüstung ausbauen`}
+                onOpen={openEquipment}
               />
               <div className="section-center">
                 <button
@@ -898,7 +916,7 @@ function App() {
             <div className="section-layout">
               {/* Die Mine hat keinen Behälter und darum auch keine Zahlen unter ihrem Bild: Was hier
                   entsteht, liegt eine Sekunde später im Lager. */}
-              <SectionAside icon={<SceneIcon name="goldmine" />} />
+              <SectionAside icon={<SceneIcon name="goldmine" />} label="Goldmine: Ausrüstung ausbauen" onOpen={openEquipment} />
               <div className="section-center">
                 <button
                   ref={mineButtonRef}

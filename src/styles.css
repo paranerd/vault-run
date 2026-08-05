@@ -233,20 +233,32 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   width: 100%;
   height: var(--stat-block);
   align-self: center;
-  border: 2px solid #674029;
-  border-radius: 3px;
-  background: rgba(240,204,142,.68);
-  box-shadow: 1px 2px 0 rgba(52,27,14,.3), inset 1px 1px rgba(255,243,202,.24);
+  /* Rahmen, Radius und harter Pixelschatten wie beim Aktions-Button: Alle drei Spalten sind
+     anklickbar — links die Ausrüstung, in der Mitte die Handlung, rechts die Leute —, und was
+     anklickbar ist, sieht im ganzen Spiel gleich aus. Die einzelnen Slot-Kacheln haben ihren
+     eigenen Schatten dafür abgegeben: Zwei gestapelte Schattenebenen lasen sich als Knöpfe auf
+     einem Brett statt als ein Knopf mit vier Feldern. */
+  border: 3px solid #321c11;
+  border-radius: 6px;
+  background: rgba(240,204,142,.72);
+  box-shadow: 3px 4px 0 #2a160d, inset 2px 2px rgba(255,246,206,.34), inset -2px -2px rgba(107,51,12,.12);
 }
+/* Derselbe Tastendruck wie beim Aktions-Button. `:active` greift auch, wenn eine der vier
+   Slot-Kacheln gedrückt wird: Der Druck gilt der Fläche, auf der sie liegen. */
+.section-aside:active,.slot-grid:active { transform: translateY(3px); box-shadow: 2px 1px 0 #2a160d, inset 2px 2px rgba(255,246,206,.34); }
 .slot-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 3px; padding: 5px; }
 .section-aside {
   padding: 6px 7px;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
   overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-align: center;
 }
 .section-aside img { width: 68px; max-width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(2px 3px 0 rgba(38,19,10,.28)); }
 .section-aside--plain img { width: 104px; }
@@ -311,7 +323,8 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   border: 2px solid #573522;
   border-radius: 4px;
   background: rgba(222,177,105,.78);
-  box-shadow: 2px 2px 0 rgba(45,23,12,.42), inset 1px 1px rgba(255,239,191,.2);
+  /* Kein eigener Schlagschatten mehr — den trägt jetzt die Fläche unter allen vieren. */
+  box-shadow: inset 1px 1px rgba(255,239,191,.2);
   cursor: pointer;
 }
 .slot-grid button.is-empty { filter: saturate(.62); background: rgba(142,99,57,.42); }
