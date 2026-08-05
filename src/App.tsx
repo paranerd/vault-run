@@ -335,18 +335,13 @@ function SectionMeter({
   )
 }
 
-/** Die Zeilen unter einem Aktions-Button: die Größe, gegen die er arbeitet, und ihr Name darüber.
-    Die Truhe trägt ihr Fassungsvermögen, Mine und Lager den Wert ihrer eigenen Handlung als `+x` —
-    Zahlen, die den Knopf daneben beschreiben und sonst nur auf seiner Upgrade-Karte stehen. Das
-    Plus sagt, was der Druck auf den Knopf bringt; die Bezugsgröße „je Schlag“ ist der Knopf selbst.
-    Der Name steht oben und klein: Er ändert sich nie, die Zahl unter ihm bei jedem Ausbau. */
-function SectionCaption({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="section-caption">
-      <span>{label}</span>
-      <strong>{children}</strong>
-    </div>
-  )
+/** Die Beschriftung eines Aktions-Buttons — im Button selbst, unter seinem Bild. Sie nennt die
+    Handlung, nicht ihre Zahl: „Bewachen“, „Transportieren“, „Graben“. Unter dem Button standen
+    vorher Sichtweite, Ladung und Fördermenge; das waren Werte der Ausrüstung, die auf ihren
+    Upgrade-Karten ohnehin vollständig mit Vorher und Nachher stehen, und sie ließen offen, was
+    der Knopf überhaupt tut. Der Text gehört damit zum Knopf und wandert mit ihm. */
+function ActionLabel({ children }: { children: ReactNode }) {
+  return <span className="section-action__label">{children}</span>
 }
 
 function SlotGrid({
@@ -849,10 +844,8 @@ function App() {
                 >
                   {securing && <i className="section-action__progress" style={{ height: `${secureProgress}%` }} aria-hidden="true" />}
                   <SceneIcon name="action-guard" />
+                  <ActionLabel>Bewachen</ActionLabel>
                 </button>
-                {/* Was ein Wachgang abträgt — die Sichtweite der Grubenlampe. Die Kapazität stand
-                    hier, solange der Button die Truhe zeigte; sie steht jetzt links bei ihr. */}
-                <SectionCaption label="Sichtweite">{formatInteger(lampSight(state))}</SectionCaption>
               </div>
               <SlotGrid section="vault" levels={state.guardLevels} family="security" notifying={upgradeNoticePulsing && unseenFor('guards').length > 0} noticeCount={unseenFor('guards').length} onOpen={(index) => openSlotUpgrades('vault', index)} />
             </div>
@@ -875,11 +868,8 @@ function App() {
                 >
                   {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <SceneIcon name="action-transport" />
+                  <ActionLabel>Transportieren</ActionLabel>
                 </button>
-                {/* Die Zahl, auf die man hier handelt, ist die eigene Ladung — wie in der Mine die
-                    Fördermenge des eigenen Schlages. Die Kapazität des Lagers steht als Füllstand
-                    im Balken darüber und als Zahl auf seiner Karte. */}
-                <SectionCaption label="Ladung">{formatFullGold(packCargo(state))}</SectionCaption>
               </div>
               <SlotGrid section="stock" levels={state.transporterLevels} family="transport" notifying={upgradeNoticePulsing && unseenFor('transporters').length > 0} noticeCount={unseenFor('transporters').length} onOpen={(index) => openSlotUpgrades('stock', index)} />
             </div>
@@ -901,8 +891,8 @@ function App() {
                 >
                   {!playerBusy && resting && <i className="section-action__progress" style={{ height: `${restProgress}%` }} aria-hidden="true" />}
                   <PixelSprite family="pickaxe" level={state.tapLevel} />
+                  <ActionLabel>Graben</ActionLabel>
                 </button>
-                <SectionCaption label="Fördermenge">+{formatFullGold(tapValue(state))}</SectionCaption>
               </div>
               <SlotGrid section="mine" levels={state.minerLevels} family="miner" notifying={upgradeNoticePulsing && unseenFor('miners').length > 0} noticeCount={unseenFor('miners').length} onOpen={(index) => openSlotUpgrades('mine', index)} />
             </div>
