@@ -1,13 +1,8 @@
 import {
   GOLD_FLIGHT_DURATION_MS,
   EXHAUSTION_BREAK_MS,
-  MANUAL_CARGO,
-  MANUAL_SECURE_AMOUNT,
-  MANUAL_TRIP_SECONDS,
   MAX_OFFLINE_SECONDS,
   OFFLINE_THEFT_SHARE,
-  SECURE_COOLDOWN_MS,
-  chestCapacity,
   equipmentUpgradeCost,
   exhaustionPerTap,
   exhaustionRecoveryRate,
@@ -15,16 +10,22 @@ import {
   guardPower,
   hasAutomaticSecurity,
   hasAutomaticTransport,
+  lampPower,
+  manualSecureSeconds,
+  manualTripSeconds,
   minerInterval,
   minerYield,
+  packCargo,
   passiveRate,
   riskGrowth,
   securityLoss,
   slotUpgradeCost,
+  stockCapacity,
   tapValue,
   transporterCapacity,
   transporterTripSeconds,
   vaultCapacity,
+  withEquipmentLevel,
 } from './config'
 import type { EquipmentUpgradeId, GameEvent, GameState, OfflineReport, SlotBeats, SlotGroup, SlotIndex, SlotTrips, Trip } from './types'
 
@@ -36,16 +37,19 @@ export const emptyTrips = (): SlotTrips => [null, null, null, null]
 
 export function createInitialState(now = Date.now()): GameState {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     savedAt: now,
     lastTick: now,
-    chestGold: 0,
+    stockGold: 0,
     vaultGold: 0,
     lifetimeGold: 0,
     lostGold: 0,
     stolenGold: 0,
     tapLevel: 0,
-    chestLevel: 0,
+    packLevel: 0,
+    bootsLevel: 0,
+    lampLevel: 0,
+    stockLevel: 0,
     vaultLevel: 0,
     minerLevels: [0, 0, 0, 0],
     transporterLevels: [0, 0, 0, 0],
@@ -72,17 +76,17 @@ function addEvent(state: GameState, kind: GameEvent['kind'], message: string): v
   state.events = [{ id: state.eventSequence, kind, message }, ...state.events].slice(0, 5)
 }
 
-/** Was noch in den Beutel passt. Ist hier nichts mehr frei, ruht die Mine — der Beutel ist die
-    Grenze der Förderung, nicht bloß ein Trichter, durch den Gold ins Leere läuft. */
-function bagSpace(state: GameState): number {
-  return Math.max(0, chestCapacity(state) - state.chestGold)
+/** Was noch ins Lager passt. Ist hier nichts mehr frei, ruht die Mine — das Lager ist die Grenze
+    der Förderung, nicht bloß ein Trichter, durch den Gold ins Leere läuft. */
+function stockSpace(state: GameState): number {
+  return Math.max(0, stockCapacity(state) - state.stockGold)
 }
 
 function storeGold(state: GameState, amount: number, report?: OfflineReport): number {
   if (amount <= 0) return 0
-  const free = bagSpace(state)
+  const free = stockSpace(state)
   const stored = Math.min(free, amount)
-  state.chestGold += stored
+  state.stockGold += stored
   state.lifetimeGold += stored
   state.lostGold += amount - stored
   if (report) report.earned += stored
@@ -118,7 +122,7 @@ export function goldInTransit(state: GameState): number {
 
 export function tap(state: GameState, now = Date.now()): GameState {
   if (isPlayerBusy(state)) return state
-  if (state.chestGold >= chestCapacity(state)) return state
+  if (state.stockGold >= stockCapacity(state)) return state
   if (state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)) return state
   const next = structuredClone(state)
   storeGold(next, tapValue(next))
@@ -132,18 +136,18 @@ function availableVaultSpace(state: GameState): number {
 }
 
 function loadTrip(state: GameState, capacity: number, seconds: number, now: number): Trip | null {
-  const gold = Math.min(state.chestGold, capacity, availableVaultSpace(state))
+  const gold = Math.min(state.stockGold, capacity, availableVaultSpace(state))
   if (gold <= 0) return null
-  state.chestGold -= gold
+  state.stockGold -= gold
   return { gold, startedAt: now, deliveredAt: now + GOLD_FLIGHT_DURATION_MS, endsAt: now + seconds * 1000 }
 }
 
-/** Die eigene Fuhre. Sie trägt die eigene Tragkraft und braucht die eigene Zeit — beides
-    unabhängig davon, wie viele Fuhrknechte gerade unterwegs sind. */
+/** Die eigene Fuhre. Sie trägt, was in den Beutel des Spielers passt, und braucht die Zeit, die
+    seine Stiefel brauchen — beides unabhängig davon, wie viele Fuhrknechte gerade unterwegs sind. */
 export function startTransport(state: GameState, now = Date.now()): GameState {
-  if (isPlayerBusy(state) || state.chestGold <= 0) return state
+  if (isPlayerBusy(state) || state.stockGold <= 0) return state
   const next = structuredClone(state)
-  const trip = loadTrip(next, MANUAL_CARGO, MANUAL_TRIP_SECONDS, now)
+  const trip = loadTrip(next, packCargo(next), manualTripSeconds(next), now)
   if (!trip) {
     const blocked = structuredClone(state)
     addEvent(blocked, 'warning', 'Die Schatztruhe ist voll.')
@@ -162,7 +166,7 @@ function dispatchTransporters(state: GameState, now: number): void {
   for (const index of SLOTS) {
     const level = state.transporterLevels[index]
     if (level === 0 || state.transporterTrips[index] !== null) continue
-    if (state.chestGold <= 0) return
+    if (state.stockGold <= 0) return
     const trip = loadTrip(state, transporterCapacity(level), transporterTripSeconds(level), now)
     if (!trip) return
     state.transporterTrips[index] = trip
@@ -217,29 +221,29 @@ function restMiner(state: GameState, index: SlotIndex): void {
 /** Jeder Bergmann fördert in seinem eigenen Takt. Nachgeholt wird in ganzen Takten, damit eine
     lange Abwesenheit exakt dieselbe Menge ergibt wie durchgehendes Zusehen.
  *
- *  Ist der Beutel voll, ruht die Mine bis zur nächsten Fuhre: Ein Bergmann, der weiterschlüge,
- *  förderte ausschließlich in den Verlust — über eine Nacht hinweg ein Vielfaches des Beutels an
- *  Gold, das nie irgendwo ankommt. Die letzte Förderung füllt den Beutel noch bis zum Rand auf;
+ *  Ist das Lager voll, ruht die Mine bis zur nächsten Fuhre: Ein Bergmann, der weiterschlüge,
+ *  förderte ausschließlich in den Verlust — über eine Nacht hinweg ein Vielfaches des Lagers an
+ *  Gold, das nie irgendwo ankommt. Die letzte Förderung füllt das Lager noch bis zum Rand auf;
  *  was in dieser einen Portion darüber hinausgeht, geht wie gehabt verloren. */
 function runMiners(state: GameState, cursor: number, report?: OfflineReport): void {
   for (const index of SLOTS) {
     const level = state.minerLevels[index]
     if (level === 0) continue
-    if (bagSpace(state) <= 0) {
+    if (stockSpace(state) <= 0) {
       restMiner(state, index)
       continue
     }
     const interval = minerInterval(level) * 1_000
-    // Wer neu anfängt — frisch angestellt oder nach der Ruhe am vollen Beutel —, hängt sich in den
+    // Wer neu anfängt — frisch angestellt oder nach der Ruhe am vollen Lager —, hängt sich in den
     // laufenden Takt der Uhr ein, statt seinen eigenen bei der Sekunde des Wiederanlaufs zu
-    // beginnen. Sonst hinge die Phase daran, wann der Tick den freien Beutel bemerkt: Zusehen
+    // beginnen. Sonst hinge die Phase daran, wann der Tick das freie Lager bemerkt: Zusehen
     // schaut alle 100 ms nach, die Offline-Strecke in Schritten von bis zu 500 ms, und über zehn
     // Minuten Ruhe-und-weiter passte in den einen Lauf ein Takt mehr als in den anderen.
     if (state.minerBeats[index] === null) state.minerBeats[index] = Math.floor(cursor / interval) * interval
     while (cursor >= (state.minerBeats[index] as number) + interval) {
-      // Füllt eine frühere Förderung dieses Durchlaufs den Beutel, ruht auch der Rest der Takte —
+      // Füllt eine frühere Förderung dieses Durchlaufs das Lager, ruht auch der Rest der Takte —
       // und der fällige Takt verfällt mit ihnen, statt als Rückstand liegen zu bleiben.
-      if (bagSpace(state) <= 0) {
+      if (stockSpace(state) <= 0) {
         restMiner(state, index)
         break
       }
@@ -249,10 +253,10 @@ function runMiners(state: GameState, cursor: number, report?: OfflineReport): vo
   }
 }
 
-/** Ein Bergmann schickt nur ganze Goldstücke in den Beutel. Fördert er 0,7 je Takt, kommt im
+/** Ein Bergmann schickt nur ganze Goldstücke ins Lager. Fördert er 0,7 je Takt, kommt im
     ersten Takt nichts an, im zweiten eines (0,4 bleiben liegen), im dritten wieder eines (0,1
     bleiben liegen) — die Rate stimmt über die Takte hinweg auf den Bruchteil genau, nur ist der
-    Beutel keine Kommazahl mehr. Der Rest steht im Zustand und übersteht damit Pause und
+    Lager keine Kommazahl mehr. Der Rest steht im Zustand und übersteht damit Pause und
     Spielstand: Ohne ihn wäre der angebrochene Fund bei jedem Neuladen verloren. */
 function mineWholeGold(state: GameState, index: SlotIndex, level: number, report?: OfflineReport): number {
   const carried = state.minerCarry[index] + minerYield(level)
@@ -330,29 +334,30 @@ function runTheft(state: GameState, budget: number, report?: OfflineReport): num
   return stolen
 }
 
-/** Die Sicherung von Hand. Sie ist die dritte Aktion des Spielers und darum genauso gesperrt,
-    solange er selbst unterwegs ist — Wache geht nur, wer da ist. */
+/** Der Wachgang. Er ist die dritte Aktion des Spielers und darum genauso gesperrt, solange er
+    selbst unterwegs ist — Wache geht nur, wer da ist. Wie viel er abträgt, hängt an seiner
+    Grubenlampe; wie lange er dafür gebunden ist, an seinen Stiefeln. */
 export function lowerThreat(state: GameState, now = Date.now()): GameState {
   if (state.threat <= 0 || isPlayerBusy(state)) return state
   const next = structuredClone(state)
-  next.threat = Math.max(0, next.threat - MANUAL_SECURE_AMOUNT)
+  next.threat = Math.max(0, next.threat - lampPower(next))
   next.secureStartedAt = now
-  next.secureEndsAt = now + SECURE_COOLDOWN_MS
+  next.secureEndsAt = now + manualSecureSeconds(next) * 1_000
   return next
 }
 
 /** Die Mine bringt in diesem Tick nichts hervor: Entweder ist kein Bergmann angestellt, oder der
-    volle Beutel hat alle zur Ruhe gebracht. Die zweite Form zählt erst, wenn die Takte tatsächlich
+    volle Lager hat alle zur Ruhe gebracht. Die zweite Form zählt erst, wenn die Takte tatsächlich
     abgelegt sind — solange noch einer steht, muss der Tick laufen und ihn ablegen. */
 function mineIsIdle(state: GameState): boolean {
   if (passiveRate(state) === 0) return true
-  return bagSpace(state) <= 0 && state.minerBeats.every((beat) => beat === null)
+  return stockSpace(state) <= 0 && state.minerBeats.every((beat) => beat === null)
 }
 
 /** Ruhezustand: In diesem Tick kann sich am sichtbaren Zustand nichts ändern — keine fördernde
     Mine, keine Fuhre unterwegs oder startbereit, keine laufende Sicherung, kein Risiko und kein
     Gold in der Truhe, das Risiko erzeugen könnte. Das ist das frühe Spiel zwischen zwei Klicks —
-    und der volle Beutel, der auf die erste Fuhre wartet. */
+    und das volle Lager, das auf die erste Fuhre wartet. */
 function isDormant(state: GameState): boolean {
   return mineIsIdle(state)
     && state.playerTrip === null
@@ -361,7 +366,7 @@ function isDormant(state: GameState): boolean {
     && state.threat <= 0
     && state.exhaustion <= 0
     && state.vaultGold <= 0
-    && !(hasAutomaticTransport(state) && state.chestGold > 0)
+    && !(hasAutomaticTransport(state) && state.stockGold > 0)
 }
 
 export function advanceGame(input: GameState, now = Date.now(), offline = false): GameState {
@@ -431,11 +436,8 @@ export function advanceGame(input: GameState, now = Date.now(), offline = false)
 export function buyEquipmentUpgrade(state: GameState, id: EquipmentUpgradeId): GameState {
   const price = equipmentUpgradeCost(state, id)
   if (state.vaultGold < price) return state
-  const next = structuredClone(state)
+  const next = withEquipmentLevel(structuredClone(state), id)
   next.vaultGold -= price
-  if (id === 'tap') next.tapLevel += 1
-  else if (id === 'chest') next.chestLevel += 1
-  else next.vaultLevel += 1
   addEvent(next, 'info', 'Ausrüstung verbessert.')
   return next
 }

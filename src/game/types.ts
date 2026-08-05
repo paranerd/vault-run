@@ -1,5 +1,17 @@
-export type SectionId = 'mine' | 'bag' | 'chest'
-export type EquipmentUpgradeId = 'tap' | 'chest' | 'vault'
+/** Die drei Abschnitte der Szene, benannt nach dem, was in ihnen steht: der Fels, der Haufen am
+    Stollenmund und der Hort. Das Lager hieß früher „Beutel" — ein Name, der die Kette falsch
+    erzählte: In diesen Puffer fördern vier angestellte Bergleute, und vier Fuhrknechte laden
+    daraus ab. Der Beutel ist seither das, was der Spieler selbst schultert. */
+export type SectionId = 'mine' | 'stock' | 'vault'
+
+/** Alles, was einmalig gekauft wird — im Gegensatz zu den vier Slots je Abschnitt.
+ *
+ *  `tap`, `pack`, `boots` und `lamp` sind die **Ausrüstung des Spielers**: Jedes Stück gehört zu
+ *  einer seiner drei Handlungen, die Stiefel zu beiden, bei denen er läuft. `stock` und `vault`
+ *  sind dagegen **Behälter des Reiches**. Ohne die vier Spielerstücke wären zwei seiner drei
+ *  Handlungen Konstanten in einem Spiel, in dem alles andere unbegrenzt wächst — aktives Spiel
+ *  hörte damit zwangsläufig irgendwann auf, sich zu lohnen. */
+export type EquipmentUpgradeId = 'tap' | 'pack' | 'boots' | 'lamp' | 'stock' | 'vault'
 export type SlotGroup = 'miners' | 'transporters' | 'guards'
 export type UpgradeCategory = 'equipment' | SlotGroup
 export type UpgradeFilter = 'all' | UpgradeCategory
@@ -42,16 +54,22 @@ export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
 export type SlotBeats = [number | null, number | null, number | null, number | null]
 
 export interface GameState {
-  schemaVersion: 7
+  schemaVersion: 8
   savedAt: number
   lastTick: number
-  chestGold: number
+  /** Was im Lager am Stollenmund liegt: gefördert, aber noch nicht abtransportiert. */
+  stockGold: number
   vaultGold: number
   lifetimeGold: number
   lostGold: number
   stolenGold: number
+  /** Die vier Ausrüstungsstücke des Spielers: Pickhacke, Beutel, Stiefel, Grubenlampe. */
   tapLevel: number
-  chestLevel: number
+  packLevel: number
+  bootsLevel: number
+  lampLevel: number
+  /** Die beiden Behälter: das Lager am Stollenmund und der Hort. */
+  stockLevel: number
   vaultLevel: number
   minerLevels: SlotLevels
   transporterLevels: SlotLevels
@@ -111,7 +129,9 @@ export interface UpgradeView {
   available: boolean
   maxed?: boolean
   accent: 'business' | 'logistics' | 'vault'
-  spriteFamily: 'pickaxe' | 'bag' | 'chest' | 'miner' | 'transport' | 'security'
+  /** Die Bilddatei-Reihe unter `public/sprites`. Jede Ausrüstung hat ihre eigene, damit keine
+      zwei Karten derselben Kategorie dasselbe Bild tragen. */
+  spriteFamily: 'pickaxe' | 'pack' | 'boots' | 'lamp' | 'stock' | 'vault' | 'miner' | 'transport' | 'security'
   spriteLevel: number
   equipmentId?: EquipmentUpgradeId
   slot?: SlotUpgradeTarget
