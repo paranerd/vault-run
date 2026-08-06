@@ -27,24 +27,24 @@ export const PICKAXES = [
 /** Was der Spieler selbst schultert — nicht der Puffer, in den seine Bergleute fördern. Der heißt
     seit dieser Trennung `STOCKPILES`. */
 export const PACKS = [
-  'Löchriger Lederbeutel', 'Genähter Lederbeutel', 'Verstärkter Goldbeutel', 'Doppelte Gürteltasche',
-  'Großer Bergmannssack', 'Zunftranzen', 'Eisenbeschlagener Packsack', 'Königlicher Goldsack',
+  'Löchriger Lederbeutel', 'Genähter Lederbeutel', 'Verstärkter Goldbeutel', 'Gegurteter Packbeutel',
+  'Großer Bergmannssack', 'Zunftsack', 'Eisenbeschlagener Packsack', 'Königlicher Goldsack',
   'Runenbeutel', 'Beutel der Leere',
 ] as const
 
 export const BOOTS = [
   'Durchgelaufene Schuhe', 'Genagelte Arbeitsschuhe', 'Geschnürte Lederstiefel', 'Grubenstiefel',
-  'Marschstiefel', 'Federleichte Stiefel', 'Zwergenstiefel', 'Siebenmeilenstiefel', 'Runenstiefel',
-  'Windschuhe',
+  'Marschstiefel', 'Hirschlederstiefel', 'Zwergenstiefel', 'Siebenmeilenstiefel', 'Runenstiefel',
+  'Windstiefel',
 ] as const
 
 export const LAMPS = [
   'Rußige Talgfunzel', 'Blechlaterne', 'Hornlaterne', 'Spiegelöllampe', 'Karbidlampe',
-  'Zwergenleuchte', 'Bannlaterne', 'Spiegelkranzlaterne', 'Runenlicht', 'Sonnenstein',
+  'Zwergenleuchte', 'Spiegelkranzlaterne', 'Bannlaterne', 'Runenlicht', 'Sonnenstein',
 ] as const
 
 export const STOCKPILES = [
-  'Loser Erzhaufen', 'Bretterverschlag', 'Geflochtene Erzkörbe', 'Gezimmerter Schuppen',
+  'Loser Erzhaufen', 'Geflochtene Erzkörbe', 'Bretterverschlag', 'Gezimmerter Schuppen',
   'Steinernes Erzlager', 'Grubenspeicher', 'Zunftdepot', 'Gewölbelager', 'Runenspeicher',
   'Hallenlager',
 ] as const
@@ -70,15 +70,15 @@ export const SECTION_LABEL: Record<SectionId, string> = {
 const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
   miners: [
     'Tagelöhner', 'Grubenknappe', 'Hauer', 'Steinbrecher', 'Sprengmeister', 'Erzmeister',
-    'Zwergenhauer', 'Rutengänger', 'Runenbrecher', 'Steingolem',
+    'Zwergenhauer', 'Doppelhauer', 'Runenbrecher', 'Steingolem',
   ],
   transporters: [
-    'Laufbursche', 'Packesel', 'Schubkarre', 'Packpferd', 'Ochsenkarren', 'Panzerkarren',
+    'Laufbursche', 'Schubkarre', 'Packesel', 'Packpferd', 'Ochsenkarren', 'Panzerkarren',
     'Vierspänner', 'Königskutsche', 'Greifengespann', 'Torstein',
   ],
   guards: [
-    'Nachtwächter', 'Wachhund', 'Speerknecht', 'Söldnerwache', 'Rüdenmeister', 'Wachhauptmann',
-    'Schattenspäher', 'Ordensritter', 'Königsgardist', 'Greifenreiter',
+    'Nachtwächter', 'Speerknecht', 'Schildwache', 'Hellebardier', 'Söldnerwache', 'Zweihandsöldner',
+    'Wachhauptmann', 'Ordensritter', 'Königsgardist', 'Greifenreiter',
   ],
 }
 
