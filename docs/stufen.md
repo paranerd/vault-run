@@ -348,8 +348,6 @@ keine Entsprechung, weil sie erst im Trupp wirkt.
   Vollrüstung, und Speer → Speer und Schild → Stangenwaffe → Schlachtschwert → Turmschild und
   Hellebarde. **Kraft** ist im Bild nichts anderes als die Masse der Rüstung und die Größe der Waffe;
   wer weiter oben steht, sieht gefährlicher aus, nicht nur teurer.
-- **Keine Hunde.** Ein Tier lässt sich gegen einen Mann mit Speer weder als stärker noch als
-  schwächer lesen; es stünde neben der Reihe statt in ihr.
 - **Jede Wache steht aufrecht, offen und bewaffnet** — nichts Verhülltes, Geducktes oder Verborgenes
   in einer Leiter, deren ganzer Sinn sichtbare Gefahr ist.
 - Der Greif der zehnten Stufe ist das einzige Tier der Reihe — und er trägt eine Wache, statt eine zu
