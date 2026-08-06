@@ -117,11 +117,8 @@ seine Bergleute fördern: Aus dem Lager füllt er den Beutel, mehr als dort lieg
   keine Gürteltasche, nichts am Körper getragen** — was der Spieler schultert, steht im Bild für
   sich allein.
 - Umfang und Fülle wachsen monoton; ab Stufe 3 schaut Gold über den Rand, und die Menge wächst mit.
-- Die vierte Stufe hieß bis eben „Doppelte Gürteltasche“: das einzige Stück am Gürtel, das einzige
-  doppelte der Reihe — und dabei kleiner als der Beutel davor. Der gegurtete Packbeutel behält die
-  Gurte, legt sie aber um den Beutel statt um den Mann.
-- Die sechste hieß „Zunftranzen“ und wurde prompt als Rucksack gezeichnet, direkt neben dem
-  Packsack. Sie ist jetzt ein Sack mit Zunftzeichen; getragen wird in dieser Reihe nichts.
+- Kein Beutel ist doppelt und keiner wird am Gürtel getragen; die Gurte der vierten Stufe liegen um
+  den Beutel, nicht um den Mann.
 - Farbe folgt dem Rang: braunes Leder (1–4) → grobes Tuch und beschlagenes Leder (5–7) → Purpur mit
   Gold (8) → Runenblau (9) → Schwarz mit violettem Saum (10). Jede der letzten drei Farben trägt
   genau eine Stufe.
