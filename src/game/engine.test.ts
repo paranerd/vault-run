@@ -37,7 +37,11 @@ import {
   securityLoss,
   slotStageName,
   slotVisualLevel,
+  ACTIVE_PLAY_DISCOUNT,
+  equipmentUpgradeCost,
+  GOLD_PER_THROUGHPUT,
   slotUpgradeCost,
+  SUSTAINED_TAPS_PER_SECOND,
   tapValue,
   transporterCapacity,
   transporterRate,
@@ -61,7 +65,7 @@ import {
   tap,
 } from './engine'
 import { migrateGame } from './storage'
-import type { GameState } from './types'
+import type { EquipmentUpgradeId, GameState, SlotGroup } from './types'
 
 // Die vier Ausrüstungsstücke des Spielers stehen auf ihrer ersten Stufe, solange ein Test nichts
 // anderes kauft. Ihre Werte sind dann Konstanten und lesen sich in den Erwartungen wie die
@@ -350,15 +354,19 @@ describe('Vault Run engine', () => {
     expect(advanceGame(state, 500).exhaustion).toBe(86)
   })
 
-  it('makes each pickaxe level less exhausting and recovers while offline', () => {
+  // Die Erschöpfung gehört dem Spieler, nicht seinem Werkzeug: Eine bessere Hacke schlägt mehr aus
+  // dem Fels, sie macht niemanden ausdauernder. Damit ist sein Takt von der ersten Minute an
+  // derselbe — der Boden, den die Angestellten in `MIN_CYCLE_SECONDS` haben —, und die Pickhacke
+  // wächst in genau einer Größe. Solange sie auch das Tempo hob, zahlte jede Stufe zweimal, und
+  // kein Preis konnte dieser doppelten Kurve folgen.
+  it('keeps the strain of a swing with the player and not with the pickaxe', () => {
     const base = createInitialState(0)
-    const improved = { ...base, tapLevel: 1 }
-    expect(exhaustionPerTap(improved)).toBeLessThan(exhaustionPerTap(base))
-    expect(getEquipmentUpgrade(base, 'tap').facts[2]).toEqual({
-      from: formatDecimal(exhaustionPerTap(base)),
-      to: formatDecimal(exhaustionPerTap(improved)),
-      label: 'Erschöpfung',
-    })
+    for (const tapLevel of [0, 1, 5, 20]) {
+      expect(exhaustionPerTap({ ...base, tapLevel })).toBe(exhaustionPerTap(base))
+    }
+    expect(SUSTAINED_TAPS_PER_SECOND).toBe(exhaustionRecoveryRate(base) / exhaustionPerTap(base))
+    // Eine einzige Zeile auf der Karte, dieselbe wie beim Bergmann.
+    expect(getEquipmentUpgrade(base, 'tap').facts.map((entry) => entry.label)).toEqual(['', 'Fördermenge'])
 
     const tired = { ...base, exhaustion: 60 }
     expect(advanceGame(tired, 10_000, true).exhaustion).toBe(0)
@@ -497,10 +505,11 @@ describe('Vault Run engine', () => {
     expect(upgrades).toHaveLength(5)
     expect(upgrades.every((upgrade) => upgrade.facts.every((entry) => entry.from && entry.to))).toBe(true)
 
+    // Pickhacke und Bergmann tragen dieselbe Zeile mit derselben Reihe: Ein Schlag fördert, was ein
+    // Bergmann derselben Stufe fördert.
     expect(upgrades[0].facts).toEqual([
       { from: 'Stufe 1', to: 'Stufe 2', label: '' },
       { from: '1', to: '2', label: 'Fördermenge' },
-      { from: '6', to: '5,4', label: 'Erschöpfung' },
     ])
     // Ein unbesetzter Slot hat keinen Vorher-Wert — dort steht ein Strich statt einer erfundenen Null.
     // Bergleute takten immer im Sekundentakt — ihre Karte braucht deshalb keine Taktzeile.
@@ -511,10 +520,19 @@ describe('Vault Run engine', () => {
   })
 
   // Eine Stufe, die rechnerisch nichts bringt, muss das zeigen — die Karte fordert zum Kauf auf.
-  // `tapValue` rundet auf, weshalb Stufe 3 → 4 denselben Wert liefert wie Stufe 2 → 3.
+  // Der Beutel über der Lagergröße ist der Fall, den es dafür gibt: Mehr, als der Haufen fasst,
+  // schultert niemand, und die Karte sagt damit selbst, dass zuerst das Lager wachsen muss.
+  //
+  // Die Pickhacke war bis eben ein zweiter solcher Fall — allerdings ein unfreiwilliger:
+  // `ceil(1,42²)` und `ceil(1,42³)` sind beide 3, Stufe 3 → 4 kostete also Gold und änderte nichts.
+  // Seit sie auf der Reihe der Bergleute läuft, wächst sie auf jeder Stufe echt.
   it('admits it when a level adds nothing at all', () => {
-    const [, hit] = getEquipmentUpgrade({ ...createInitialState(0), tapLevel: 2 }, 'tap').facts
+    const [, hit] = getEquipmentUpgrade({ ...createInitialState(0), packLevel: 4 }, 'pack').facts
     expect(hit.to).toBe(hit.from)
+    for (let tapLevel = 0; tapLevel < 20; tapLevel += 1) {
+      const [, swing] = getEquipmentUpgrade({ ...createInitialState(0), tapLevel }, 'tap').facts
+      expect(swing.to).not.toBe(swing.from)
+    }
   })
 
   // Die Karte nennt den Rang, auf dem die Einheit **steht** — nicht den nach dem Kauf. Oberhalb
@@ -538,12 +556,15 @@ describe('Vault Run engine', () => {
     }
   })
 
+  // Ein Schlag fördert genau das, was ein Bergmann **derselben Stufe** fördert: eine Größe, ein
+  // Name, eine Reihe. Der Unterschied zwischen beiden ist danach allein der Takt.
   it('uses the promised integer pickaxe value in gameplay and upgrade stats', () => {
     const state = { ...createInitialState(0), tapLevel: 4 }
     const upgraded = getEquipmentUpgrade(state, 'tap')
-    expect(tapValue(state)).toBe(5)
-    expect(upgraded.facts[1]).toEqual({ from: '5', to: '6', label: 'Fördermenge' })
-    expect(advanceGame(tap(state, 0), afterArrival(0)).stockGold).toBe(5)
+    expect(upgraded.stage).toBe(5)
+    expect(tapValue(state)).toBe(minerRate(5))
+    expect(upgraded.facts[1]).toEqual({ from: '6', to: '8', label: 'Fördermenge' })
+    expect(advanceGame(tap(state, 0), afterArrival(0)).stockGold).toBe(6)
   })
 
   it('reduces attention by clicking the treasure chest action', () => {
@@ -1123,5 +1144,103 @@ describe('Ausrüstung des Spielers', () => {
     expect(getEquipmentUpgrade(state, 'vault').category).toBe('guards')
     expect(getCategoryUpgrades(state, 'guards')[0].equipmentId).toBe('vault')
     expect(getCategoryUpgrades(state, 'transporters')[0].equipmentId).toBe('stock')
+  })
+})
+
+// Die Preise sind kein Strang aus zehn Meinungen mehr, sondern ein Gerüst aus zwei Regeln. Diese
+// Tests halten beide fest — und dazu das Symptom, an dem der alte Zustand auffiel: Die zehnte
+// Pickhacke kostete 823 Gold, die zehnte Schatztruhe 77.000.
+describe('Preise', () => {
+  const gear: Record<EquipmentUpgradeId, (level: number) => GameState> = {
+    tap: (tapLevel) => ({ ...createInitialState(0), tapLevel }),
+    pack: (packLevel) => ({ ...createInitialState(0), packLevel }),
+    boots: (bootsLevel) => ({ ...createInitialState(0), bootsLevel }),
+    lamp: (lampLevel) => ({ ...createInitialState(0), lampLevel }),
+    stock: (stockLevel) => ({ ...createInitialState(0), stockLevel }),
+    vault: (vaultLevel) => ({ ...createInitialState(0), vaultLevel }),
+  }
+  const crew: Record<SlotGroup, (level: number) => GameState> = {
+    miners: (level) => ({ ...createInitialState(0), minerLevels: [level, 0, 0, 0] }),
+    transporters: (level) => ({ ...createInitialState(0), transporterLevels: [level, 0, 0, 0] }),
+    guards: (level) => ({ ...createInitialState(0), guardLevels: [level, 0, 0, 0] }),
+  }
+  const gearPrice = (id: EquipmentUpgradeId) => (level: number) => equipmentUpgradeCost(gear[id](level), id)
+  const crewPrice = (group: SlotGroup) => (level: number) => slotUpgradeCost(crew[group](level), group, 0)
+
+  /** Was die zehn benannten Stufen eines Strangs zusammen kosten. */
+  const namedStages = (price: (level: number) => number) =>
+    Array.from({ length: 10 }, (_, level) => price(level)).reduce((total, step) => total + step, 0)
+
+  /** Alle Stränge außer der Schatztruhe — sie ist der einzige, dessen Stufe die Kapazität um mehr
+      als das Doppelte hebt, und spannt darum mit zehn Stufen allein das ganze Spiel. */
+  const strandTotals = (): Record<string, number> => ({
+    tap: namedStages(gearPrice('tap')),
+    pack: namedStages(gearPrice('pack')),
+    boots: namedStages(gearPrice('boots')),
+    lamp: namedStages(gearPrice('lamp')),
+    stock: namedStages(gearPrice('stock')),
+    miners: namedStages(crewPrice('miners')),
+    transporters: namedStages(crewPrice('transporters')),
+    guards: namedStages(crewPrice('guards')),
+  })
+
+  // Der Befund, der das Gerüst nötig machte: Ein Strang war in Minuten durchgekauft, während die
+  // Automatik daneben in die Zehntausende ging. Sieben Stränge liegen jetzt innerhalb eines
+  // Faktors von fünf. Die Schatztruhe steht bewusst außerhalb — sie ist der einzige Strang, dessen
+  // Stufe die Kapazität um mehr als das Doppelte hebt, und spannt darum allein das ganze Spiel.
+  it('keeps the ten named stages of every strand in the same price band', () => {
+    const totals = Object.values(strandTotals())
+    expect(Math.max(...totals) / Math.min(...totals)).toBeLessThan(5)
+    // Die Pickhacke ist keine Randnotiz mehr: Ihre zehn Ränge kosten mehr als die eines Bergmanns.
+    expect(strandTotals().tap).toBeGreaterThan(strandTotals().miners)
+  })
+
+  // Regel 1: Der Preis wächst je Stufe um denselben Aufschlag schneller als die Leistung. Kein
+  // Strang wird dadurch je billiger, als er auf der Stufe davor war — vorher wurde die Schatztruhe
+  // je Stufe gemessen an ihrer Kapazität ein Viertel *günstiger*.
+  it('never lets a strand get cheaper per stage than the one before it', () => {
+    for (const [name, total] of Object.entries(strandTotals())) {
+      expect(total, name).toBeGreaterThan(0)
+    }
+    const strands: Array<[string, (level: number) => number]> = [
+      ...(Object.keys(gear) as EquipmentUpgradeId[]).map((id) => [id, gearPrice(id)] as [string, (level: number) => number]),
+      ...(Object.keys(crew) as SlotGroup[]).map((group) => [group, crewPrice(group)] as [string, (level: number) => number]),
+    ]
+    for (const [name, price] of strands) {
+      for (let level = 0; level < 12; level += 1) {
+        expect(price(level + 1), `${name} ${level}`).toBeGreaterThan(price(level))
+      }
+    }
+  })
+
+  // Regel 2: Ein Behälter kostet einen festen Anteil dessen, was er fasst. Er liefert keinen
+  // Durchsatz, den man in Gold je Sekunde messen könnte — er setzt die Grenze, innerhalb derer
+  // alles andere arbeitet, und diese Grenze ist der Maßstab des Reiches an dieser Stelle. Damit
+  // bleibt er auf jedem Ausbaustand gleich erschwinglich, und er ist nie teurer, als er fasst.
+  it('prices a container as a fixed share of what it holds', () => {
+    for (let level = 0; level < 10; level += 1) {
+      const stocked = gear.stock(level)
+      const vaulted = gear.vault(level)
+      expect(equipmentUpgradeCost(stocked, 'stock')).toBe(Math.ceil(3 * stockCapacity(stocked)))
+      expect(equipmentUpgradeCost(vaulted, 'vault')).toBe(Math.ceil(0.6 * vaultCapacity(vaulted)))
+      expect(equipmentUpgradeCost(vaulted, 'vault')).toBeLessThan(vaultCapacity(vaulted))
+    }
+  })
+
+  // Der Maßstab: Ein Bergmann der ersten Stufe kostet 115 Gold und bringt 1 Gold/s. Alles andere
+  // ist daran gemessen — die Ausrüstung des Spielers zum halben Satz, weil sie nur zahlt, solange
+  // er dabei ist. Für die Pickhacke fällt das zusammen: Sie fördert je Schlag wie ein Bergmann
+  // derselben Stufe und schlägt 3⅓ mal je Sekunde, ist also 3⅓ Bergleute — und kostet 1⅔ davon.
+  it('prices the pickaxe as the miners it does the work of, at half the going rate', () => {
+    expect(slotUpgradeCost(createInitialState(0), 'miners', 0)).toBe(GOLD_PER_THROUGHPUT)
+    for (let level = 0; level < 12; level += 1) {
+      const pick = gearPrice('tap')(level)
+      const miner = crewPrice('miners')(level)
+      const throughput = SUSTAINED_TAPS_PER_SECOND * minerRate(level + 1)
+      expect(pick / miner, `Stufe ${level + 1}`).toBeCloseTo(SUSTAINED_TAPS_PER_SECOND * ACTIVE_PLAY_DISCOUNT, 1)
+      // Doppelt so viel Gold je Sekunde je ausgegebenem Gold — der Vorsprung des aktiven Spiels,
+      // auf jeder Stufe derselbe.
+      expect((throughput / pick) / (minerRate(level + 1) / miner)).toBeCloseTo(1 / ACTIVE_PLAY_DISCOUNT, 1)
+    }
   })
 })
