@@ -151,14 +151,13 @@ Fuhrknecht und die Wache.
 - Ein einzelner Stiefel im Profil, in allen zehn Bildern nach derselben Seite gewandt, in derselben
   Bildhöhe.
 - **Der Schaft wächst monoton:** 1–2 knöchelhoch, 3 wadenhoch, ab 4 kniehoch. Kein Stiefel ist
-  niedriger als sein Vorgänger. Bisher sprang die Reihe zwischen Halbschuh und Schaftstiefel hin und
-  her — ein kniehoher Stiefel auf Stufe 3, ein Knöchelschuh auf Stufe 4.
+  niedriger als sein Vorgänger — die Reihe springt nie zwischen Halbschuh und Schaftstiefel hin und
+  her.
 - **Und mit der Höhe wächst das Tempo:** engerer Schnitt, dünnere und härtere Sohle, weniger klobiges
   Beschlagwerk, stärkere Neigung nach vorn. Ein Stiefel dieser Reihe wird nicht schwerer, sondern
   schneller.
-- **Schwingen trägt allein die zehnte Stufe.** Die sechste hieß „Federleichte Stiefel“ und bekam
-  prompt Federn — dieselbe Idee wie die Spitze der Reihe, vier Stufen zu früh. Sie ist jetzt leicht
-  durch dünnes Leder, nicht durch Gefieder.
+- **Schwingen trägt allein die zehnte Stufe.** Die sechste ist leicht durch dünnes Leder, nicht durch
+  Gefieder.
 - Farbe: braunes Leder (1–3) → geschwärztes Leder mit Eisenkappe (4) → staubbraun mit Riemen (5) →
   helles Hirschleder (6) → dunkel mit Messing (7) → Rot mit Gold (8) → Schwarz mit blauen Runen (9)
   → Silberweiß (10).
@@ -192,9 +191,8 @@ und ist deshalb direkt gegen sie abwägbar — dieselbe Beschriftung, dieselbe S
   Kristall (6) → Goldweiß rundum (7) → reines Weiß (8) → Blauweiß (9) → gleißendes Tageslicht (10).
 - Nur 1 brennt offen. 2–8 sind geschlossene Laternen mit Bügel; 9 hat keinen Docht mehr, 10 keine
   Kammer.
-- Die Bannlaterne stand als siebte direkt hinter der Hornlaterne und sah aus wie sie: dieselbe
-  Laternenform, kaum mehr Licht. Sie steht jetzt als achte hinter dem Spiegelkranz und ist als
-  einzige in **Silber** gefasst, wo die ganze Reihe Messing trägt.
+- Die Bannlaterne ist als einzige in **Silber** gefasst, wo die ganze Reihe Messing trägt — sie darf
+  der Hornlaterne in nichts gleichen außer der Bauform.
 - Stufe 4 ist eine Lampe mit Spiegelblech hinter der Flamme — kein Mond, keine offene Schale.
 
 ## Lager (Ausrüstung – Kapazität)
@@ -206,7 +204,7 @@ Trichter.
 | # | Name | Beschreibung |
 |---|------|--------------|
 | 1 | **Loser Erzhaufen** | Was aus dem Stollen kommt, liegt einfach da. Ein kräftiger Wind, und ein Teil davon liegt woanders. |
-| 2 | **Geflochtene Erzkörbe** | Weidenkörbe in Reihe, jeder schulterhoch und randvoll. Was vorher im Staub lag, steht jetzt gestapelt. |
+| 2 | **Geflochtene Erzkörbe** | Weidenkörbe in Reihe, jeder schulterhoch und randvoll. Was im Staub lag, steht nun gestapelt. |
 | 3 | **Bretterverschlag** | Vier Bohlenwände, in den Boden gerammt und höher als jeder Korb. Der Haufen bleibt liegen, wo du ihn hingeschüttet hast, und darf endlich wachsen. |
 | 4 | **Gezimmerter Schuppen** | Dach über dem Gold, Tür davor. Zum ersten Mal regnet es nicht in die Ausbeute. |
 | 5 | **Steinernes Erzlager** | Aus Bruchstein in den Hang gemauert. Es hält den Berg auf seiner Seite und das Gold auf deiner. |
@@ -220,11 +218,8 @@ Trichter.
 
 - Zehnmal dasselbe Bauwerk am Stollenmund, in derselben Isometrie, mit **sichtbarem Vorrat darin**.
   Grundfläche, Höhe und Schütthöhe wachsen monoton.
-- Erzkörbe und Bretterverschlag haben getauscht: Die Körbe fassen weniger als der Verschlag und
-  standen bisher hinter ihm — die einzige Stelle, an der die Reihe schrumpfte.
-- **Kein Lager hat Deckel oder Schloss** — beides gehört der Truhe. Das Gewölbelager war als große
-  beschlagene Kiste gezeichnet und ließ sich von der Schatztruhe nicht unterscheiden; es ist ein
-  Gebäude mit mannshohem Tor, in das man hineingeht.
+- **Kein Lager hat Deckel oder Schloss** — beides gehört der Truhe. Das Gewölbelager ist ein Gebäude
+  mit mannshohem Tor, in das man hineingeht, keine große beschlagene Kiste.
 - Die zehnte ist die größte Bauform der Reihe und muss es auch sein: mehrere Tore, ganze Fuhren
   nebeneinander darin.
 - Baustoff nach Rang: Boden → Weide → Bohlen → Zimmerholz → Bruchstein → Quader → Rune.
@@ -247,10 +242,9 @@ Trichter.
 **Hinweise**
 
 - Alle Truhen im selben Dreiviertelblick, gleich gedreht, gleicher Standfuß — und **alle
-  geschlossen**. Die Runentruhe war als einzige aufgeklappt; ihr Bannkreis liegt im zu und leuchtet
-  durch den Deckel.
-- Die Größe wächst monoton. Die Juwelentruhe war die **kleinste** der ganzen Reihe und muss die
-  zweitgrößte sein — sie steht zwischen Zwergentresor und Runentruhe.
+  geschlossen**, auch die Runentruhe: Ihr Bannkreis liegt im zu und leuchtet durch den Deckel.
+- Die Größe wächst monoton. Die Juwelentruhe ist damit die **zweitgrößte** der Reihe: breiter als der
+  Zwergentresor davor, schmaler als die Runentruhe danach.
 - Beschlag nach Rang: nacktes Holz → Eisenband → Nietwerk → Riegel → Fels → Gold → Zwergenmechanik →
   Edelstein → Rune.
 - Gold zeigt nur die zehnte Stufe, weil nur sie keinen Deckel mehr hat. Sie ist auch die einzige, die
@@ -274,15 +268,11 @@ Trichter.
 **Hinweise**
 
 - Zehnmal dieselbe Standpose, frontal, in derselben Bildhöhe.
-- **Jeder hält seine Pickhacke, ausnahmslos.** Der Sprengmeister trägt seine Ladung, der Doppelhauer
-  seine zweite Haue in der freien Hand — bisher standen beide, die etwas anderes zu zeigen hatten,
-  ganz ohne Werkzeug da.
+- **Jeder hält seine Pickhacke, ausnahmslos.** Wer noch etwas anderes zu zeigen hat, trägt es in der
+  freien Hand: der Sprengmeister seine Ladung, der Doppelhauer seine zweite Haue.
 - **Statur und Ausrüstung wachsen monoton:** Hemdsärmel (1) → Lederschurz (2–3) → Eisen am Arm (4–5)
   → beschlagener Panzer (6–8) → runenbeschlagene Platte (9). Kein Bergmann ist schmaler als sein
   Vorgänger; der Hauer muss den Knappen überragen, so wie der Doppelhauer den Zwergenhauer.
-- Die achte Stufe war der Rutengänger — schmal, ohne Haue, und mit seiner Gabe für verborgene Adern
-  eine Wiederholung des Erzmeisters von Stufe 6. Der Doppelhauer sagt stattdessen dasselbe wie die
-  ganze Leiter: mehr Schlag je Sekunde.
 - Stufe 7 hebt sich durch Zwergenwerk ab — geflochtener Bart, Ringe, Messingbeschlag —, nicht durch
   eine andere Körpergröße.
 - Stufe 10 ist als einzige kein Mensch mehr: Stein statt Fleisch, größer als alle anderen.
@@ -314,12 +304,9 @@ des Spielers läuft unabhängig daneben.
   das Fuhrwerk *ist*.
 - **Die Ladung wächst monoton und bleibt sichtbar.** Der Panzerkarren fährt deshalb mit offener
   Bordwand und höher aufgetürmt als der Ochsenkarren davor; die Königskutsche trägt ihr Gold in
-  Kisten auf Dach und Heck. Bisher war die Fuhre des Ochsenkarrens die größte der ganzen Reihe, und
-  die beiden Stufen danach zeigten überhaupt kein Gold.
+  Kisten auf Dach und Heck. Keine Stufe ab 5 zeigt weniger Fuhre als der Ochsenkarren.
 - **Das Tempo wächst mit:** schwerfälliges Zugtier und stehendes Rad unten, gestreckter Galopp oben.
   Die Beine der Tiere zeigen, was die Karte als Geschwindigkeit ausweist.
-- Schubkarre und Packesel haben getauscht: Ein Esel trägt mehr als eine Karre und ist schneller —
-  er gehört hinter sie, nicht davor.
 - Stufe 10 hat kein Fuhrwerk mehr; das Gold fällt durch das Portal. Sie ist die einzige Stufe ohne
   Zugtier und ohne Rad.
 
@@ -361,11 +348,9 @@ keine Entsprechung, weil sie erst im Trupp wirkt.
   Vollrüstung, und Speer → Speer und Schild → Stangenwaffe → Schlachtschwert → Turmschild und
   Hellebarde. **Kraft** ist im Bild nichts anderes als die Masse der Rüstung und die Größe der Waffe;
   wer weiter oben steht, sieht gefährlicher aus, nicht nur teurer.
-- **Die Hunde sind entfallen** (bisher Stufe 2 und 5). Ein Tier lässt sich gegen einen Mann mit Speer
-  weder als stärker noch als schwächer lesen, es stand einfach neben der Reihe — und der
-  Rüdenmeister mit drei Hunden an der Leine erst recht.
-- **Der Schattenspäher ist entfallen** (bisher Stufe 7): verhüllt, geduckt und unbewaffnet, mitten in
-  einer Leiter, deren ganzer Sinn sichtbare Gefahr ist. An seiner Stelle steht der Wachhauptmann, der
-  vorher eine Stufe tiefer stand.
+- **Keine Hunde.** Ein Tier lässt sich gegen einen Mann mit Speer weder als stärker noch als
+  schwächer lesen; es stünde neben der Reihe statt in ihr.
+- **Jede Wache steht aufrecht, offen und bewaffnet** — nichts Verhülltes, Geducktes oder Verborgenes
+  in einer Leiter, deren ganzer Sinn sichtbare Gefahr ist.
 - Der Greif der zehnten Stufe ist das einzige Tier der Reihe — und er trägt eine Wache, statt eine zu
   sein.
