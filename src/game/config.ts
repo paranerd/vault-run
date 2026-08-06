@@ -95,7 +95,7 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
   miners: 'Jeder Bergmann fördert für sich, jede Sekunde einmal. Jede Stufe erhöht allein seine Fördermenge.',
   transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigenem Tempo. Deine eigene Fuhre läuft unabhängig daneben.',
-  guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Ihre Kraft wirkt dagegen nur zusammen: Jeder Punkt des Trupps senkt den Verlust bei einem Diebeszug um 7 %.',
+  guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Ihre Kraft wirkt dagegen nur zusammen: Jeder Punkt des Trupps senkt den Verlust bei einem Diebeszug um 3 %.',
 }
 
 export function slotStageName(group: SlotGroup, level: number): string {
@@ -136,11 +136,43 @@ export const slotVisualLevel = (group: SlotGroup, level: number) => {
   return Math.max(0, level - 1)
 }
 
-export const tapValue = (state: GameState) => Math.ceil(1.42 ** state.tapLevel)
-/** Rund 17 schnelle Schläge auf der Startstufe. Jede Pickhackenstufe senkt die Belastung. */
-export const exhaustionPerTap = (state: GameState) => Math.max(1.5, 6 * 0.9 ** state.tapLevel)
+/** Was ein Schlag aus dem Fels holt — **dieselbe Fördermenge, die ein Bergmann derselben Stufe
+    liefert** (`minerRate`). Eine Größe, ein Name, eine Reihe: 1, 2, 3, 4, 6, 8, 12, 18, 26, 39 …
+    Der Unterschied zwischen Spieler und Bergmann steckt danach allein im Takt — der Bergmann
+    fördert einmal je Sekunde, der Spieler 3⅓ mal (`SUSTAINED_TAPS_PER_SECOND`).
+ *
+ *  Vorher lief die Pickhacke auf einer eigenen Kurve (×1,42, aufgerundet). Die war nicht nur eine
+ *  zweite Reihe für dieselbe Beschriftung, sie hatte auch einen toten Rang: `ceil(1,42²) = 3` und
+ *  `ceil(1,42³) = 3` — Stufe 3 → 4 kostete Gold und änderte nichts. Genau das, was die Bergleute
+ *  mit ihrem Aufrunden vermeiden. */
+export const tapValue = (state: GameState) => minerRate(state.tapLevel + 1)
+
+/** Was ein Schlag den Spieler kostet. Bei einer Erholung von 20 Punkten je Sekunde sind das
+    **3⅓ Schläge in der Sekunde, dauerhaft** — die eine Zahl, an der der Preis der Pickhacke hängt
+    (siehe `EQUIPMENT_PRICE`), und die Grenze, ab der schnelleres Tippen in die Zwangspause läuft.
+ *
+ *  Sie sank bis eben mit jeder Pickhackenstufe (`6 × 0,9^Stufe`, Boden 1,5). Das klingt harmlos und
+ *  war der eigentliche Grund, warum die Pickhacke sich nicht bepreisen ließ: Eine Stufe zahlte
+ *  **zweimal** — mehr Gold je Schlag *und* mehr Schläge je Sekunde. Der Durchsatz wuchs damit um
+ *  1,42 × 1,11 ≈ 1,58 je Stufe, während der Preis mit 1,58 danebenlief; die Pickhacke wurde also
+ *  nie teurer als sie besser wurde, über zwanzig Stufen hinweg. Und weil der Boden bei 13 Schlägen
+ *  je Sekunde lag — schneller, als ein Daumen tippt —, endete diese zweite Kurve erst dort, wo sie
+ *  ohnehin niemand mehr einlösen konnte.
+ *
+ *  Die Erschöpfung gehört jetzt dem Spieler und nicht seinem Werkzeug: Eine bessere Hacke schlägt
+ *  mehr aus dem Fels, sie macht niemanden ausdauernder. Das Tempo ist damit von der ersten Minute
+ *  an dasselbe — der Boden, den die Angestellten in `MIN_CYCLE_SECONDS` haben, nur dass er beim
+ *  Spieler von Anfang an gilt. Oberhalb davon trägt auch bei ihm allein die Fördermenge das
+ *  Wachstum. */
+const EXHAUSTION_PER_TAP = 6
+export const exhaustionPerTap = (_state: GameState) => EXHAUSTION_PER_TAP
 /** 20 Punkte pro Sekunde ergeben die abgestimmten fünf Sekunden von 100 auf 0. */
-export const exhaustionRecoveryRate = (_state: GameState) => 20
+const EXHAUSTION_RECOVERY_PER_SECOND = 20
+export const exhaustionRecoveryRate = (_state: GameState) => EXHAUSTION_RECOVERY_PER_SECOND
+/** Wie viele Schläge der Spieler dauerhaft schafft, ohne in die Zwangspause zu laufen: 3⅓. Der
+    Boden seines eigenen Takts, und damit die Zahl, die aus einer Fördermenge einen Durchsatz macht
+    — beim Bergmann tut das `minerInterval`. */
+export const SUSTAINED_TAPS_PER_SECOND = EXHAUSTION_RECOVERY_PER_SECOND / EXHAUSTION_PER_TAP
 /** Die Zwangspause bei 100 %. Sie ist der einzige Preis des Dauerschürfens und war mit einer
     Dreiviertelsekunde kürzer als die Reaktionszeit, die sie erzwingen sollte — wer schnell genug
     tippte, merkte sie kaum. Vier Sekunden sind lang genug, dass die volle Leiste den Spieler
@@ -289,11 +321,18 @@ export const automaticTransportRate = (state: GameState) =>
 
 /** Anteil der Schatztruhe, den ein Diebeszug mitnimmt. Deutlich kleiner als der frühere
     Lager-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt eines Haufens.
-    Je Kraftpunkt des Trupps bleiben 93 % des Verlusts übrig; eine Wachenstufe bringt zwei Punkte
-    und senkt ihn damit um dieselben gut 13 %, die vorher als unsichtbarer Stufenbonus im Hinweis
-    über der Gruppe standen. */
-export const LOSS_PER_MIGHT = 0.93
-export const securityLoss = (state: GameState) => Math.max(0.015, 0.08 * LOSS_PER_MIGHT ** guardMightTotal(state))
+    Je Kraftpunkt des Trupps bleiben 97 % des Verlusts übrig; eine Wachenstufe bringt zwei Punkte
+    und senkt ihn damit um knapp 6 %.
+ *
+ *  Der Satz stand bis eben bei 93 % je Punkt, der Boden bei 1,5 %. Zusammen war das der billigste
+ *  Schlussstrich des Spiels: Vier Wachen der dritten Stufe bringen 24 Kraftpunkte, und
+ *  `0,93²⁴ = 0,18` drückte den Verlust bereits unter den Boden. Für rund 2.000 Gold war der ganze
+ *  Diebstahl-Teil abgehakt — jede weitere Wachenstufe zahlte nur noch auf Sichtweite und Tempo ein,
+ *  und die Kraftzeile auf der Karte log über ihren Wert. Mit 97 % und einem Boden bei 0,5 % bleibt
+ *  die Kraft über den ganzen Ausbau hinweg ein Grund, eine Wache zu kaufen: Sie halbiert den
+ *  Verlust etwa alle zwölf Kraftpunkte, also alle sechs Wachenstufen, und kommt nie ganz an. */
+export const LOSS_PER_MIGHT = 0.97
+export const securityLoss = (state: GameState) => Math.max(0.005, 0.08 * LOSS_PER_MIGHT ** guardMightTotal(state))
 
 /** Ab `METER_ALERT` pulsiert zusätzlich die Sicherung — die Vorwarnung vor dem Diebeszug. */
 export const RISK_ALERT = METER_ALERT
@@ -380,26 +419,135 @@ export const equipmentLevel = (state: GameState, id: EquipmentUpgradeId): number
   }
 }
 
-/** Die Preise der Spielerausrüstung liegen bewusst über der Pickhacke: Sie wirkt auf jeden Schlag,
-    die anderen drei nur, solange der Spieler selbst zugreift. Die Stiefel sind das teuerste Stück,
-    weil sie als einziges auf zwei Handlungen wirkt und sich mit dem Beutel multipliziert
-    (Ladung ÷ Dauer) — an diesem Paar hängt der ganze manuelle Durchsatz.
+// --- Preise: ein Gerüst statt zehn Meinungen ---------------------------------------------------
+/** Die zehn Stränge trugen bis eben zehn frei gewählte Grundpreise und zehn frei gewählte
+    Steigerungen. Was dabei herauskam, ließ sich an der Pickhacke ablesen: Ihre zehnte Stufe kostete
+    823 Gold, die zehnte Stufe der Schatztruhe 77.000 — der Faktor 94 zwischen zwei Strängen, die
+    im selben Spiel nebeneinander stehen. Wer die Pickhacke in den ersten Minuten durchkaufte, hatte
+    einen ganzen Strang verbraucht, bevor die Automatik überhaupt anfing zu kosten.
+ *
+ *  Dahinter steckte kein Zufall, sondern eine fehlende Regel. Ein Preis muss an zwei Dingen hängen:
+ *  daran, **was die Stufe bringt**, und daran, **wie schnell er gegenüber diesem Zuwachs steigt**.
+ *  Beides steht jetzt an einer Stelle, für alle Stränge gleich. */
+
+/** Der Maßstab: was ein Gold je Sekunde dauerhaften Durchsatzes kostet. Geeicht am Bergmann der
+    ersten Stufe — 115 Gold für 1 Gold/s —, weil er die einfachste Einheit des Spiels ist. Jeder
+    andere Grundpreis ist an diesem Satz gemessen. */
+export const GOLD_PER_THROUGHPUT = 115
+
+/** Wie viel Gold der Spieler für denselben Durchsatz zahlt, den ihm ein Angestellter abnimmt: die
+    Hälfte. Der Nachlass ist der Preis der Anwesenheit — was die Automatik auch nachts leistet, muss
+    er selbst antippen, tragen und ablaufen. Damit steht der Vorsprung des aktiven Spiels als eine
+    Zahl da und gilt auf **jeder** Stufe gleich: doppelt so viel Gold je Sekunde je ausgegebenem
+    Gold, solange er dabei ist. */
+export const ACTIVE_PLAY_DISCOUNT = 0.5
+
+/** Der gemeinsame Aufschlag: Jede Stufe kostet je gewonnener Einheit 15 % mehr als die vorige.
+    Das ist die einzige Zahl, die entscheidet, wie schnell ein Strang teurer wird als er besser
+    wird — und weil sie für alle gilt, ist keiner eine Falle und keiner ein Schnäppchen.
+ *
+ *  Vorher lag dieser Aufschlag zwischen 0,77 (Schatztruhe: Kapazität ×2,4 für ×1,85 Preis — jede
+ *  Stufe war ein besseres Geschäft als die davor) und 1,58 (Stiefel: Tempo ×1,14 für ×1,8 Preis —
+ *  nach fünf Stufen ein Fehlkauf). */
+export const PRICE_SURCHARGE = 1.15
+
+/** Der Preisfaktor eines Strangs folgt aus seinem Effektfaktor. Auf zwei Stellen gerundet, damit
+    auf der Karte eine Zahl steht, die man nachrechnen kann. */
+const priceFactor = (effectFactor: number) => Math.round(effectFactor * PRICE_SURCHARGE * 100) / 100
+
+/** Der Effektfaktor eines Strangs ist **nicht**, wie schnell seine eigene Zahl wächst, sondern wie
+    schnell der **Zuwachs seiner nächsten Stufe** wächst. Bei allem, was für sich allein arbeitet,
+    ist das dasselbe. Bei allem, was sich mit einem anderen Strang multipliziert, nicht:
+ *
+ *  - **Beutel und Stiefel sind ein Paar.** Der manuelle Durchsatz ist ihr Produkt (Ladung ÷ Dauer).
+ *    Was eine Stiefelstufe einbringt, hängt darum an der Ladung, die gerade im Beutel steckt — und
+ *    umgekehrt. Wer beide im Gleichschritt ausbaut, sieht den Zuwachs beider um 1,5 × 1,14 = 1,70
+ *    je Stufe wachsen, und genau das ist ihr Effektfaktor. Einzeln gerechnet wäre der Beutel ein
+ *    Dauerschnäppchen und die Stiefel ein Fehlkauf, obwohl niemand das eine ohne das andere kauft.
+ *  - **Die Grubenlampe** hängt am selben Paar-Effekt, nur auf dem anderen Weg des Spielers:
+ *    Sichtweite ÷ Dauer des Wachgangs, also 1,25 × 1,14 = 1,42.
+ *  - **Fuhrknechte** wachsen in zwei eigenen Größen zugleich (Ladung ×1,55 und ein Tempo, das gegen
+ *    den Sekundenboden läuft). Maßgeblich ist, was auf Dauer bleibt: die Ladung. Über die ersten
+ *    Stufen ist der Strang deshalb bewusst ein Schnäppchen — dort wächst das Tempo noch mit.
+ *  - **Wachen** wachsen in Sichtweite und Tempo beide *linear*, ihre Sicherungsleistung also
+ *    quadratisch. Einen Wachstumsfaktor im eigentlichen Sinne gibt es da nicht; eingesetzt ist der
+ *    mittlere Zuwachs über die zehn benannten Stufen (0,5 → 8,3 Punkte/s). */
+const EFFECT_FACTOR = {
+  tap: 1.5,
+  pack: 1.5 * (1 / 0.88),
+  boots: 1.5 * (1 / 0.88),
+  lamp: 1.25 * (1 / 0.88),
+  miners: 1.5,
+  transporters: 1.55,
+  guards: 1.37,
+} as const
+
+/** Grundpreis und Faktor je Ausrüstungsstück. Jeder Grundpreis ist der Zuwachs seiner ersten Stufe,
+    am Maßstab gemessen — und für die Ausrüstung des Spielers zum halben Satz:
+ *
+ *  - **Pickhacke 192.** Ein Schlag fördert, was ein Bergmann derselben Stufe fördert, und der
+ *    Spieler schlägt 3⅓ mal in der Sekunde, wo der Bergmann einmal fördert. Die Pickhacke ist damit
+ *    auf jeder Stufe 3⅓ Bergleute — und kostet 1⅔ davon: `115 × 3⅓ × ½`. Vorher stand hier **12**.
+ *    Das war keine Ungenauigkeit, sondern eine Größenordnung: Die Pickhacke war das mit weitem
+ *    Abstand billigste Gold je Sekunde des Spiels und blieb es über jede Stufe hinweg.
+ *  - **Beutel 60.** Seine erste Stufe hebt die Ladung von 25 auf 38 Gold in zwölf Sekunden, bringt
+ *    also gut ein Gold je Sekunde. Das ist der beste Einstieg des Spiels — zu Recht, denn in den
+ *    ersten Minuten ist die Ladung tatsächlich der Engpass.
+ *  - **Stiefel 24.** Ihre erste Stufe verkürzt die Fuhre von 12 auf 10,6 Sekunden und bringt bei
+ *    25 Gold Ladung knapp 0,3 Gold je Sekunde. Der kleinste Preis des Spiels für den kleinsten
+ *    Zuwachs; ihr Wert wächst mit dem, was im Beutel liegt, und der Preisfaktor des Paares nimmt
+ *    das vorweg.
+ *  - **Grubenlampe 80.** Bezahlt Punkte der Risikoskala statt Gold; geeicht an der Wache, die
+ *    dasselbe automatisch tut.
  */
+const EQUIPMENT_PRICE: Record<'tap' | 'pack' | 'boots' | 'lamp', { base: number; factor: number }> = {
+  tap: {
+    base: Math.round(GOLD_PER_THROUGHPUT * SUSTAINED_TAPS_PER_SECOND * ACTIVE_PLAY_DISCOUNT),
+    factor: priceFactor(EFFECT_FACTOR.tap),
+  },
+  pack: { base: 60, factor: priceFactor(EFFECT_FACTOR.pack) },
+  boots: { base: 24, factor: priceFactor(EFFECT_FACTOR.boots) },
+  lamp: { base: 80, factor: priceFactor(EFFECT_FACTOR.lamp) },
+}
+
+/** Behälter folgen der anderen Regel: **Ein Behälter kostet einen festen Anteil dessen, was er
+    fasst.** Sie liefern keinen Durchsatz, den man in Gold je Sekunde messen könnte — sie setzen die
+    Grenze, innerhalb derer alles andere arbeitet, und diese Grenze *ist* der Maßstab des Reiches an
+    dieser Stelle. Damit kostet ein Ausbau immer dasselbe in der Währung, die der Spieler gerade
+    denkt: drei Lagerfüllungen, eine halbe Truhe.
+ *
+ *  Das ist zugleich die einzige Regel, die von selbst erschwinglich bleibt: Weil der Preis mit der
+ *  Kapazität wächst und die Kapazität mit dem Reich, ändert sich das Verhältnis nie. Vorher stiegen
+ *  beide getrennt — die Truhe wurde je Stufe um ein Viertel *billiger* gemessen an dem, was sie
+ *  fasst, das Lager fast ebenso. */
+const CONTAINER_SHARE = { stock: 3, vault: 0.6 } as const
+
 export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
-  const bases: Record<EquipmentUpgradeId, number> = { tap: 12, pack: 60, boots: 150, lamp: 80, stock: 45, vault: 300 }
-  const factors: Record<EquipmentUpgradeId, number> = { tap: 1.58, pack: 1.7, boots: 1.8, lamp: 1.7, stock: 1.62, vault: 1.85 }
-  return cost(bases[id], factors[id], equipmentLevel(state, id))
+  if (id === 'stock') return Math.ceil(CONTAINER_SHARE.stock * stockCapacity(state))
+  if (id === 'vault') return Math.ceil(CONTAINER_SHARE.vault * vaultCapacity(state))
+  const { base, factor } = EQUIPMENT_PRICE[id]
+  return cost(base, factor, equipmentLevel(state, id))
+}
+
+/** Grundpreis und Faktor je Slot-Gruppe. Der Bergmann ist die Eichung des Maßstabs und steht
+    deshalb genau auf ihm: 115 Gold für sein erstes Gold je Sekunde. Der Fuhrknecht steht auf
+    demselben Preis, weil seine erste Stufe dasselbe leistet — zwölf Gold in zwölf Sekunden ist ein
+    Gold je Sekunde, gemessen an derselben Standardstrecke wie alles andere. Er kostete bis eben
+    180, ohne dass dafür etwas sprach; der erste Fuhrknecht ist die Stelle, an der ein Spieler
+    aufhört, jede Fuhre selbst zu tragen, und die sollte nicht die teuerste des frühen Spiels sein.
+ *
+ *  Die Wache liegt darüber und außerhalb des Maßstabs: Sie liefert kein Gold je Sekunde, sondern
+ *  Punkte der Risikoskala. 150 Gold für ihre erste Stufe ist eine gesetzte Zahl. */
+const SLOT_PRICE: Record<SlotGroup, { base: number; factor: number }> = {
+  miners: { base: GOLD_PER_THROUGHPUT, factor: priceFactor(EFFECT_FACTOR.miners) },
+  transporters: { base: GOLD_PER_THROUGHPUT, factor: priceFactor(EFFECT_FACTOR.transporters) },
+  guards: { base: 150, factor: priceFactor(EFFECT_FACTOR.guards) },
 }
 
 export function slotUpgradeCost(state: GameState, group: SlotGroup, index: SlotIndex): number {
-  // Der Sockel der Bergleute trägt den Aufschlag der ganzzahligen Fördermengen: Die Reihe
-  // 1, 2, 3, 4, 6 … liegt gut die Hälfte über der früheren 0,65, 0,98, 1,46 …, und derselbe
-  // Faktor steckt hier im Preis. Ein Bergmann kostet damit unverändert rund 115 Gold je Gold
-  // je Sekunde auf der ersten Stufe.
-  const bases: Record<SlotGroup, number> = { miners: 115, transporters: 180, guards: 150 }
-  const factors: Record<SlotGroup, number> = { miners: 1.72, transporters: 1.78, guards: 1.8 }
+  const { base, factor } = SLOT_PRICE[group]
   const levels = group === 'miners' ? state.minerLevels : group === 'transporters' ? state.transporterLevels : state.guardLevels
-  return cost(bases[group], factors[group], levels[index])
+  return cost(base, factor, levels[index])
 }
 
 const EQUIPMENT_LEVEL_KEY: Record<EquipmentUpgradeId, keyof GameState & `${string}Level`> = {
@@ -459,10 +607,10 @@ interface EquipmentSpec {
 const EQUIPMENT: Record<EquipmentUpgradeId, EquipmentSpec> = {
   tap: {
     section: 'mine', category: 'equipment', names: PICKAXES, accent: 'business', spriteFamily: 'pickaxe',
-    facts: (state, next) => [
-      fact('Fördermenge', tapValue(state), tapValue(next), effectValue),
-      fact('Erschöpfung', exhaustionPerTap(state), exhaustionPerTap(next), effectRate),
-    ],
+    // Nur die Fördermenge — dieselbe eine Zeile, die auch die Bergmannskarte trägt, und dieselbe
+    // Reihe. Die Erschöpfung stand hier als zweite Zeile, solange die Pickhacke sie senkte; sie
+    // gehört seither dem Spieler und ändert sich mit keinem Kauf mehr.
+    facts: (state, next) => [fact('Fördermenge', tapValue(state), tapValue(next), effectValue)],
   },
   pack: {
     section: 'stock', category: 'equipment', names: PACKS, accent: 'logistics', spriteFamily: 'pack',

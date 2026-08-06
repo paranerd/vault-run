@@ -59,10 +59,18 @@ Der Spieler hat drei Handlungen — schürfen, seine eigene Fuhre tragen, von Ha
 
 | Stück | Attribut | Wirkt auf | Kurve |
 |---|---|---|---|
-| Pickhacke | Fördermenge | den eigenen Schlag | ×1,42 je Stufe |
+| Pickhacke | Fördermenge | den eigenen Schlag | dieselbe Reihe wie ein Bergmann: 1, 2, 3, 4, 6, 8, 12, 18, 26, 39 … |
 | Beutel | Ladung | die eigene Fuhre | ×1,5 je Stufe, gedeckelt aufs Lager |
 | Stiefel | Geschwindigkeit | Fuhre **und** Wachgang | ×1,14 je Stufe |
 | Grubenlampe | Sichtweite | den Wachgang | ×1,25 je Stufe |
+
+**Ein Schlag fördert, was ein Bergmann derselben Stufe fördert.** Pickhacke und Bergmann tragen dieselbe Beschriftung, also tragen sie auch dieselbe Reihe — nach genau der Regel, nach der Beutel und Fuhrknecht beide **Ladung** heißen. Der ganze Unterschied zwischen dem Spieler und einem Angestellten liegt danach im Takt: Der Bergmann fördert einmal je Sekunde, der Spieler 3⅓ mal. Die Pickhacke *ist* damit auf jeder Stufe 3⅓ Bergleute, und daraus folgt unmittelbar ihr Preis (siehe [Preise](#preise)).
+
+Sie lief bis eben auf einer eigenen Kurve (×1,42, aufgerundet). Die war nicht nur eine zweite Reihe für dieselbe Beschriftung — sie hatte auch einen toten Rang: `ceil(1,42²)` und `ceil(1,42³)` sind beide 3, Stufe 3 → 4 kostete also Gold und änderte nichts. Genau das, was die Bergleute mit ihrem Aufrunden vermeiden.
+
+**Die Erschöpfung gehört dem Spieler, nicht seinem Werkzeug.** Sie kostet 6 Punkte je Schlag gegen 20 Punkte Erholung je Sekunde und ergibt damit dauerhaft 3⅓ Schläge — von der ersten Minute an dieselbe Zahl. Das ist der Boden seines eigenen Takts, das Gegenstück zu `MIN_CYCLE_SECONDS` bei den Angestellten, und oberhalb davon trägt auch bei ihm allein die Fördermenge das Wachstum.
+
+Bis eben sank sie mit jeder Pickhackenstufe (`6 × 0,9^Stufe`, Boden 1,5). Das klingt harmlos und war der Grund, warum die Pickhacke sich nicht bepreisen ließ: Eine Stufe zahlte **zweimal** — mehr Gold je Schlag *und* mehr Schläge je Sekunde. Der Durchsatz wuchs damit um 1,42 × 1,11 ≈ 1,58 je Stufe, während der Preis mit demselben 1,58 danebenlief; die Pickhacke wurde also über zwanzig Stufen hinweg nie teurer, als sie besser wurde. Und weil ihr Boden bei 13 Schlägen je Sekunde lag — schneller, als ein Daumen tippt —, endete die zweite Kurve erst dort, wo sie ohnehin niemand mehr einlösen konnte. Eine bessere Hacke schlägt mehr aus dem Fels; ausdauernder macht sie niemanden.
 
 **Die Stiefel wirken bewusst auf zwei Handlungen.** Das ist kein Sonderfall, sondern dieselbe Regel: Fuhre und Wachgang sind beide Wege, die der Spieler zu Fuß zurücklegt. Wären sie nur der Fuhre zugeschlagen, bliebe die Dauer des Wachgangs der einzige Teil von ihm, der nie besser wird — und der Wachgang von Hand damit ab dem dritten Wachposten überflüssig, obwohl er als Reaktionsmittel zwischen zwei Wachtakten gebraucht wird.
 
@@ -70,11 +78,45 @@ Beide Wege haben einen Boden, aber nicht denselben: Die Fuhre liegt auf `MIN_CYC
 
 **Der Beutel ist auf die Lagergröße gedeckelt.** Mehr, als der Haufen fasst, schultert niemand. Ohne den Deckel wäre ein Beutel über der Lagergröße ein Kauf ohne Wirkung; mit ihm zeigt die Karte vorher und nachher dieselbe Zahl und sagt damit selbst, dass zuerst das Lager wachsen muss — nach derselben Regel, nach der jede wirkungslose Stufe sich zu erkennen gibt.
 
-Ladung und Dauer multiplizieren sich zum manuellen Durchsatz (Ladung ÷ Dauer); an diesem Paar hängt die Skalierung des aktiven Spiels, und die Stiefel sind deshalb das teuerste Stück. Auf Stufe 5 beider Stücke trägt der Spieler 127 Gold in 7,2 s, also 17,6 Gold/s, für zusammen rund 2.700 Gold — vier Fuhrknechte auf Stufe 3 leisten dasselbe für rund 4.300 Gold. Aktives Spiel schlägt die Automatik pro Gold um gut ein Drittel und muss dafür anwesend sein.
+Ladung und Dauer multiplizieren sich zum manuellen Durchsatz (Ladung ÷ Dauer); an diesem Paar hängt die Skalierung des aktiven Spiels. Auf Stufe 5 beider Stücke trägt der Spieler 127 Gold in 7,2 s, also 17,6 Gold/s, für zusammen rund 1.200 Gold — vier Fuhrknechte auf Stufe 3 leisten dasselbe für rund 2.700 Gold. Aktives Spiel schlägt die Automatik pro Gold und muss dafür anwesend sein; wie groß dieser Vorsprung sein soll, steht als eine Zahl unter [Preise](#preise).
+
+Weil beide sich multiplizieren, gehören sie auch im Preis zusammen: Was eine Stiefelstufe einbringt, hängt an der Ladung, die gerade im Beutel steckt, und umgekehrt. Einzeln bepreist wäre der Beutel ein Dauerschnäppchen und die Stiefel ein Fehlkauf, obwohl niemand das eine ohne das andere kauft. Die Stiefel waren bis eben genau das: ×1,14 Tempo für ×1,8 Preis — nach fünf Stufen rechnete sich keine weitere.
 
 Die Grubenlampe zählt in denselben Punkten wie eine Wache und trägt deshalb dieselbe Beschriftung: **Sichtweite**. Dieselbe Beschriftung heißt dieselbe Skala — Lampe und Wache sind unmittelbar gegeneinander abwägbar. Sie hieß bis zur Einführung der Wachen-Kraft „Kraft“: Eine Lampe hat keine Kraft, sie leuchtet, und was ein Wachgang abträgt, ist abgesuchtes Gelände. „Kraft“ beschreibt seither die Handfestigkeit der Wachen im Ernstfall — eine andere Größe, die auch anders heißen muss. Dass der Spieler dabei weit über jeder einzelnen Wache liegt, ist beabsichtigt: Er bezahlt seine Punkte mit eigener Zeit, in der er weder fördert noch trägt, die Wache bezahlt sie einmalig mit Gold.
 
 Die sechs Ausrüstungskarten sind nach dieser Trennung auf die Reiter verteilt: Die vier Stücke am Körper des Spielers stehen zusammen unter **Ausrüstung**, die beiden Behälter des Reiches jeweils bei ihrem Abschnitt — das Lager unter **Lager**, die Schatztruhe unter **Truhe**. Sie gehören dem Reich, nicht dem Spieler, und wer sie in der Szene antippt, will sie ausbauen und nicht erst an einer Pickhacke vorbeiscrollen. Jede Karte trägt ein eigenes Sprite — zwei Karten mit demselben Bild wären nicht unterscheidbar.
+
+## Preise
+
+Zehn Stränge trugen bis eben zehn frei gewählte Grundpreise und zehn frei gewählte Steigerungen. Was dabei herauskam, ließ sich an der Pickhacke ablesen: Ihre zehnte Stufe kostete **823 Gold**, die zehnte Schatztruhe **77.000** — Faktor 94 zwischen zwei Strängen, die im selben Spiel nebeneinanderstehen. Wer die Pickhacke in den ersten Minuten durchkaufte, hatte einen ganzen Strang verbraucht, bevor die Automatik überhaupt anfing zu kosten, und stand danach vor Preisen, die mit allem Bisherigen nichts mehr zu tun hatten.
+
+Dahinter steckte kein Zufall, sondern eine fehlende Regel. Ein Preis hängt an zwei Dingen: daran, **was die Stufe bringt**, und daran, **wie schnell er gegenüber diesem Zuwachs steigt**. Beides steht jetzt an einer Stelle, für alle Stränge gleich.
+
+**Der Maßstab.** Ein Bergmann der ersten Stufe kostet 115 Gold und fördert 1 Gold/s. Das ist die Eichung: **115 Gold je Gold je Sekunde**, und jeder andere Grundpreis ist daran gemessen. Der Fuhrknecht steht auf derselben Zahl, weil seine erste Stufe dasselbe leistet — zwölf Gold in zwölf Sekunden. Er kostete bis eben 180, ohne dass dafür etwas sprach; der erste Fuhrknecht ist die Stelle, an der ein Spieler aufhört, jede Fuhre selbst zu tragen, und die sollte nicht der teuerste Kauf des frühen Spiels sein.
+
+**Der Nachlass für Anwesenheit.** Was der Spieler selbst tut, zahlt nur, solange er dabei ist — die Automatik läuft auch nachts. Seine Ausrüstung kostet deshalb den **halben Satz**: Er bekommt doppelt so viel Gold je Sekunde für sein Gold, und muss dafür da sein. Der Vorsprung ist damit eine Zahl und gilt auf jeder Stufe gleich, statt sich wie bisher über den Ausbau zu verschieben.
+
+**Regel 1 — der Aufschlag.** Der Preis wächst je Stufe um **15 %** schneller als die Leistung. Das ist die einzige Zahl, die entscheidet, wie schnell ein Strang teurer wird, als er besser wird, und weil sie für alle gilt, ist keiner eine Falle und keiner ein Schnäppchen. Vorher lag dieser Aufschlag zwischen 0,77 (Schatztruhe: Kapazität ×2,4 für ×1,85 Preis — jede Stufe ein besseres Geschäft als die davor) und 1,58 (Stiefel: Tempo ×1,14 für ×1,8 Preis — nach fünf Stufen ein Fehlkauf).
+
+Maßgeblich ist dabei nicht, wie schnell die eigene Zahl eines Strangs wächst, sondern wie schnell der **Zuwachs seiner nächsten Stufe** wächst. Bei allem, was für sich allein arbeitet, ist das dasselbe. Bei allem, was sich mit einem anderen Strang multipliziert, nicht: Beutel und Stiefel wachsen im Zuwachs beide um 1,5 × 1,14 = 1,70, weil ihr Durchsatz ihr Produkt ist; die Grubenlampe entsprechend um 1,25 × 1,14, weil der Wachgang Sichtweite ÷ Dauer ist.
+
+**Regel 2 — Behälter.** Ein Behälter kostet einen **festen Anteil dessen, was er fasst**: drei Lagerfüllungen, eine halbe Truhe. Er liefert keinen Durchsatz, den man in Gold je Sekunde messen könnte — er setzt die Grenze, innerhalb derer alles andere arbeitet, und diese Grenze *ist* der Maßstab des Reiches an dieser Stelle. Das ist zugleich die einzige Regel, die von selbst erschwinglich bleibt: Weil der Preis mit der Kapazität wächst und die Kapazität mit dem Reich, ändert sich das Verhältnis nie, und ein Behälter ist nie teurer, als er fasst.
+
+| Strang | Effektfaktor | Preisfaktor | Grundpreis | zehn benannte Stufen |
+|---|---|---|---|---|
+| Pickhacke | 1,5 (Fördermenge) | 1,73 | 192 | 62.900 |
+| Beutel | 1,70 (Paar mit den Stiefeln) | 1,96 | 60 | 52.200 |
+| Stiefel | 1,70 (Paar mit dem Beutel) | 1,96 | 24 | 20.900 |
+| Grubenlampe | 1,42 (Paar mit den Stiefeln) | 1,63 | 80 | 16.700 |
+| Lager | Kapazität ×1,55 | – | 3 × Kapazität | 21.600 |
+| Schatztruhe | Kapazität ×2,4 | – | 0,6 × Kapazität | 1.358.000 |
+| Bergmann | 1,5 (Fördermenge) | 1,73 | 115 | 37.700 |
+| Fuhrknecht | 1,55 (Ladung) | 1,78 | 115 | 46.900 |
+| Wache | 1,37 | 1,58 | 150 | 24.800 |
+
+Zwei Stränge brauchen zu ihrem Effektfaktor eine Erklärung, weil ihre Leistung nicht aus einer geometrischen Zahl besteht. **Fuhrknechte** wachsen in zwei eigenen Größen zugleich — Ladung ×1,55 und ein Tempo, das gegen den Sekundenboden läuft. Maßgeblich ist, was auf Dauer bleibt: die Ladung. Über die ersten Stufen ist der Strang deshalb bewusst ein Schnäppchen, dort wächst das Tempo noch mit. **Wachen** wachsen in Sichtweite und Tempo beide *linear*, ihre Sicherungsleistung also quadratisch; einen Wachstumsfaktor im eigentlichen Sinne gibt es da nicht, eingesetzt ist der mittlere Zuwachs über die zehn benannten Stufen (0,5 → 8,3 Punkte/s).
+
+Die zehn benannten Stufen liegen damit zwischen 16.700 und 62.900 Gold — Faktor 3,8 statt vorher Faktor 35. Ein Strang ist nicht mehr in Minuten durchgekauft, während der nächste noch gar nicht angefangen hat. Die **Schatztruhe** steht bewusst außerhalb dieser Spanne: Sie ist der einzige Strang, dessen Stufe die Kapazität um mehr als das Doppelte hebt, und spannt mit ihren zehn Rängen darum allein das ganze Spiel. Das ist keine Ausnahme von der Regel, sondern ihre Folge — der Preis eines Behälters ist sein Inhalt.
 
 ## Oberfläche und Art Direction
 
@@ -153,7 +195,7 @@ Die Geschwindigkeit hieß bei Fuhrknecht und Wache bis eben **Dauer** und wurde 
 
 Eine Feinheit steckt in den **Böden**. Kein Weg wird beliebig kurz, und ab dem Boden macht keine weitere Stufe ihn noch schneller. Eine Karte, die dort weiter steigende Zahlen zeigte, forderte zu einem Kauf ohne Wirkung auf — genau das, was der Beutel über der Lagergröße vermeidet, indem er vorher und nachher dieselbe Zahl zeigt. Die Stiefelkarte nennt deshalb nicht das rohe Tempo, sondern das, was auf der **Fuhre** tatsächlich ankommt (`bootsPace` statt `bootsSpeed`): Solange kein Boden greift, sind beide dasselbe; darüber steht die Zahl still. Gemessen wird an der Fuhre, weil sie ihren Boden von beiden Wegen als Letzte erreicht — solange sie noch schneller wird, tun die Stiefel noch etwas.
 
-Der Wachgang erreicht seinen halben-Sekunden-Boden dabei schon bei Stiefelstufe 9; von da an wirken die Stiefel nur noch auf die Fuhre. Das ist hingenommen: Sie sind damit nie wertlos, nur einseitig — und Stufe 9 kostet rund 30 000 Gold, liegt also weit hinter dem Punkt, an dem die Wachen den Wachgang von Hand ohnehin abgelöst haben.
+Der Wachgang erreicht seinen halben-Sekunden-Boden dabei schon bei Stiefelstufe 10; von da an wirken die Stiefel nur noch auf die Fuhre. Das ist hingenommen: Sie sind damit nie wertlos, nur einseitig — und diese Stufe liegt weit hinter dem Punkt, an dem die Wachen den Wachgang von Hand ohnehin abgelöst haben.
 
 Aufgeführt sind die Eigenschaften der Einheit selbst, nicht deren Quotient: Ein Fuhrknecht nennt **Ladung** und **Dauer**. Die Dauerleistung in Gold bzw. Prozent je Sekunde steht nicht zusätzlich dabei — sie folgt aus beiden Zeilen und wäre nur eine dritte Schreibweise derselben Sache. Bergleute takten fest im Sekundentakt und brauchen deshalb keine Zeile dafür; bei ihnen sind Menge und Rate dasselbe.
 
@@ -161,7 +203,7 @@ Auf schmalen Geräten rückt die Tabelle unter Bild, Name und Preis über die vo
 
 Diese Zeilen **dürfen sich nicht ändern, wenn nebenan gekauft wird**. Fördermenge und Ladung gehören dem Slot allein und erfüllen das von selbst; die Sicherungskraft ist wenigstens additiv und wächst je Stufe um denselben Betrag. Was mehrere Slots dagegen nur gemeinsam bewirken — die kürzere Fahrzeit, der Takt des Wachtrupps, der Schadensdeckel — hätte auf keiner einzelnen Karte eine Zahl, die nur zu ihr gehört, und steht darum im Hinweis über der Gruppe.
 
-So lassen sich zwei Angebote ohne Kopfrechnen vergleichen: Vier Wachen-Karten bringen alle zwei Punkte Sichtweite, also entscheidet allein der Preis — 150 statt 487. Ein unbesetzter Fuhrknecht bringt für 180 Gold 12 Ladung, der Aufstieg des besten für 571 nur 10 mehr.
+So lassen sich zwei Angebote ohne Kopfrechnen vergleichen: Vier Wachen-Karten bringen alle zwei Punkte Sichtweite, also entscheidet allein der Preis — 150 statt 375. Ein unbesetzter Fuhrknecht bringt für 115 Gold 12 Ladung, der Aufstieg des besten für 365 nur 10 mehr.
 
 Fließtext steht nur dort, wo keine Zahl ihn ersetzt, und nur einmal. Was für alle vier Karten einer Gruppe gilt, steht als ein Satz unter der Gruppenüberschrift statt viermal auf den Karten; die Gruppenüberschrift trennt deshalb auch innerhalb eines Reiters den Behälter von den Angestellten. Auf einer **einzelnen** Karte steht dagegen gar kein Fließtext mehr. Die sechs Ausrüstungskarten trugen bis eben je einen eigenen Satz; er stand als einziger Teil der Karte neben der Tabelle statt in ihr, wiederholte auf den vier Spielerstücken viermal dieselbe Auskunft („wirkt nur, wenn du selbst …“) und war auf den beiden Behältern die Regel, die der Füllstand in der Szene ohnehin zeigt. Was eine Karte zu sagen hat, sagt sie jetzt in ihrer Tabelle. Jeder Strang hat zehn benannte Stufen — sie stehen mit ihren Beschreibungen in [`stufen.md`](./stufen.md) —, während die vier Sprite-Stufen schon vorher austauchen; oberhalb der zehnten bleibt der höchste Name stehen, während die Stufennummer weiterzählt. Noch nicht gekaufte Slot-Karten sind mit Ausnahme ihres Kauf-Buttons ausgegraut. Das Ausbau-Popup fährt von unten ein und beim Schließen wieder nach unten aus; es legt sich dabei über die Dock-Leiste. In der Desktop-Ansicht hängt es rechts und fährt entsprechend seitlich ein. Weil ein Ausfahren einen Startzustand im DOM braucht, bleibt das Sheet dauerhaft montiert und wird nur über eine Klasse umgeschaltet; geschlossen ist es per `visibility` weder anklick- noch vorlesbar. Statistik und Einstellungen enden dagegen oberhalb der Dock-Leiste, damit sie sichtbar und direkt umschaltbar bleibt. Diese Ausbau-Seiten scrollen intern, die Hauptansicht selbst nie.
 
@@ -169,7 +211,7 @@ Fließtext steht nur dort, wo keine Zahl ihn ersetzt, und nur einmal. Was für a
 
 Bergmann, Fuhrknecht und Wache folgen demselben Muster: **eine eigene Menge in einem eigenen Takt**, unabhängig von allen anderen. Es gibt keine gemeinsame Fuhre, keinen Trupp-Bonus und keinen Sammel-Teiler; der Durchsatz einer Gruppe ist schlicht die Summe ihrer Einheiten. Bei Fuhrknechten und Wachen erhöht ein Stufenaufstieg die Menge **und** verkürzt den Takt. Bergleute takten dagegen fest im Sekundentakt — bei ihnen wächst allein die Fördermenge, und ihre Menge ist damit zugleich ihre Rate.
 
-**Ein Bergmann fördert ganze Goldstücke**: 1, 2, 3, 4, 6, 8, 12, 18, 26 … — dieselbe Kurve wie zuvor (Faktor 1,5), aber auf ganze Stücke aufgerundet, damit jeder Takt ein sichtbares Goldstück liefert statt eines Bruchteils. Aufgerundet wird, nicht gerundet: Nur so wächst die Reihe auf jeder Stufe echt an, statt in den unteren Stufen zweimal denselben Wert zu zeigen. Der Aufschlag von gut der Hälfte steckt im Preis, sodass ein Bergmann pro Gold unverändert dasselbe leistet. Das Lager führt damit nur noch ganze Zahlen; der Rest-Mechanismus im Zustand (`minerCarry`) bleibt als Garantie erhalten, falls eine Rate je wieder gebrochen wäre.
+**Ein Bergmann fördert ganze Goldstücke**: 1, 2, 3, 4, 6, 8, 12, 18, 26 … — Faktor 1,5, auf ganze Stücke aufgerundet, damit jeder Takt ein sichtbares Goldstück liefert statt eines Bruchteils. Es ist dieselbe Reihe, die auch der Schlag des Spielers liefert: Wer dieselbe Beschriftung trägt, trägt dieselbe Skala, und **Fördermenge** steht auf der Bergmanns- wie auf der Pickhackenkarte. Aufgerundet wird, nicht gerundet: Nur so wächst die Reihe auf jeder Stufe echt an, statt in den unteren Stufen zweimal denselben Wert zu zeigen. Der Aufschlag von gut der Hälfte steckt im Preis, sodass ein Bergmann pro Gold unverändert dasselbe leistet. Das Lager führt damit nur noch ganze Zahlen; der Rest-Mechanismus im Zustand (`minerCarry`) bleibt als Garantie erhalten, falls eine Rate je wieder gebrochen wäre.
 
 Daraus folgt die Eigenschaft, an der die ganze Anzeige hängt: Der Zuwachs einer Karte hängt nur an der Einheit, die aufsteigt. Kauft man nebenan, bleibt die Zahl stehen. Bergleute und Fuhrknechte tragen dadurch sogar dieselbe Einheit — beide liefern Gold pro Sekunde — und sind über Kategoriegrenzen hinweg direkt vergleichbar.
 
@@ -193,7 +235,9 @@ Das Risiko steigt, sobald Gold in der Schatztruhe liegt; ein voller Hort treibt 
 
 Ein Diebeszug und die volle Schatztruhe blenden sich als kurze Meldung über der Szene ein. Nur Warnungen erscheinen dort: Lieferungen und Käufe zeigen ihre Wirkung ohnehin selbst und liefen als Dauerfeuer, sobald die Automatik steht.
 
-Der Anteil ist bewusst klein: Bezugsgröße ist das gesamte Vermögen, nicht der Inhalt eines Haufens. Ohne Wachen nimmt ein Diebeszug 8 % der Truhe, ein ausgebauter Trupp drückt das bis auf 1,5 %. Weil es ein Anteil bleibt, ist der Verlust auf jedem Ausbaustand gleich spürbar und verliert nie an Bedeutung — anders als eine feste Summe, die im späteren Spiel verschwindet.
+Der Anteil ist bewusst klein: Bezugsgröße ist das gesamte Vermögen, nicht der Inhalt eines Haufens. Ohne Wachen nimmt ein Diebeszug 8 % der Truhe; jeder Kraftpunkt des Trupps lässt 97 % davon übrig, und ein weit ausgebauter Trupp drückt das gegen einen Boden von 0,5 %. Weil es ein Anteil bleibt, ist der Verlust auf jedem Ausbaustand gleich spürbar und verliert nie an Bedeutung — anders als eine feste Summe, die im späteren Spiel verschwindet.
+
+Der Satz stand bis eben bei 93 % je Punkt, der Boden bei 1,5 %. Zusammen war das der billigste Schlussstrich des Spiels: Vier Wachen der dritten Stufe bringen 24 Kraftpunkte, und `0,93²⁴ = 0,18` drückte den Verlust schon unter den Boden. Für rund 2.000 Gold war der ganze Diebstahl-Teil abgehakt — jede weitere Wachenstufe zahlte nur noch auf Sichtweite und Tempo ein, und die Kraftzeile auf ihrer Karte log über ihren Wert. Mit 97 % halbiert der Trupp den Verlust etwa alle zwölf Kraftpunkte, also alle sechs Wachenstufen, und kommt nie ganz an: Horten behält seinen Preis über den ganzen Ausbau.
 
 Ein Gegenmittel steckt in der Truhe selbst: Weil das Risiko am Füllstand hängt, senkt jeder Ausbau der Schatztruhe den Druck. Die Truhenkarte hat damit einen zweiten Zweck neben reiner Kapazität.
 
@@ -206,7 +250,7 @@ Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand
 
 Die Wachen-Karte nennt deshalb **Sichtweite** und **Dauer** — die Punkte, die diese eine Wache je Sicherung abträgt, in derselben Einheit, in der das Risiko steigt, und den Takt, in dem sie das tut. Beides gehört ihr allein.
 
-Dazu kommt als dritte Zeile die **Kraft**: was diese Wache beiträgt, wenn die Diebe trotz aller Runden zuschlagen. Sie stand vorher als „jede Stufe senkt den Verlust um 14 %“ im Hinweis über der Gruppe und war damit der einzige Effekt im Spiel, der Gold kostete, ohne irgendwo als Zahl zu erscheinen. Jetzt ist sie ein Attribut wie jedes andere: zwei Punkte je Stufe, additiv, und damit eine Zeile, die stehen bleibt, wenn nebenan gekauft wird. Nur ihre Wirkung ist eine Trupp-Größe — jeder Punkt lässt 93 % des Verlusts übrig —, und das steht weiterhin als ein Satz über der Gruppe. Sichtweite und Dauer verhindern den Diebeszug, Kraft begrenzt ihn: der einzige Effekt, den man ausschließlich im Moment des Scheiterns sieht.
+Dazu kommt als dritte Zeile die **Kraft**: was diese Wache beiträgt, wenn die Diebe trotz aller Runden zuschlagen. Sie stand vorher als „jede Stufe senkt den Verlust um 14 %“ im Hinweis über der Gruppe und war damit der einzige Effekt im Spiel, der Gold kostete, ohne irgendwo als Zahl zu erscheinen. Jetzt ist sie ein Attribut wie jedes andere: zwei Punkte je Stufe, additiv, und damit eine Zeile, die stehen bleibt, wenn nebenan gekauft wird. Nur ihre Wirkung ist eine Trupp-Größe — jeder Punkt lässt 97 % des Verlusts übrig —, und das steht weiterhin als ein Satz über der Gruppe. Sichtweite und Dauer verhindern den Diebeszug, Kraft begrenzt ihn: der einzige Effekt, den man ausschließlich im Moment des Scheiterns sieht.
 
 Die Wachen bremsen den Anstieg des Risikos bewusst **nicht**. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte. Ihr Wert steckt in Takt und Sichtweite der Sicherung — und im Ernstfall in ihrer Kraft.
 
@@ -217,8 +261,8 @@ Mit dem Faktor bleibt der Trupp gefordert, ohne je aussichtslos zu werden — de
 | Truhenstufe | Anstieg bei voller Truhe | Truhe kostete bis dahin | nötiger Trupp |
 |---|---|---|---|
 | 0 | 1,05 %/s | – | 3× Stufe 1 (450 Gold) |
-| 4 | 2,10 %/s | 3.782 Gold | 3× Stufe 2 (1.260 Gold) |
-| 8 | 3,15 %/s | 48.075 Gold | 4× Stufe 2 (1.680 Gold) |
+| 4 | 2,10 %/s | 6.896 Gold | 3× Stufe 2 (711 Gold) |
+| 8 | 3,15 %/s | 235.664 Gold | 4× Stufe 2 (948 Gold) |
 
 Der Gegenzug bleibt trotzdem der **Truhenausbau selbst**: Er vervielfacht die Kapazität, der Füllstand fällt damit auf gut 40 % und der Anstieg auf knapp 60 % — mehr, als der Stufenfaktor von höchstens 25 % dagegenhält. Wer ausbaut, verschafft sich also weiterhin sofort Luft und handelt sie gegen einen höheren Sockel ein.
 
