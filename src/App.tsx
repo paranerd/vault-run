@@ -197,7 +197,7 @@ function UpgradeIcon({ className = 'dock-button__icon' }: { className?: string }
 }
 
 /** Der Truhenwert im Kopf zählt zu seinem neuen Stand hoch, statt auf ihn zu springen: Eine
-    angekommene Fuhre von fünf Gold läuft als 20 → 21 → 22 → 23 → 24 → 25 durch. Die Zahl ist die
+    angekommene Ladung von fünf Gold läuft als 20 → 21 → 22 → 23 → 24 → 25 durch. Die Zahl ist die
     einzige bleibende Rückmeldung auf eine Ankunft — ein Sprung ist vorbei, bevor der Blick oben
     ist, und lässt offen, wie viel gerade eingetroffen ist.
     Ein Schritt pro Zahl, aber gedeckelt: Der Sprung von eintausend auf zweitausend darf nicht
@@ -321,7 +321,7 @@ function formatPercent(fill: number, full = false) {
 
 /** Der Farbton eines Füllstands: Bis `METER_WARNING` ist er ruhig, darüber gelblich, ab
     `METER_ALERT` rötlich. Er hängt allein am Fortschritt — ein Balken bei 90 % sagt in jedem
-    Abschnitt dasselbe, egal ob dahinter Räuber, Lager oder Erschöpfung stehen. */
+    Abschnitt dasselbe, egal ob dahinter Räuber, Erzkammer oder Erschöpfung stehen. */
 function meterTone(fill: number): 'warning' | 'alert' | undefined {
   if (fill >= METER_ALERT) return 'alert'
   if (fill >= METER_WARNING) return 'warning'
@@ -361,7 +361,7 @@ function SectionMeter({
 }
 
 /** Die Beschriftung eines Aktions-Buttons — im Button selbst, unter seinem Bild. Sie nennt die
-    Handlung, nicht ihre Zahl: „Bewachen“, „Transportieren“, „Graben“. Unter dem Button standen
+    Handlung, nicht ihre Zahl: „Bewachen“, „Ausfahren“, „Graben“. Unter dem Button standen
     vorher Sichtweite, Ladung und Fördermenge; das waren Werte der Ausrüstung, die auf ihren
     Upgrade-Karten ohnehin vollständig mit Vorher und Nachher stehen, und sie ließen offen, was
     der Knopf überhaupt tut. Der Text gehört damit zum Knopf und wandert mit ihm. */
@@ -489,7 +489,7 @@ function App() {
   const stockSlotsRef = useRef<HTMLDivElement>(null)
   const flightSequence = useRef(0)
   const lastTrips = useRef(state.tripCount)
-  /** Je Slot der zuletzt gesehene Takt bzw. Fuhrbeginn. Weil kein Takt schneller als eine Sekunde
+  /** Je Slot der zuletzt gesehene Takt bzw. Fahrtbeginn. Weil kein Takt schneller als eine Sekunde
       läuft und die Anzeige zehnmal pro Sekunde nachsieht, entgeht ihr keine einzige Ankunft —
       jede Änderung ist genau eine Lieferung und damit genau eine Animation. */
   const seenMinerBeats = useRef<(number | null)[]>([...state.minerBeats])
@@ -587,11 +587,11 @@ function App() {
   const affordableSignature = affordableKeys.join('|')
 
   const isUnseen = (upgrade: UpgradeView) => !seenUpgradeLevels.has(`${upgrade.key}:${upgrade.cost}`)
-  // Nach Kategorie, nicht mehr nach `key`-Präfix: Lager und Truhe sind Ausrüstung und zählen
+  // Nach Kategorie, nicht mehr nach `key`-Präfix: Erzkammer und Truhe sind Ausrüstung und zählen
   // trotzdem zu ihrem eigenen Reiter.
   const affordableIn = (filter: UpgradeFilter) => affordable.filter((upgrade) => upgrade.category === filter)
   const unseenFor = (filter: UpgradeFilter) => affordableIn(filter).filter(isUnseen)
-  /** Das Badge am Slot-Raster zählt nur die vier Slots — seit Lager und Truhe im selben Reiter
+  /** Das Badge am Slot-Raster zählt nur die vier Slots — seit Erzkammer und Truhe im selben Reiter
       stehen, enthält dessen Kategorie auch eine Karte, die nicht in diesem Raster liegt. */
   const unseenSlotsFor = (filter: UpgradeFilter) => unseenFor(filter).filter((upgrade) => upgrade.slot).length
 
@@ -631,7 +631,7 @@ function App() {
   const closeUpgrades = () => setPanel((current) => ({ ...current, open: false }))
 
   /** Die Kachel links führt in jedem Abschnitt zu seinem eigenen Reiter: die Truhe zu „Truhe“, das
-      Lager zu „Lager“, die Goldmine zu „Mine“. Dort steht ganz oben der Behälter, den man
+      Erzkammer zu „Erzkammer“, die Ortsbrust zu „Mine“. Dort steht ganz oben der Behälter, den man
       angetippt hat, darunter die Angestellten des Abschnitts. Vorher landete jede Kachel bei der
       Ausrüstung — der angetippte Gegenstand stand dann in einer Liste mit fünf anderen, und wer
       auf die Truhe tippte, sah zuerst eine Pickhacke. */
@@ -685,9 +685,9 @@ function App() {
   // Sekundentakt mittelte alle vier zu einer Münze zusammen; jetzt sieht man, wer wann liefert.
   // Ein Takt ohne Vorgänger ist keine Förderung, sondern ein Anfang: So beginnt der frisch
   // angeheuerte Bergmann, und so nimmt einer nach der Ruhe seine Arbeit wieder auf. Er fliegt
-  // deshalb nicht — sonst zeigte die Mine eine Münze, die im Lager nie ankommt.
+  // deshalb nicht — sonst zeigte die Mine eine Münze, die in der Kammer nie ankommt.
   //
-  // Geflogen wird, was tatsächlich ins Lager geht: ganze Goldstücke. Ein Takt, dessen Fund
+  // Geflogen wird, was tatsächlich in die Kammer geht: ganze Goldstücke. Ein Takt, dessen Fund
   // den angebrochenen Rest nicht voll macht, schickt nichts los. Die Menge ergibt sich aus dem
   // Gefördertem der vergangenen Takte abzüglich dessen, was seither am Fels liegen blieb.
   useEffect(() => {
@@ -706,7 +706,7 @@ function App() {
     seenMinerCarry.current = [...state.minerCarry]
   }, [state.minerBeats, state.minerLevels, state.minerCarry, launchGold])
 
-  // Dasselbe für die Fuhren: je losfahrendem Fuhrknecht ein eigener Goldhaufen, dazu die eigene.
+  // Dasselbe für die Fahrten: je losfahrendem Transport ein eigener Goldhaufen, dazu die eigene.
   useEffect(() => {
     state.transporterTrips.forEach((trip, index) => {
       const started = trip?.startedAt ?? null
@@ -767,7 +767,7 @@ function App() {
   const stockFull = stockRoom <= 0.001
   const vaultFill = percentage(state.vaultGold, treasureMax)
   const vaultFull = state.vaultGold >= treasureMax - 0.001
-  // Der Transport-Button zeigt ausschließlich die eigene Fuhre. Die Fuhrknechte fahren jeder für
+  // Der Ausfahrt-Button zeigt ausschließlich die eigene Ausfahrt. Die Transporte fahren jeder für
   // sich und melden sich über ihre eigenen Goldhaufen, nicht über diesen einen Balken.
   const playerTravelling = state.playerTrip !== null
   const playerTransportProgress = state.playerTrip
@@ -789,7 +789,7 @@ function App() {
   const playerBusy = isPlayerBusy(state)
   const transportLabel = `Manueller Transport: ${Math.round(playerTransportProgress)} Prozent`
   const secureLabel = `Wachgang: ${Math.round(secureProgress)} Prozent`
-  const blockedLabel = playerTravelling ? 'Gesperrt, du bist mit der Fuhre unterwegs' : 'Gesperrt, du gehst gerade Wache'
+  const blockedLabel = playerTravelling ? 'Gesperrt, du bist mit der Ausfahrt unterwegs' : 'Gesperrt, du gehst gerade Wache'
   const canTransport = !playerBusy && state.stockGold > 0 && state.vaultGold + reservedGold < treasureMax
   const canSecure = chestRevealed && state.threat > 0 && !playerBusy
 
@@ -801,7 +801,7 @@ function App() {
   const riskAlarming = chestRevealed && risk >= RISK_ALERT && !playerBusy
   const exhausted = state.exhaustion >= 100 || (state.exhaustedUntil !== null && now < state.exhaustedUntil)
   // Die Zwangspause bei voller Leiste ist der Cooldown der Mine und läuft deshalb auf ihrem eigenen
-  // Button ab, wie Fuhre und Wachgang auf ihren. Bei einer Dreiviertelsekunde war dafür kein Platz;
+  // Button ab, wie Ausfahrt und Wachgang auf ihren. Bei einer Dreiviertelsekunde war dafür kein Platz;
   // über vier Sekunden ist die Füllung die Antwort auf die Frage „wie lange noch?“.
   const resting = state.exhaustedUntil !== null && now < state.exhaustedUntil
   const restProgress = resting
@@ -904,7 +904,7 @@ function App() {
             <SectionMeter fill={risk} label="Truhe" value={`${Math.round(risk)}%`} marker="robber" />
             <div className="section-layout">
               {/* Die Truhe selbst steht links mit ihrem Fassungsvermögen — der Button daneben zeigt
-                  die Handlung, nicht mehr den Behälter. Hier landet auch jede Fuhre. */}
+                  die Handlung, nicht mehr den Behälter. Hier landet auch jede Ladung. */}
               <SectionAside
                 panelRef={vaultPanelRef}
                 icon={<PixelSprite family="vault" level={state.vaultLevel} />}
@@ -930,14 +930,14 @@ function App() {
           </article>
 
           <article className="game-section game-section--stock">
-            <SectionMeter fill={stockFill} label="Lager" value={`${Math.round(stockFill)}%`} marker="gold" />
+            <SectionMeter fill={stockFill} label="Erzkammer" value={`${Math.round(stockFill)}%`} marker="gold" />
             <div className="section-layout">
               <SectionAside
                 panelRef={stockPanelRef}
                 icon={<PixelSprite family="stock" level={state.stockLevel} />}
                 fill={stockFill}
                 full={stockStored}
-                label={`Lager, ${formatPercent(stockFill, stockStored)} gefüllt: Lager ausbauen`}
+                label={`Erzkammer, ${formatPercent(stockFill, stockStored)} gefüllt: Erzkammer ausbauen`}
                 onOpen={() => openSection('stock')}
               />
               <div className="section-center">
@@ -946,11 +946,11 @@ function App() {
                   className={`section-action ${playerTravelling ? 'is-progressing' : ''} ${securing ? 'is-blocked' : ''} ${stockFull && canTransport ? 'is-full' : ''}`}
                   disabled={!canTransport}
                   onClick={handleTransport}
-                  aria-label={playerTravelling ? transportLabel : securing ? blockedLabel : `Gold zur Schatztruhe transportieren: ${formatGold(packCargo(state))}`}
+                  aria-label={playerTravelling ? transportLabel : securing ? blockedLabel : `Gold zur Schatztruhe ausfahren: ${formatGold(packCargo(state))}`}
                 >
                   {playerTravelling && <i className="section-action__progress" style={{ height: `${playerTransportProgress}%` }} aria-hidden="true" />}
                   <SceneIcon name="action-transport" />
-                  <ActionLabel>Transportieren</ActionLabel>
+                  <ActionLabel>Ausfahren</ActionLabel>
                 </button>
               </div>
               <SlotGrid section="stock" levels={state.transporterLevels} family="transport" panelRef={stockSlotsRef} notifying={upgradeNoticePulsing && unseenSlotsFor('transporters') > 0} noticeCount={unseenSlotsFor('transporters')} onOpen={(index) => openSlotUpgrades('stock', index)} />
@@ -961,7 +961,7 @@ function App() {
             <SectionMeter fill={state.exhaustion} label="Mine" value={`${Math.round(state.exhaustion)}%`} marker="exhaustion" />
             <div className="section-layout">
               {/* Die Mine hat keinen Behälter und darum auch keine Zahl unter ihrem Bild: Was hier
-                  entsteht, liegt eine Sekunde später im Lager. */}
+                  entsteht, liegt eine Sekunde später in der Erzkammer. */}
               <SectionAside icon={<SceneIcon name="goldmine" />} label="Goldmine: Mine ausbauen" onOpen={() => openSection('mine')} />
               <div className="section-center">
                 <button

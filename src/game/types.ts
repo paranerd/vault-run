@@ -1,6 +1,6 @@
 /** Die drei Abschnitte der Szene, benannt nach dem, was in ihnen steht: der Fels, der Haufen am
-    Stollenmund und der Hort. Das Lager hieß früher „Beutel" — ein Name, der die Kette falsch
-    erzählte: In diesen Puffer fördern vier angestellte Bergleute, und vier Fuhrknechte laden
+    Ortsbrust und der Hort. Die Erzkammer hieß früher „Beutel" — ein Name, der die Kette falsch
+    erzählte: In diesen Puffer fördern vier angestellte Bergleute, und vier Transporte laden
     daraus ab. Der Beutel ist seither das, was der Spieler selbst schultert. */
 export type SectionId = 'mine' | 'stock' | 'vault'
 
@@ -40,7 +40,7 @@ export interface OfflineReport {
   stolen: number
 }
 
-/** Eine Fuhre, die gerade unterwegs ist — die eines Fuhrknechts oder die des Spielers selbst.
+/** Eine Fahrt, die gerade unterwegs ist — die eines Transports oder die des Spielers selbst.
     `deliveredAt` ist der Moment, in dem das Gold in der Truhe landet (Ende der Flug-Animation),
     `endsAt` der Moment, in dem der Träger zurück und wieder abfahrbereit ist. */
 export interface Trip {
@@ -50,23 +50,23 @@ export interface Trip {
   endsAt: number
 }
 
-/** Eine Ladung Gold, die gerade auf dem Weg ins Lager ist: was ein Bergmann in einem Takt aus dem
+/** Eine Ladung Gold, die gerade auf dem Weg in die Erzkammer ist: was ein Bergmann in einem Takt aus dem
     Fels geschlagen hat oder was ein Schlag des Spielers ergeben hat. `at` ist der Moment, in dem
-    sie im Lager liegt — das Ende ihrer Flug-Animation.
+    sie in der Kammer liegt — das Ende ihrer Flug-Animation.
  *
  *  Sie ist das Gegenstück zur `Trip` auf der zweiten Strecke: Gold gehört überall erst dem
- *  Behälter, wenn es dort **angekommen** ist. Vorher wurde nur die Fuhre so behandelt, während der
- *  Schlag sein Gold sofort ins Lager buchte und die fliegende Münze bloß hinterherflog.
+ *  Behälter, wenn es dort **angekommen** ist. Vorher wurde nur die Fahrt so behandelt, während der
+ *  Schlag sein Gold sofort in die Kammer buchte und die fliegende Münze bloß hinterherflog.
  *
- *  Der Platz im Lager ist ab dem Losfliegen belegt (siehe `stockSpace`). Ohne diese Reservierung
- *  förderten die Bergleute weiter gegen ein Lager, das gleich voll ist, und der Spieler könnte
+ *  Der Platz in der Kammer ist ab dem Losfliegen belegt (siehe `stockSpace`). Ohne diese Reservierung
+ *  förderten die Bergleute weiter gegen eine Kammer, die gleich voll ist, und der Spieler könnte
  *  Schläge tun, deren Gold bei der Ankunft keinen Platz mehr fände. */
 export interface GoldArrival {
   gold: number
   at: number
 }
 
-/** Je Slot eine laufende Fuhre oder `null`. */
+/** Je Slot eine laufende Fahrt oder `null`. */
 export type SlotTrips = [Trip | null, Trip | null, Trip | null, Trip | null]
 /** Je Slot der Zeitpunkt der letzten eigenen Lieferung bzw. Sicherung; `null`, solange der Slot
     noch nicht getaktet hat. Daraus ergibt sich der nächste Takt, und die Anzeige erkennt daran
@@ -77,9 +77,9 @@ export interface GameState {
   schemaVersion: 9
   savedAt: number
   lastTick: number
-  /** Was im Lager am Stollenmund liegt: angekommen, aber noch nicht abtransportiert. */
+  /** Was in der Erzkammer liegt: angekommen, aber noch nicht ausgefahren. */
   stockGold: number
-  /** Gefördertes Gold, das noch zum Lager unterwegs ist. Es zählt noch nicht zu `stockGold`,
+  /** Gefördertes Gold, das noch zur Erzkammer unterwegs ist. Es zählt noch nicht zu `stockGold`,
       belegt dort aber schon seinen Platz. */
   stockArrivals: GoldArrival[]
   vaultGold: number
@@ -91,7 +91,7 @@ export interface GameState {
   packLevel: number
   bootsLevel: number
   lampLevel: number
-  /** Die beiden Behälter: das Lager am Stollenmund und der Hort. */
+  /** Die beiden Behälter: die Erzkammer im Berg und der Hort am Tageslicht. */
   stockLevel: number
   vaultLevel: number
   minerLevels: SlotLevels
@@ -112,9 +112,9 @@ export interface GameState {
       nur ganze Stücke; was ein Takt darüber hinaus fördert, bleibt hier liegen und geht in die
       nächste Förderung ein. Über viele Takte hinweg bleibt die Fördermenge damit exakt die Rate. */
   minerCarry: SlotLevels
-  /** Die vier Fuhren der Fuhrknechte, jede für sich unterwegs. */
+  /** Die vier Fahrten der Transporte, jede für sich unterwegs. */
   transporterTrips: SlotTrips
-  /** Die Fuhre, die der Spieler selbst trägt — unabhängig von allen Fuhrknechten. */
+  /** Die Ausfahrt, die der Spieler selbst geht — unabhängig von allen Transporten. */
   playerTrip: Trip | null
   tripCount: number
   theftCount: number
@@ -135,7 +135,7 @@ export interface UpgradeFact {
 export interface UpgradeView {
   key: string
   section: SectionId
-  /** Der Reiter, unter dem die Karte im Ausbau-Sheet steht. Nicht aus dem `key` ableitbar: Lager
+  /** Der Reiter, unter dem die Karte im Ausbau-Sheet steht. Nicht aus dem `key` ableitbar: Erzkammer
       und Truhe sind Ausrüstung und stehen trotzdem bei ihrem eigenen Abschnitt. */
   category: UpgradeCategory
   /** Sprechender Name der Stufe, auf der das Upgrade gerade steht. Den Namen der **nächsten**

@@ -539,7 +539,7 @@ describe('Vault Run engine', () => {
   // der letzten benannten Stufe bleibt der Name stehen, während die Stufennummer weiterzählt.
   it('names the rank an upgrade stands on and keeps it above the last named stage', () => {
     const state = createInitialState(0)
-    expect(getSlotUpgrades(state, 'mine')[0].name).toBe('Leerer Stollen')
+    expect(getSlotUpgrades(state, 'mine')[0].name).toBe('Unbesetzte Ortsbrust')
     expect(getSlotUpgrades({ ...state, minerLevels: [1, 0, 0, 0] }, 'mine')[0].name).toBe('Tagelöhner')
     expect(slotStageName('miners', 10)).toBe('Steingolem')
     expect(slotStageName('miners', 11)).toBe(slotStageName('miners', 10))

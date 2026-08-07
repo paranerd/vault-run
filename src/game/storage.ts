@@ -18,9 +18,9 @@ function timestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-/** Bis Schema 7 hieß das Lager „Beutel" und lag als `chestGold`/`chestLevel` im Spielstand — ein
+/** Bis Schema 7 hieß die Erzkammer „Beutel" und lag als `chestGold`/`chestLevel` im Spielstand — ein
     Name, den seit Schema 8 der Beutel des Spielers trägt. Beide Felder wandern deshalb auf ihren
-    neuen Namen; ein alter `chestLevel` ist die Stufe des **Lagers**, nicht die des Beutels.
+    neuen Namen; ein alter `chestLevel` ist die Stufe der **Kammer**, nicht die des Beutels.
     Die vier Ausrüstungsstücke des Spielers beginnen bei 0, also auf ihrer ersten Stufe: Wer
     zurückkehrt, hat sie noch nicht gekauft, aber auch nichts verloren. */
 function withPlayerEquipment(parsed: Record<string, unknown>): Record<string, unknown> {
@@ -33,8 +33,8 @@ function withPlayerEquipment(parsed: Record<string, unknown>): Record<string, un
   }
 }
 
-/** Schema 6 kennt keine gemeinsame Fuhre mehr, sondern eine je Einheit. Gold, das beim Wechsel
-    noch auf der Straße lag, wandert zurück ins Lager: Es dort abzulegen ist die einzige
+/** Schema 6 kennt keine gemeinsame Fahrt mehr, sondern eine je Einheit. Gold, das beim Wechsel
+    noch unterwegs war, wandert zurück in die Erzkammer: Es dort abzulegen ist die einzige
     Variante, bei der weder etwas verschwindet noch ungeprüft in der Truhe auftaucht. */
 function withUnitCycles(base: Record<string, unknown>, parsed: Record<string, unknown>): GameState {
   const {
@@ -81,8 +81,8 @@ function normalizeBeats(value: unknown): SlotBeats {
   return [0, 1, 2, 3].map((index) => timestamp(value[index])) as SlotBeats
 }
 
-/** Förderungen, die beim Schließen noch zum Lager unterwegs waren. Ältere Spielstände kennen sie
-    nicht — dort war gefördertes Gold sofort im Lager, es fliegt also nichts mehr. */
+/** Förderungen, die beim Schließen noch zur Erzkammer unterwegs waren. Ältere Spielstände kennen
+    sie nicht — dort war gefördertes Gold sofort in der Kammer, es fliegt also nichts mehr. */
 function normalizeArrivals(value: unknown): GoldArrival[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((entry) => {
@@ -117,9 +117,9 @@ export function migrateGame(value: unknown): GameState | null {
     ...withoutCooldown
   } = parsed
   const version = Number(parsed.schemaVersion)
-  // Schema 6 kennt die eigenen Takte bereits, Schema 7 die Erschöpfung; Schema 8 trennt das Lager
+  // Schema 6 kennt die eigenen Takte bereits, Schema 7 die Erschöpfung; Schema 8 trennt die Erzkammer
   // vom Beutel des Spielers und gibt ihm Stiefel und Grubenlampe dazu. Schema 9 lässt gefördertes
-  // Gold erst bei der Ankunft ins Lager zählen und führt dafür die Liste der fliegenden Ladungen.
+  // Gold erst bei der Ankunft in die Erzkammer zählen und führt dafür die Liste der fliegenden Ladungen.
   if (version >= 6 && version <= 9) {
     return {
       ...withoutCooldown,

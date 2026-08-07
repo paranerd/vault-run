@@ -13,31 +13,32 @@ denen er läuft:
 
 | Strang | Attribut | Wirkt auf |
 |---|---|---|
-| Pickhacke | Fördermenge | seinen Schlag in der Mine |
-| Beutel | Ladung | seine eigene Fuhre |
-| Stiefel | Geschwindigkeit | seine Fuhre **und** seinen Wachgang |
+| Pickhacke | Fördermenge | seinen Schlag an der Ortsbrust |
+| Beutel | Ladung | seine eigene Ausfahrt |
+| Stiefel | Geschwindigkeit | seine Ausfahrt **und** seinen Wachgang |
 | Grubenlampe | Sichtweite | seinen Wachgang an der Truhe |
-| Lager | Kapazität | den Puffer zwischen Förderung und Abtransport |
+| Erzkammer | Kapazität | den Puffer zwischen Förderung und Abtransport |
 | Schatztruhe | Kapazität | den Hort, aus dem bezahlt wird |
 
-**Wer dasselbe tut, trägt denselben Namen — und damit dieselbe Skala.** Jedem Attribut eines
-Angestellten steht ein Ausrüstungsstück gegenüber, das dasselbe für den Spieler tut:
+**Wer dasselbe tut, trägt denselben Namen — und damit dieselbe Skala.** Jedem Attribut einer
+Einheit steht ein Ausrüstungsstück gegenüber, das dasselbe für den Spieler tut:
 
-| Angestellter | seine Attribute | beim Spieler |
+| Einheit | ihre Attribute | beim Spieler |
 |---|---|---|
 | Bergmann | Fördermenge | Pickhacke |
-| Fuhrknecht | Ladung, Geschwindigkeit | Beutel, Stiefel |
+| Transport | Ladung, Geschwindigkeit | Beutel, Stiefel |
 | Wache | Sichtweite, Geschwindigkeit, Kraft | Lampe, Stiefel, — |
 
 Die **Kraft** der Wachen steht als einzige allein: Sie wirkt erst als Summe des ganzen Trupps und
 hat deshalb keine Entsprechung beim Einzelnen.
 
-Alle **Geschwindigkeiten** messen an derselben Standardstrecke: Wer sie in zwölf Sekunden
-zurücklegt, hat Tempo 1. Das ist keine Rechenkonvention, sondern fällt zusammen — die Fuhre des
-Spielers, die Fuhre eines Fuhrknechts der ersten Stufe und die Runde einer Wache der ersten Stufe
-dauern alle zwölf Sekunden. „Geschwindigkeit 1,9“ auf der Packesel-Karte ist damit unmittelbar
-gegen „1,3“ auf der Stiefelkarte lesbar. Der Wachgang des Spielers ist demgegenüber kein
-schnellerer Weg, sondern ein kürzerer (1,5 s): Er späht um die Truhe, statt sie zu umrunden.
+Alle **Geschwindigkeiten** messen an derselben Standardstrecke — der Strecke von der Erzkammer ans
+Tageslicht: Wer sie in zwölf Sekunden zurücklegt, hat Tempo 1. Das ist keine Rechenkonvention,
+sondern fällt zusammen — die Ausfahrt des Spielers, die Fahrt eines Transports der ersten Stufe und
+die Runde einer Wache der ersten Stufe dauern alle zwölf Sekunden. „Geschwindigkeit 1,9“ auf der
+Schubkarren-Karte ist damit unmittelbar gegen „1,3“ auf der Stiefelkarte lesbar. Der Wachgang des
+Spielers ist demgegenüber kein schnellerer Weg, sondern ein kürzerer (1,5 s): Er späht um die
+Truhe, statt sie zu umrunden.
 
 Alle **Sichtweiten** zählen in denselben Punkten der Hundert-Punkte-Skala des Risikos, Lampe wie
 Wache.
@@ -95,8 +96,9 @@ hier einmal; was nur für eine gilt, steht als **Hinweise** unter ihrer Tabelle.
 
 ## Beutel (Ausrüstung – Ladung)
 
-Was der Spieler selbst schultert und zur Truhe trägt. Nicht zu verwechseln mit dem **Lager**, in das
-seine Bergleute fördern: Aus dem Lager füllt er den Beutel, mehr als dort liegt trägt er nie.
+Was der Spieler selbst schultert und ans Tageslicht trägt. Nicht zu verwechseln mit der
+**Erzkammer**, in die seine Bergleute fördern: Aus der Kammer füllt er den Beutel, mehr als dort
+liegt trägt er nie.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
@@ -125,13 +127,13 @@ seine Bergleute fördern: Aus dem Lager füllt er den Beutel, mehr als dort lieg
 
 ## Stiefel (Ausrüstung – Geschwindigkeit)
 
-Das einzige Stück, das auf zwei Handlungen wirkt: Fuhre und Wachgang sind beide Wege, die der
+Das einzige Stück, das auf zwei Handlungen wirkt: Ausfahrt und Wachgang sind beide Wege, die der
 Spieler zu Fuß zurücklegt. Ohne sie wäre der Wachgang der einzige Teil von ihm, der nie besser
 wird — und damit spätestens ab der dritten Wache überflüssig.
 
 Gemessen wird das **Tempo**, nicht die Dauer: Die Zahl wächst mit jeder Stufe, und die Wege werden
 trotzdem kürzer, weil eine Strecke `Länge ÷ Geschwindigkeit` kostet. Dieselbe Größe tragen der
-Fuhrknecht und die Wache.
+Transport und die Wache.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
@@ -195,34 +197,41 @@ und ist deshalb direkt gegen sie abwägbar — dieselbe Beschriftung, dieselbe S
   der Hornlaterne in nichts gleichen außer der Bauform.
 - Stufe 4 ist eine Lampe mit Spiegelblech hinter der Flamme — kein Mond, keine offene Schale.
 
-## Lager (Ausrüstung – Kapazität)
+## Erzkammer (Ausrüstung – Kapazität)
 
-Der Haufen am Stollenmund. Die Bergleute werfen hinein, der Spieler und seine Fuhrknechte laden
-daraus ab. Ist es voll, ruht die Mine — das Lager ist die Grenze der Förderung, nicht bloß ein
-Trichter.
+Der Hohlraum im Fels, gleich hinter der Ortsbrust. Die Bergleute werfen hinein, der Spieler und
+seine Transporte laden daraus ab. Ist sie voll, ruht die Mine — die Kammer ist die Grenze der
+Förderung, nicht bloß ein Trichter.
+
+Sie wächst, indem der Berg zurückweicht: Jede Stufe ist mehr ausgehauener Raum, nicht mehr
+gebautes Haus. Ein Gebäude fände im Stollen keinen Platz — ein Hohlraum wird einfach größer.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
-| 1 | **Loser Erzhaufen** | Was aus dem Stollen kommt, liegt einfach da. Ein kräftiger Wind, und ein Teil davon liegt woanders. |
-| 2 | **Geflochtene Erzkörbe** | Weidenkörbe in Reihe, jeder schulterhoch und randvoll. Was im Staub lag, steht nun gestapelt. |
-| 3 | **Bretterverschlag** | Vier Bohlenwände, in den Boden gerammt und höher als jeder Korb. Der Haufen bleibt liegen, wo du ihn hingeschüttet hast, und darf endlich wachsen. |
-| 4 | **Gezimmerter Schuppen** | Dach über dem Gold, Tür davor. Zum ersten Mal regnet es nicht in die Ausbeute. |
-| 5 | **Steinernes Erzlager** | Aus Bruchstein in den Hang gemauert. Es hält den Berg auf seiner Seite und das Gold auf deiner. |
-| 6 | **Grubenspeicher** | Getrennte Kammern für Erz, Bruch und Staub. Nichts vermischt sich, nichts geht im Haufen unter. |
-| 7 | **Zunftdepot** | Von der Zunft abgenommen und verzeichnet, mit eigenem Vordach über der Rampe. Was hier lagert, gilt als gezählt. |
-| 8 | **Gewölbelager** | Ein begehbares Tonnengewölbe aus Quadern, das Tor mannshoch, kühl und trocken. Darin türmt sich, was einmal ein Haufen war. |
-| 9 | **Runenspeicher** | Bannzeichen an den Pfosten dehnen den Raum zwischen ihnen. Von außen bleibt der Speicher ein Speicher. |
-| 10 | **Hallenlager** | Eine Halle am Stollenmund, in der ganze Fuhren nebeneinander stehen. Der Berg gibt kaum so schnell her, wie sie fasst. |
+| 1 | **Haufwerk** | Was aus der Wand bricht, bleibt liegen, wo es fällt. Wer den Fuß falsch setzt, verteilt die halbe Schicht über die Sohle. |
+| 2 | **Erztrog** | Ein ausgehöhlter Stamm an der Stollenwand. Der Haufen läuft nicht mehr auseinander, und du siehst zum ersten Mal, wie viel es ist. |
+| 3 | **Ausgehauene Nische** | Eine Weitung in die Seitenwand geschlagen. Zum ersten Mal gibt der Fels Platz her, statt welchen zu nehmen. |
+| 4 | **Verzimmerte Kammer** | Türstöcke und Stempel halten die Firste. Die Kammer darf höher werden als ein Mann, ohne dass der Berg nachrutscht. |
+| 5 | **Gemauerte Erzkammer** | Bruchstein im Verband gegen den Gebirgsdruck. Der Berg hört auf, sich zurückzuholen, was du ihm abgerungen hast. |
+| 6 | **Gewölbekammer** | Ein Tonnengewölbe aus Quadern, mannshoch und trocken. Darin stehen mehrere Schüttungen nebeneinander statt eine über der anderen. |
+| 7 | **Rollkammer** | Rolllöcher aus den oberen Sohlen münden in die Firste. Was dort oben gehauen wird, fällt von selbst herein. |
+| 8 | **Zwergensaal** | Auf den Zoll genau geschlagen, die Kanten messinggefasst, die Schütthöhe zwei Mann. Zwerge hauen Säle, wo Menschen Löcher hauen. |
+| 9 | **Runenkammer** | Bannzeichen in den Pfeilern dehnen den Raum zwischen ihnen. Von der Strecke aus bleibt es ein Türstock. |
+| 10 | **Berghalle** | Der Berg selbst ausgehöhlt, ganze Lorenzüge nebeneinander darin. Er gibt kaum so schnell her, wie sie fasst. |
 
 **Hinweise**
 
-- Zehnmal dasselbe Bauwerk am Stollenmund, in derselben Isometrie, mit **sichtbarem Vorrat darin**.
-  Grundfläche, Höhe und Schütthöhe wachsen monoton.
-- **Kein Lager hat Deckel oder Schloss** — beides gehört der Truhe. Das Gewölbelager ist ein Gebäude
-  mit mannshohem Tor, in das man hineingeht, keine große beschlagene Kiste.
-- Die zehnte ist die größte Bauform der Reihe und muss es auch sein: mehrere Tore, ganze Fuhren
-  nebeneinander darin.
-- Baustoff nach Rang: Boden → Weide → Bohlen → Zimmerholz → Bruchstein → Quader → Rune.
+- Zehnmal derselbe Ausschnitt der Stollenwand, in derselben Isometrie, mit **sichtbarem Vorrat
+  darin**. Grundfläche, Höhe und Schütthöhe wachsen monoton.
+- **Die Kammer wird ausgehauen, nicht gebaut.** Kein Dach, keine freistehende Wand, kein Gebäude —
+  jede Stufe ist ein Hohlraum im Fels, und was an Holz oder Stein hinzukommt, kleidet ihn aus,
+  statt ihn zu umbauen.
+- **Keine Kammer hat Tür, Deckel oder Schloss** — die gehören der Truhe. Zur Strecke hin steht sie
+  offen, sonst käme kein Hunt hinein.
+- Die zehnte ist die größte Form der Reihe und muss es auch sein: mehrere Weitungen, ganze
+  Lorenzüge nebeneinander darin.
+- Baustoff nach Rang: Sohle → Holz → nackter Fels → Zimmerholz → Bruchstein → Quader →
+  Zwergenwerk → Rune → der Berg selbst.
 
 ## Schatztruhe (Ausrüstung – Kapazität)
 
@@ -277,38 +286,53 @@ Trichter.
   eine andere Körpergröße.
 - Stufe 10 ist als einzige kein Mensch mehr: Stein statt Fleisch, größer als alle anderen.
 
-## Fuhrknechte (4 Slots, Lager)
+## Transporte (4 Slots, Erzkammer)
 
-Jeder Fuhrknecht hat zwei Attribute: **Ladung** — was er je Fahrt aus dem Lager mitnimmt — und
-**Geschwindigkeit**, wie schnell er die Strecke zur Truhe zurücklegt. Beim Spieler stehen dafür
-Beutel und Stiefel. Jeder fährt für sich, mit eigener Ladung und eigenem Tempo; die eigene Fuhre
-des Spielers läuft unabhängig daneben.
+Jeder Transport hat zwei Attribute: **Ladung** — was er je Fahrt aus der Erzkammer mitnimmt — und
+**Geschwindigkeit**, wie schnell er die Strecke ans Tageslicht zurücklegt. Beim Spieler stehen
+dafür Beutel und Stiefel. Jeder fährt für sich, mit eigener Ladung und eigenem Tempo; die eigene
+Ausfahrt des Spielers läuft unabhängig daneben.
+
+Die Leiter heißt nach dem Fördermittel, nicht nach dem Mann davor: Ab Stufe 3 ist kein Mensch mehr
+im Bild, und ein Personenname („Fuhrknecht“, wie der Strang bis zur Verlegung unter Tage hieß)
+beschriebe sieben von zehn Stufen falsch.
 
 | # | Name | Beschreibung |
 |---|------|--------------|
-| 1 | **Laufbursche** | Nimmt den Sack über die Schulter und rennt los. Zurück kommt er außer Atem, aber pünktlich. |
-| 2 | **Schubkarre** | Ein Rad, zwei Griffe, randvoll geschaufelt. Aus Tragen wird Rollen, aus Mühe wird Strecke. |
-| 3 | **Packesel** | Stur, aber ausdauernd, mit zwei prall gefüllten Körben am Gurt. Er trägt das Mehrfache und beschwert sich nur bergauf. |
-| 4 | **Packpferd** | Zwei hohe Körbe am Sattel und ein Trab, der den Weg zur Truhe halbiert. |
-| 5 | **Ochsenkarren** | Langsam angefahren, dafür schwer beladen. Der Karren ächzt unter dem Gold, der Ochse nicht. |
-| 6 | **Panzerkarren** | Eisenbeschlagene Bordwände, höher aufgetürmt als der Ochsenkarren, zwei Pferde davor. Was hier liegt, holt unterwegs niemand heraus. |
-| 7 | **Vierspänner** | Vier Pferde vor einem Leiterwagen voller Säcke. Aus dem Weg zur Truhe wird eine kurze Fahrt. |
-| 8 | **Königskutsche** | Gefedert, bewacht, mit Wappen an der Tür und Goldkisten auf Dach und Heck. Sie hält erst wieder an, wenn sie angekommen ist. |
-| 9 | **Greifengespann** | Zwei Greifen ziehen den beladenen Schlitten über den Berg statt mühsam um ihn herum. |
-| 10 | **Torstein** | Ein offenes Portal am Stollenende. Das Gold liegt in der Truhe, kaum dass es hineingefallen ist. |
+| 1 | **Sackträger** | Ein Sack über der Schulter, die freie Hand an der Wand. Mehr geht nicht, und zweimal gehen kostet zweimal Zeit. |
+| 2 | **Jochträger** | Ein Schulterjoch, an jedem Ende ein praller Sack. Die Hände bleiben frei, und die doppelte Last hängt, statt getragen zu werden. |
+| 3 | **Schubkarre** | Ein Rad, zwei Griffe, überhäuft geschaufelt. Aus Tragen wird Rollen — von hier an schleppt niemand mehr. |
+| 4 | **Holzhunt** | Ein Bohlenkasten auf vier kleinen Rädern, an einem Spurnagel durch die Strecke geschoben. Er fasst, wofür du dreimal gefahren wärst. |
+| 5 | **Eisenhunt** | Eisenbeschlagen und erstmals auf Schienen. Wo die Schiene liegt, rollt er von allein weiter — und höher geschüttet als der Holzhunt davor. |
+| 6 | **Kipplore** | Ein eisernes Kippgefäß auf einem Drehkranz: an der Kammer volllaufen lassen, am Tageslicht umlegen. Auf der ganzen Strecke wird nicht mehr umgeladen. |
+| 7 | **Lorenzug** | Drei Loren aneinandergekuppelt, ein endloses Seil zieht sie die Strecke hinauf. Ein Seil ermüdet nicht, also hält der Zug auch nicht an. |
+| 8 | **Zwergenbahn** | Messingschiene, Zahnradantrieb, Zwerge an den Hebeln. Sie hält einen Takt, den kein Seil hält, und lädt im Fahren. |
+| 9 | **Runenbahn** | Die Loren schweben eine Handbreit über dem Gleis, die Schiene ist nur noch ein Lichtstrich im Fels. Nichts reibt, nichts bremst. |
+| 10 | **Tagestor** | Ein offenes Portal in der Kammerwand. Das Gold liegt oben in der Truhe, kaum dass es hineingefallen ist. |
 
 **Hinweise**
 
-- Jede Stufe fährt im Profil, in derselben Richtung und Bildhöhe. Ab Stufe 2 zeigt das Bild nur
-  Fuhrwerk und Zugtier — der Fuhrknecht selbst ist nur auf der ersten Stufe zu sehen, weil er dort
-  das Fuhrwerk *ist*.
-- **Die Ladung wächst monoton und bleibt sichtbar.** Der Panzerkarren fährt deshalb mit offener
-  Bordwand und höher aufgetürmt als der Ochsenkarren davor; die Königskutsche trägt ihr Gold in
-  Kisten auf Dach und Heck. Keine Stufe ab 5 zeigt weniger Fuhre als der Ochsenkarren.
-- **Das Tempo wächst mit:** schwerfälliges Zugtier und stehendes Rad unten, gestreckter Galopp oben.
-  Die Beine der Tiere zeigen, was die Karte als Geschwindigkeit ausweist.
-- Stufe 10 hat kein Fuhrwerk mehr; das Gold fällt durch das Portal. Sie ist die einzige Stufe ohne
-  Zugtier und ohne Rad.
+- Jede Stufe im Profil, in derselben Richtung — zum Tageslicht hin — und in derselben Bildhöhe.
+  Kein Fels, kein Gleisbett über die Stufe hinaus, keine Kulisse.
+- **Ab Stufe 3 zeigt das Bild nur das Fördermittel.** Ein Mensch steht nur auf 1 und 2 darin, weil
+  er dort das Fördermittel *ist*. Die Zwerge der achten Stufe sind keine Ausnahme: Sie bedienen die
+  Bahn, sie tragen nicht — eine Stufe, die wieder jemanden schleppen ließe, wäre eine Stufe zurück.
+- **Keine zwei Stufen teilen dieselbe Silhouette**, und die Reihe wechselt dafür bewusst ab, *was*
+  sie zeigt: ein Sack (1), ein Joch mit zwei Säcken (2), ein Rad (3), ein Kasten ohne Schiene (4),
+  ein Kasten auf Schiene (5), ein Kippgefäß auf Drehkranz (6), drei Wagen an einem Seil (7),
+  Zahnräder (8), ein Schweben (9), ein Bogen (10). „Dasselbe, nur besser“ ist auf dieser Leiter
+  nirgends der Unterschied zwischen zwei Stufen — sonst wären 4/5 und 6/7 auf Daumengröße
+  dieselbe Kiste.
+- **Die Ladung wächst monoton und bleibt sichtbar.** Alle Kästen sind offen und überhäuft
+  geschüttet; ein Deckel nimmt der Stufe ihr Argument.
+- **Das Tempo zeigt die Bahn, nicht das Bein.** In dieser Reihe steht kein Zugtier, also tragen es
+  Schiene und Seil: dichtere Schwellen, straff gezogenes Seil, nach vorn geneigter Kasten,
+  Staubfahne hinter dem Rad.
+- Baustoff nach Rang: Sackleinen (1–2) → Holz (3–4) → Eisen (5–7) → Messing und Zwergenwerk (8) →
+  Rune (9) → Fels und Licht (10).
+- **„Hunt“ immer mit t** — der Förderwagen, nicht das Tier.
+- Stufe 10 hat kein Fördermittel mehr; das Gold fällt durch das Portal. Sie ist die einzige Stufe
+  ohne Rad.
 
 ## Wachen (4 Slots, Truhe)
 
