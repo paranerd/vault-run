@@ -391,8 +391,8 @@ export const guardSpeed = (level: number) => TRIP_ROUTE_SECONDS / guardInterval(
 export const guardRate = (level: number) => level === 0 ? 0 : guardSight(level) / guardInterval(level)
 
 /** Die **Kraft** dieser einen Wache: was sie beiträgt, wenn die Diebe trotz aller Runden zuschlagen.
-    Das dritte Attribut der Wachen und das einzige, das nicht am Takt hängt — Sichtweite und Dauer
-    verhindern den Diebeszug, Kraft begrenzt ihn.
+    Das dritte Attribut der Wachen und das einzige, das nicht am Takt hängt — Sichtweite und
+    Geschwindigkeit verhindern den Diebeszug, Kraft begrenzt ihn.
  *
  *  Zwei Punkte je Stufe, additiv wie die Sichtweite: Damit gehört die Zeile der Wache allein und
  *  bleibt stehen, wenn nebenan gekauft wird. Wirksam wird sie erst als Summe des Trupps

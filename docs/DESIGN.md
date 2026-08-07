@@ -167,9 +167,31 @@ Die Haupt- und Upgrade-Icons zeigen sichtbare Progression:
 - Ausfahrt: Sackträger → Schubkarre → Eisenhunt → Zwergenbahn
 - Schutz: Eisenschloss → Wachhund → Wachturm → Königsgarde → Schatzfestung
 
-Drei Bilder kennen dagegen keine Stufen, weil sich an ihnen nichts ausbauen lässt: die beiden Handlungs-Icons „Ausfahren“ und „Wache gehen“ auf ihren Aktions-Buttons und die Ortsbrust in der linken Spalte des Minen-Abschnitts. Alle drei stammen vorerst aus `scripts/generate-sprites.py` und sind als Platzhalter gekennzeichnet.
+Drei Bilder kennen dagegen keine Stufen, weil sich an ihnen nichts ausbauen lässt: die beiden Handlungs-Icons „Ausfahren“ und „Wache gehen“ auf ihren Aktions-Buttons und die Ortsbrust in der linken Spalte des Minen-Abschnitts.
 
-Ortsbrust und Erzkammer teilen sich dort denselben Felsblock (`rock_block`) — dasselbe Gebirge, einmal vor dem Schlag und einmal dahinter. Das ist kein doppeltes Bild im Sinne der Regel, dass zwei Karten sich unterscheiden müssen: Die Brust trägt die Ader, die Kammer den Hohlraum mit der Schüttung darin, und beide stehen ohnehin in verschiedenen Abschnitten. **Die vier gezeichneten `transport-*`-Sprites zeigen dagegen noch Karren und Gespanne der alten Straße** und sind das Einzige, was der Verlegung unter Tage noch nachgezogen werden muss; sie liegen nicht im Generator, sondern sind gezeichnete 160×160-Bilder.
+### Stand der Sprites
+
+Nicht jedes Bild in `public/sprites` ist schon gezeichnet. Was fehlt, steht hier an **einer** Stelle statt verstreut in den Absätzen, die zufällig davon handeln — sonst muss man das halbe Dokument lesen, um zu wissen, was noch zu malen ist. *Gezeichnet* heißt: 160×160 mit mehreren tausend Farben. *Platzhalter* heißt: ein 32×32-Raster aus `scripts/generate-sprites.py`, fünffach vergrößert, in der Palette der gezeichneten Bilder — lesbar, aber erkennbar vorläufig.
+
+| Reihe | Dateien | Stand |
+|---|---|---|
+| Pickhacke | `pickaxe-0…3` | gezeichnet |
+| Beutel | `pack-0…3` | gezeichnet |
+| Schatztruhe | `vault-0…3` | gezeichnet |
+| Bergleute | `miner-0…3` | gezeichnet |
+| Wachen | `security-0…4` | gezeichnet |
+| Marker und Ausbau-Icon | `marker-*`, `upgrade` | gezeichnet |
+| **Transporte** | `transport-0…3` | **gezeichnet, aber veraltet** — zeigen noch Karren und Gespanne der alten Straße |
+| Stiefel | `boots-0…3` | Platzhalter |
+| Grubenlampe | `lamp-0…3` | Platzhalter |
+| Erzkammer | `stock-0…3` | Platzhalter |
+| Aktion „Wache gehen“ | `action-guard` | Platzhalter |
+| Aktion „Ausfahren“ | `action-transport` | Platzhalter |
+| Ortsbrust | `goldmine` | Platzhalter |
+
+Die `transport-*`-Reihe ist der einzige Eintrag, der nicht bloß auf Verschönerung wartet, sondern **falsch** ist: Sie ist die einzige gezeichnete Reihe, die die Verlegung unter Tage betrifft, und liegt nicht im Generator, lässt sich also nicht einfach neu erzeugen. Bis sie ersetzt ist, fährt auf der dritten Stufe der Erzkammer ein Pferdefuhrwerk durch den Stollen. Die zehn Stufen und ihre Bildregeln stehen in [`stufen.md`](./stufen.md); die vier Dateien decken `min(3, Stufe)` ab, sollen also Sackträger, Schubkarre, Eisenhunt und Zwergenbahn zeigen.
+
+Ortsbrust und Erzkammer teilen sich im Generator denselben Felsblock (`rock_block`) — dasselbe Gebirge, einmal vor dem Schlag und einmal dahinter. Das ist kein doppeltes Bild im Sinne der Regel, dass zwei Karten sich unterscheiden müssen: Die Brust trägt die Ader, die Kammer den Hohlraum mit der Schüttung darin, und beide stehen ohnehin in verschiedenen Abschnitten.
 
 Ein kompakter Header zeigt ausschließlich das sichere Gold. Die gesamte Navigation liegt in einer festen Dock-Leiste am unteren Rand: Statistik, mittig der Ausbau als häufigstes Ziel, Einstellungen. Sie berücksichtigt `env(safe-area-inset-bottom)` für die iOS-Home-Bar sowie die seitlichen Insets, sodass abgerundete Displayecken keinen Button beschneiden; ohne Insets bleibt ein Mindestabstand. Sounds und der zweistufig bestätigte Spielneustart liegen weiterhin ausschließlich im Einstellungs-Popup.
 
@@ -180,12 +202,13 @@ Einen fünften Chip **Alle** gab es bis eben. Er zeigte alle vier Kategorien unt
 Der mittlere Teil jeder Karte ist eine **Attributtabelle**: je Zeile ein Wert vor und nach dem Kauf, dahinter sein Name. Die Stufe führt sie an und trägt den Rang, den die Einheit danach hat.
 
 ```text
-Stufe 2   →  Stufe 3    Wachturm
+Stufe 2   →  Stufe 3    Schildwache
 8         →  10         Sichtweite
-8,9       →  7,1        Dauer
+1,4       →  1,7        Geschwindigkeit
+4         →  6          Kraft
 ```
 
-Die drei Wertespalten sind inhaltsbreit und über alle Zeilen geteilt, sodass die Pfeile untereinander stehen und man die Karte in einer Blickachse hinunterliest. In den Zellen stehen **reine Zahlen**: Die Einheit stand hinter jedem Nachher-Wert und wiederholte, was der Attributname rechts daneben längst sagt — „Kraft“ braucht kein `%`, „Dauer“ kein `s`, „Fördermenge“ kein `/s`. Ein unbesetzter Slot hat keinen Vorher-Wert und zeigt dort einen Strich statt einer erfundenen Null. Bringt eine Stufe rechnerisch nichts, steht links dieselbe Zahl wie rechts — eine Karte, die zum Kauf auffordert, muss das zeigen.
+Die drei Wertespalten sind inhaltsbreit und über alle Zeilen geteilt, sodass die Pfeile untereinander stehen und man die Karte in einer Blickachse hinunterliest. In den Zellen stehen **reine Zahlen**: Die Einheit stand hinter jedem Nachher-Wert und wiederholte, was der Attributname rechts daneben längst sagt — „Kraft“ braucht kein `%`, „Ladung“ kein `Gold`, „Fördermenge“ kein `/s`. Ein unbesetzter Slot hat keinen Vorher-Wert und zeigt dort einen Strich statt einer erfundenen Null. Bringt eine Stufe rechnerisch nichts, steht links dieselbe Zahl wie rechts — eine Karte, die zum Kauf auffordert, muss das zeigen.
 
 Benannt wird jeweils die Größe, die sich bewegt: Eine Wache hat **Sichtweite**, **Geschwindigkeit** und **Kraft** — was eine Sicherung abträgt, wie schnell sie ihre Runde geht und was sie beiträgt, wenn es doch knallt —, nicht „Risiko -x %“.
 
@@ -201,7 +224,7 @@ Eine Feinheit steckt in den **Böden**. Kein Weg wird beliebig kurz, und ab dem 
 
 Der Wachgang erreicht seinen halben-Sekunden-Boden dabei schon bei Stiefelstufe 10; von da an wirken die Stiefel nur noch auf die Ausfahrt. Das ist hingenommen: Sie sind damit nie wertlos, nur einseitig — und diese Stufe liegt weit hinter dem Punkt, an dem die Wachen den Wachgang von Hand ohnehin abgelöst haben.
 
-Aufgeführt sind die Eigenschaften der Einheit selbst, nicht deren Quotient: Ein Transport nennt **Ladung** und **Dauer**. Die Dauerleistung in Gold bzw. Prozent je Sekunde steht nicht zusätzlich dabei — sie folgt aus beiden Zeilen und wäre nur eine dritte Schreibweise derselben Sache. Bergleute takten fest im Sekundentakt und brauchen deshalb keine Zeile dafür; bei ihnen sind Menge und Rate dasselbe.
+Aufgeführt sind die Eigenschaften der Einheit selbst, nicht deren Quotient: Ein Transport nennt **Ladung** und **Geschwindigkeit**. Die Dauerleistung in Gold bzw. Prozent je Sekunde steht nicht zusätzlich dabei — sie folgt aus beiden Zeilen und wäre nur eine dritte Schreibweise derselben Sache. Bergleute takten fest im Sekundentakt und brauchen deshalb keine Zeile dafür; bei ihnen sind Menge und Rate dasselbe.
 
 Auf schmalen Geräten rückt die Tabelle unter Bild, Name und Preis über die volle Kartenbreite — in der mittleren Spalte bliebe für die Namen sonst zu wenig Platz.
 
@@ -252,9 +275,9 @@ Das Sichern durchläuft denselben Bogen wie der Transport: erst mühsam von Hand
 - **Der Tap bleibt danach nützlich** — wie die eigene Ausfahrt neben den Transporten: Läuft das Risiko zwischen zwei Takten hoch, senkt ein Tap es sofort zusätzlich, ohne die Förderung anzuhalten. Die 1,5 Sekunden belegen weiterhin den Spieler selbst, wie jede seiner Aktionen die beiden anderen belegt.
 - **Unterwegs geht keine Wache.** Solange der Spieler selbst ausfährt, kann er nicht von Hand sichern. Wer bei hohem Risiko selbst losläuft, geht das bewusst ein — und kauft sich mit der ersten Wache genau davon frei.
 
-Die Wachen-Karte nennt deshalb **Sichtweite** und **Dauer** — die Punkte, die diese eine Wache je Sicherung abträgt, in derselben Einheit, in der das Risiko steigt, und den Takt, in dem sie das tut. Beides gehört ihr allein.
+Die Wachen-Karte nennt deshalb **Sichtweite** und **Geschwindigkeit** — die Punkte, die diese eine Wache je Sicherung abträgt, in derselben Einheit, in der das Risiko steigt, und das Tempo, in dem sie das tut. Beides gehört ihr allein.
 
-Dazu kommt als dritte Zeile die **Kraft**: was diese Wache beiträgt, wenn die Diebe trotz aller Runden zuschlagen. Sie stand vorher als „jede Stufe senkt den Verlust um 14 %“ im Hinweis über der Gruppe und war damit der einzige Effekt im Spiel, der Gold kostete, ohne irgendwo als Zahl zu erscheinen. Jetzt ist sie ein Attribut wie jedes andere: zwei Punkte je Stufe, additiv, und damit eine Zeile, die stehen bleibt, wenn nebenan gekauft wird. Nur ihre Wirkung ist eine Trupp-Größe — jeder Punkt lässt 97 % des Verlusts übrig —, und das steht weiterhin als ein Satz über der Gruppe. Sichtweite und Dauer verhindern den Diebeszug, Kraft begrenzt ihn: der einzige Effekt, den man ausschließlich im Moment des Scheiterns sieht.
+Dazu kommt als dritte Zeile die **Kraft**: was diese Wache beiträgt, wenn die Diebe trotz aller Runden zuschlagen. Sie stand vorher als „jede Stufe senkt den Verlust um 14 %“ im Hinweis über der Gruppe und war damit der einzige Effekt im Spiel, der Gold kostete, ohne irgendwo als Zahl zu erscheinen. Jetzt ist sie ein Attribut wie jedes andere: zwei Punkte je Stufe, additiv, und damit eine Zeile, die stehen bleibt, wenn nebenan gekauft wird. Nur ihre Wirkung ist eine Trupp-Größe — jeder Punkt lässt 97 % des Verlusts übrig —, und das steht weiterhin als ein Satz über der Gruppe. Sichtweite und Geschwindigkeit verhindern den Diebeszug, Kraft begrenzt ihn: der einzige Effekt, den man ausschließlich im Moment des Scheiterns sieht.
 
 Die Wachen bremsen den Anstieg des Risikos bewusst **nicht**. Bremsen, automatisch senken und den Schaden deckeln wären drei sich stapelnde Effekte. Ihr Wert steckt in Takt und Sichtweite der Sicherung — und im Ernstfall in ihrer Kraft.
 

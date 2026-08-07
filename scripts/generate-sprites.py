@@ -6,6 +6,10 @@ mehreren tausend Farben; was dieses Skript ausgibt, ist bewusst einfacher: ein 3
 Palette der vorhandenen Sprites, fünffach vergrößert. Es hält die neuen Karten lesbar, bis
 richtige Grafik da ist — und dokumentiert zugleich, was auf ihnen zu sehen sein soll.
 
+Alles, was dieses Skript schreibt, ist ein Platzhalter. Welche Sprites das sind und welche
+gezeichnet, steht vollständig in `docs/DESIGN.md` unter „Stand der Sprites"; die Liste dort nennt
+zusätzlich die eine gezeichnete Reihe, die inhaltlich veraltet ist.
+
 Aufruf: python3 scripts/generate-sprites.py
 """
 
