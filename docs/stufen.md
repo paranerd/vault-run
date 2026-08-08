@@ -49,6 +49,28 @@ hier einmal; was nur für eine gilt, steht als **Hinweise** unter ihrer Tabelle.
 
 - **Eine Reihe, eine Ansicht.** Alle zehn Bilder zeigen denselben Gegenstand aus demselben Winkel,
   in derselben Bildhöhe, ohne Boden, Kulisse und Beiwerk.
+- **Eine Richtung für die ganze Tafel: nach rechts.** Gemeint ist die rechte *Bildseite*, aus Sicht
+  des Betrachters — nicht die rechte Seite der Figur. Kein Bild dieser Tafel wendet sich nach links.
+  Wie sich das zeigt, hängt an der Ansicht:
+  - **Wer ein Gesicht hat, schaut nach vorn rechts.** Der Körper steht zum Betrachter, Kopf und
+    Schultern sind eine Spur nach rechts gedreht, der Blick geht an ihm vorbei zur rechten
+    Bildkante. Das gilt für jeden Menschen der Tafel — Bergleute, Wachen, den Laufbursche —, für den
+    Steingolem und für jedes Zugtier. Nicht das strenge Profil und nicht der leere Blick geradeaus,
+    sondern der Dreiviertelblick dazwischen.
+  - **Was im Profil fährt oder geht, fährt nach rechts.** Kopf, Bug und Zugtier voran zur rechten
+    Bildkante.
+  - **Was im Dreiviertelblick steht, ist nach rechts gedreht:** Front zum Betrachter, die sichtbare
+    Schmalseite rechts.
+  - **Und wer nach rechts schaut, hält links.** Die Drehung bringt die eine Schulter nach vorn;
+    Werkzeug und Waffe hängen an ihr und liegen deshalb über alle zehn Stufen auf derselben Seite —
+    im Bild der linken. Was in der freien Hand dazukommt, bleibt auf der anderen.
+- **Ausgenommen sind die vier Stücke, die der Spieler selbst in die Hand nimmt.** Pickhacke, Beutel
+  und Grubenlampe haben weder Gesicht noch Fahrtrichtung: Sie hängen frontal im Bild, gleich gedreht
+  über alle zehn Stufen. Der Stiefel bleibt im Profil, weil seine Leiter an Schafthöhe, Sohle und
+  Vorwärtsneigung hängt — und wendet sich, wie alles andere, nach rechts. Für diese vier ist
+  *gleich* wichtiger als *nach rechts*; keiner von ihnen wird gedreht, nur um der Richtung zu
+  folgen. Lager und Schatztruhe sind davon **nicht** ausgenommen: Sie stehen als Bauwerke im Raum
+  und folgen der Richtung der Tafel.
 - **Jede Stufe schlägt ihren Vorgänger sichtbar.** Größer, massiver, heller, schwerer beladen,
   besser gepanzert — der Zuwachs steht im Bild, nicht nur im Namen. Keine Stufe darf kleiner,
   dunkler, ärmlicher oder schwächer wirken als die vorige, auch nicht durch einen Motivwechsel.
@@ -78,20 +100,26 @@ hier einmal; was nur für eine gilt, steht als **Hinweise** unter ihrer Tabelle.
 | 7 | **Zwergenhaue** | Unter dem Berg geschmiedet: mehr Kopf als Stiel, in Messingbändern gefasst, bewusst kopflastig gewuchtet. Sie fällt fast von allein in den Fels. |
 | 8 | **Goldene Pickhacke** | Goldbeschlagener Kopf, Rubin im Auge, rundum ausbalanciert. Gold findet Gold, sagen die Alten in der Grube. |
 | 9 | **Runenhaue** | Schwarzer Stahl mit eingeschlagenen Runen. Sie glühen beim Aufprall auf und sprengen das Gestein von innen heraus. |
-| 10 | **Drachenzahnhaue** | Zwei Zähne desselben Drachen auf schwarzem Eichenstiel. Der Stein bricht schon, bevor sie ihn ganz erreicht. |
+| 10 | **Bergriss** | Kein Werkzeug mehr, sondern der Bruch selbst: ein Riss, der frei in der Luft steht, wo eben noch Kopf und Stiel waren — oben in zwei Spitzen aufgegabelt, innen goldglühend, an den Rändern rieselt Gestein, das es nicht mehr gibt. Er wird nicht geschwungen, sondern angesetzt; danach gibt der Berg seine Ader von selbst her. |
 
 **Hinweise**
 
-- Immer ein einzelnes Werkzeug: Kopf oben, Stiel schräg nach unten, in allen zehn Bildern gleich
-  gedreht. Kein Fels, kein Boden, keine Hand.
+- Immer ein einzelnes Werkzeug, frontal zum Betrachter: Kopf oben, Stiel schräg nach unten, in allen
+  zehn Bildern im selben Winkel und mit dem Blatt zur selben Seite. Kein Fels, kein Boden, keine
+  Hand. Die zehnte Stufe hat weder Kopf noch Stiel, füllt das Bild aber genauso: Die Gabel steht,
+  wo bisher der Kopf stand, und der Riss läuft im selben Winkel nach unten aus wie die Stiele davor.
 - Kopfmasse und Stielbeschlag wachsen monoton — Wicklung, Ringe, Zwingen. Keine Stufe darf schlanker
   oder stumpfer wirken als ihr Vorgänger, auch keine dunklere.
 - **Stufen 1–4 tragen Blatt und Hammerbahn, Stufen 5–10 zwei Spitzen.** Die Doppelspitze ist keine
-  Marotte der fünften Stufe, sondern gilt ab ihr; auch die Drachenzahnhaue hat deshalb zwei Zähne
-  und nicht einen.
+  Marotte der fünften Stufe, sondern gilt ab ihr; auch der Bergriss gabelt sich deshalb oben in zwei
+  Spitzen und nicht in eine.
 - 4 und 6 sind beide blanker Stahl und dürfen sich nicht gleichen: 4 ist nüchtern poliert, 6 trägt
   den hellen Silberstrich in der Schneide und einen Goldschimmer an den Spitzen.
-- Licht gibt erst 9. Nur 10 ist nicht aus Metall.
+- Licht gibt erst 9. Stufe 10 ist als einzige überhaupt kein Gegenstand mehr: kein Metall, kein Holz,
+  nichts, was man schmieden könnte — nur der Bruch, den die neun Stufen davor mit Mühe erzeugen.
+  Ihr Gold ist deshalb nicht Beschlag, sondern das, was aus dem Riss selbst leuchtet.
+- Der Bergriss steht breiter im Bild als die Runenhaue davor. Die Reihe wird auf der letzten Stufe
+  nicht kleiner, nur körperlos.
 
 ## Beutel (Ausrüstung – Ladung)
 
@@ -113,9 +141,9 @@ seine Bergleute fördern: Aus dem Lager füllt er den Beutel, mehr als dort lieg
 
 **Hinweise**
 
-- Zehnmal derselbe Gegenstand: ein Beutel oder Sack, aufrecht, prall, von vorn. **Kein Rucksack,
-  keine Gürteltasche, nichts am Körper getragen** — was der Spieler schultert, steht im Bild für
-  sich allein.
+- Zehnmal derselbe Gegenstand: ein Beutel oder Sack, aufrecht, prall, frontal von vorn. **Kein
+  Rucksack, keine Gürteltasche, nichts am Körper getragen** — was der Spieler schultert, steht im
+  Bild für sich allein.
 - Umfang und Fülle wachsen monoton; ab Stufe 3 schaut Gold über den Rand, und die Menge wächst mit.
 - Kein Beutel ist doppelt und keiner wird am Gürtel getragen; die Gurte der vierten Stufe liegen um
   den Beutel, nicht um den Mann.
@@ -144,23 +172,29 @@ Fuhrknecht und die Wache.
 | 7 | **Zwergenstiefel** | Messingbeschlagen, schwer im Stand, schnell im Schritt. Unter dem Berg geht niemand zügiger. |
 | 8 | **Siebenmeilenstiefel** | Rot und golden, der Schaft nach vorn geneigt wie mitten im Lauf. Nicht ganz sieben Meilen — aber jedes Mal fehlt der halbe Weg. |
 | 9 | **Runenstiefel** | Laufrunen an der Ferse ziehen den Boden unter dir hindurch, statt dich darüber. |
-| 10 | **Windstiefel** | Silberweiß, mit Schwingen an den Fersen — die einzigen der Reihe, die nicht mehr laufen. Du setzt auf und bist da. |
+| 10 | **Sturmschritt** | Kein Leder mehr: ein silberweißer Wirbel aus Wind und Staub, der die Form eines Schritts behält und den Boden nicht mehr berührt. Weiter nach vorn geneigt als jeder Stiefel davor — der Weg ist vorbei, ehe er angefangen hat. |
 
 **Hinweise**
 
-- Ein einzelner Stiefel im Profil, in allen zehn Bildern nach derselben Seite gewandt, in derselben
-  Bildhöhe.
+- Ein einzelner Stiefel im Profil, in allen zehn Bildern **nach rechts** gewandt — Spitze zur rechten
+  Bildkante, wie die Fuhrwerke und wie der Blick der Menschen —, in derselben Bildhöhe. Die zehnte
+  Stufe hat keinen Stiefel mehr, steht aber an derselben Stelle, in derselben Höhe und mit der
+  Spitze nach rechts.
 - **Der Schaft wächst monoton:** 1–2 knöchelhoch, 3 wadenhoch, ab 4 kniehoch. Kein Stiefel ist
   niedriger als sein Vorgänger — die Reihe springt nie zwischen Halbschuh und Schaftstiefel hin und
-  her.
+  her. Der Wirbel der zehnten Stufe steht höher als der höchste Schaft davor; was der Schaft war,
+  ist bei ihm die Höhe des Windes.
 - **Und mit der Höhe wächst das Tempo:** engerer Schnitt, dünnere und härtere Sohle, weniger klobiges
   Beschlagwerk, stärkere Neigung nach vorn. Ein Stiefel dieser Reihe wird nicht schwerer, sondern
   schneller.
-- **Schwingen trägt allein die zehnte Stufe.** Die sechste ist leicht durch dünnes Leder, nicht durch
-  Gefieder.
+- **Keine Stufe trägt Gefieder.** Die sechste ist leicht durch dünnes Leder, nicht durch Schwingen,
+  und die zehnte ist schnell durch Wind, nicht durch Flügel.
+- Stufe 10 ist als einzige kein Stiefel mehr: von Schaft und Sohle bleibt nichts, von der Leiter nur
+  die Neigung nach vorn und die Richtung. Sie ist auch die einzige, die den Boden nicht berührt —
+  bis Stufe 9 steht jeder Stiefel auf, der Sturmschritt schwebt eine Handbreit darüber.
 - Farbe: braunes Leder (1–3) → geschwärztes Leder mit Eisenkappe (4) → staubbraun mit Riemen (5) →
   helles Hirschleder (6) → dunkel mit Messing (7) → Rot mit Gold (8) → Schwarz mit blauen Runen (9)
-  → Silberweiß (10).
+  → silberweißer Wirbel ohne Leder (10).
 
 ## Grubenlampe (Ausrüstung – Sichtweite)
 
@@ -183,7 +217,8 @@ und ist deshalb direkt gegen sie abwägbar — dieselbe Beschriftung, dieselbe S
 
 **Hinweise**
 
-- Jede Lampe hängt frei im Bild, aufrecht, von vorn, in derselben Bildhöhe.
+- Jede Lampe hängt frei im Bild, aufrecht, frontal von vorn, in derselben Bildhöhe. Wo eine Lampe ein
+  Fenster nach vorn hat, zeigt es auf den Betrachter, nicht zur Seite.
 - **Der Schein ist die einzige Größe, die diese Reihe zeigt, und wächst monoton:** heller Kern,
   weiterer Hof, mehr ausgeleuchtete Fläche. Keine Lampe darf dunkler wirken als ihr Vorgänger — auch
   dann nicht, wenn ihr Licht die Farbe wechselt.
@@ -216,7 +251,8 @@ Trichter.
 
 **Hinweise**
 
-- Zehnmal dasselbe Bauwerk am Stollenmund, in derselben Isometrie, mit **sichtbarem Vorrat darin**.
+- Zehnmal dasselbe Bauwerk am Stollenmund, in derselben Isometrie und **nach rechts gedreht** — die
+  offene Seite zum Betrachter, die sichtbare Schmalseite rechts —, mit **sichtbarem Vorrat darin**.
   Grundfläche, Höhe und Schütthöhe wachsen monoton.
 - **Kein Lager hat Deckel oder Schloss** — beides gehört der Truhe. Das Gewölbelager ist ein Gebäude
   mit mannshohem Tor, in das man hineingeht, keine große beschlagene Kiste.
@@ -241,8 +277,9 @@ Trichter.
 
 **Hinweise**
 
-- Alle Truhen im selben Dreiviertelblick, gleich gedreht, gleicher Standfuß — und **alle
-  geschlossen**, auch die Runentruhe: Ihr Bannkreis liegt im zu und leuchtet durch den Deckel.
+- Alle Truhen im selben Dreiviertelblick, **nach rechts gedreht** — Schloss und Front zum Betrachter,
+  die sichtbare Schmalseite rechts —, gleicher Standfuß, und **alle geschlossen**, auch die
+  Runentruhe: Ihr Bannkreis liegt im zu und leuchtet durch den Deckel.
 - Die Größe wächst monoton. Die Juwelentruhe ist damit die **zweitgrößte** der Reihe: breiter als der
   Zwergentresor davor, schmaler als die Runentruhe danach.
 - Beschlag nach Rang: nacktes Holz → Eisenband → Nietwerk → Riegel → Fels → Gold → Zwergenmechanik →
@@ -267,9 +304,12 @@ Trichter.
 
 **Hinweise**
 
-- Zehnmal dieselbe Standpose, frontal, in derselben Bildhöhe.
-- **Jeder hält seine Pickhacke, ausnahmslos.** Wer noch etwas anderes zu zeigen hat, trägt es in der
-  freien Hand: der Sprengmeister seine Ladung, der Doppelhauer seine zweite Haue.
+- Zehnmal dieselbe Standpose, in derselben Bildhöhe: aufrecht zum Betrachter, Kopf und Schultern
+  eine Spur nach rechts gedreht, **der Blick nach vorn rechts aus dem Bild**. Kein Bergmann schaut
+  nach links, keiner steht im vollen Profil, und keiner starrt geradeaus.
+- **Jeder hält seine Pickhacke, ausnahmslos** — über alle zehn Stufen in derselben Hand, der zum
+  Betrachter gedrehten (im Bild links). Wer noch etwas anderes zu zeigen hat, trägt es in der freien
+  Hand auf der anderen Seite: der Sprengmeister seine Ladung, der Doppelhauer seine zweite Haue.
 - **Statur und Ausrüstung wachsen monoton:** Hemdsärmel (1) → Lederschurz (2–3) → Eisen am Arm (4–5)
   → beschlagener Panzer (6–8) → runenbeschlagene Platte (9). Kein Bergmann ist schmaler als sein
   Vorgänger; der Hauer muss den Knappen überragen, so wie der Doppelhauer den Zwergenhauer.
@@ -299,9 +339,13 @@ des Spielers läuft unabhängig daneben.
 
 **Hinweise**
 
-- Jede Stufe fährt im Profil, in derselben Richtung und Bildhöhe. Ab Stufe 2 zeigt das Bild nur
+- Jede Stufe fährt im Profil **nach rechts**, in derselben Bildhöhe: Zugtier und Bug voran zur
+  rechten Bildkante, die Ladung dahinter. Keine Fuhre zieht nach links. Ab Stufe 2 zeigt das Bild nur
   Fuhrwerk und Zugtier — der Fuhrknecht selbst ist nur auf der ersten Stufe zu sehen, weil er dort
   das Fuhrwerk *ist*.
+- Der Laufbursche der ersten Stufe ist der einzige Mensch dieser Leiter und steht deshalb wie die
+  Bergleute und die Wachen: zum Betrachter, **den Blick nach vorn rechts** — dorthin, wohin die neun
+  Fuhren nach ihm fahren. Sein Sack liegt über der hinteren Schulter, damit der Blick frei bleibt.
 - **Die Ladung wächst monoton und bleibt sichtbar.** Der Panzerkarren fährt deshalb mit offener
   Bordwand und höher aufgetürmt als der Ochsenkarren davor; die Königskutsche trägt ihr Gold in
   Kisten auf Dach und Heck. Keine Stufe ab 5 zeigt weniger Fuhre als der Ochsenkarren.
@@ -329,11 +373,20 @@ keine Entsprechung, weil sie erst im Trupp wirkt.
 | 7 | **Wachhauptmann** | Vollrüstung unter rotem Umhang, Federbusch am Helm. Er legt die Runden so, dass nie zweimal dieselbe Ecke unbeobachtet liegen bleibt. |
 | 8 | **Ordensritter** | Weißer Waffenrock mit rotem Kreuz über voller Platte. Feste Zeiten, kein Wort zu viel; sein Rundgang klingt wie ein Urteil. |
 | 9 | **Königsgardist** | Dasselbe Weiß und Rot, dazu Gold: Turmschild, Hellebarde, Helmzier. Er geht seine Runde, als hinge eine Krone daran. |
-| 10 | **Greifenreiter** | Weiß-roter Waffenrock, Lanze quer, unter ihm ein Greif. Er zieht seine Kreise hoch über dem Hort — von dort oben bleibt keine Ecke lange dunkel. |
+| 10 | **Bannsiegel** | Keine Gestalt mehr, sondern ein Zeichen: drei ineinanderliegende Runenringe, die frei über dem Hort stehen und sich gegeneinander drehen, weißes Licht mit rotem Kern. Niemand geht mehr eine Runde — der Bann liegt in allen Ecken zugleich, und wer hineingreift, findet die Luft über dem Gold so fest wie Fels. |
 
 **Hinweise**
 
-- Gleiche Standpose, frontal, in derselben Bildhöhe. Nur die zehnte Stufe sitzt auf.
+- Gleiche Standpose, in derselben Bildhöhe: aufrecht zum Betrachter, Kopf und Schultern eine Spur
+  nach rechts gedreht, **der Blick nach vorn rechts aus dem Bild** — derselbe Dreiviertelblick wie
+  bei den Bergleuten, damit Mine und Truhe in dieselbe Richtung schauen. Das gilt für die neun
+  Stufen, die ein Gesicht haben; die zehnte hat keines mehr. Das Bannsiegel hängt in derselben
+  Bildhöhe wie die Köpfe vor ihm und folgt der Richtung der Tafel wie die Truhen: die Ringe nach
+  rechts gekippt, die sichtbare Schmalseite rechts.
+- **Waffenhand und Schildhand wechseln nie.** Die Waffe steht über die ersten neun Stufen auf
+  derselben Seite — der zum Betrachter gedrehten, im Bild links —, Schild und Laterne auf der
+  anderen. Die zehnte hat weder Hand noch Waffe; mit ihr hört die Regel auf, wie alles andere an
+  ihr.
 
 **Die Uniform wechselt genau dreimal, und jeder Wechsel ist ein Rang:**
 
@@ -342,13 +395,20 @@ keine Entsprechung, weil sie erst im Trupp wirkt.
 | 1 | keine Uniform, keine Waffe | der Nachtwächter, der nur wach ist |
 | 2–4 | Blau | die bezahlte Wache des Reichs |
 | 5–7 | Rot | die angeworbene Söldnerkompanie |
-| 8–10 | Weiß mit Rot | Orden, Garde und Reiter |
+| 8–10 | Weiß mit Rot | Orden, Garde und der Bann — beim Siegel als Licht statt als Tuch |
 
 - **Innerhalb jedes Blocks wachsen Panzer und Waffe:** Tuch → Kettenhemd → Brustpanzer →
   Vollrüstung, und Speer → Speer und Schild → Stangenwaffe → Schlachtschwert → Turmschild und
   Hellebarde. **Kraft** ist im Bild nichts anderes als die Masse der Rüstung und die Größe der Waffe;
-  wer weiter oben steht, sieht gefährlicher aus, nicht nur teurer.
+  wer weiter oben steht, sieht gefährlicher aus, nicht nur teurer. Beim Bannsiegel tragen das die
+  Zahl der Ringe und die Dichte der Runen darin.
 - **Jede Wache steht aufrecht, offen und bewaffnet** — nichts Verhülltes, Geducktes oder Verborgenes
-  in einer Leiter, deren ganzer Sinn sichtbare Gefahr ist.
-- Der Greif der zehnten Stufe ist das einzige Tier der Reihe — und er trägt eine Wache, statt eine zu
-  sein.
+  in einer Leiter, deren ganzer Sinn sichtbare Gefahr ist. Das gilt für die neun, die einen Körper
+  haben; das Siegel verbirgt trotzdem nichts, sondern steht offen und hell über dem Hort und ist von
+  weiter weg zu sehen als jede Wache vor ihm.
+- Stufe 10 ist als einzige keine Gestalt mehr — weder Mensch noch Tier noch Rüstung, sondern reine
+  Bannarbeit: das, wofür die neun Stufen davor ihre Runden gehen, ohne jemanden, der sie geht. Kein
+  Körper, keine Hände, keine Waffe.
+- **Sie geht auch keine Runde, sie dreht sich.** Was bei den neun davor die Schrittfolge ist, ist bei
+  ihr die Umdrehung der Ringe — und sie ist größer als jede Gestalt davor: Das Siegel steht über dem
+  ganzen Hort, nicht neben ihm.
