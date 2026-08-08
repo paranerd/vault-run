@@ -21,7 +21,7 @@ export const GOLD_FLIGHT_DURATION_MS = 900
 export const PICKAXES = [
   'Rostige Pickhacke', 'Geflickte Pickhacke', 'Eiserne Pickhacke', 'Gehärtete Stahlhaue',
   'Doppelspitzhaue', 'Silberstahlhaue', 'Zwergenhaue', 'Goldene Pickhacke', 'Runenhaue',
-  'Drachenzahnhaue',
+  'Sternenbrecher',
 ] as const
 
 /** Was der Spieler selbst schultert — nicht der Puffer, in den seine Bergleute fördern. Der heißt
@@ -35,7 +35,7 @@ export const PACKS = [
 export const BOOTS = [
   'Durchgelaufene Schuhe', 'Genagelte Arbeitsschuhe', 'Geschnürte Lederstiefel', 'Grubenstiefel',
   'Marschstiefel', 'Hirschlederstiefel', 'Zwergenstiefel', 'Siebenmeilenstiefel', 'Runenstiefel',
-  'Windstiefel',
+  'Sturmschritt',
 ] as const
 
 export const LAMPS = [
@@ -81,7 +81,7 @@ const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
   ],
   guards: [
     'Nachtwächter', 'Speerknecht', 'Schildwache', 'Hellebardier', 'Söldnerwache', 'Zweihandsöldner',
-    'Wachhauptmann', 'Ordensritter', 'Königsgardist', 'Greifenreiter',
+    'Wachhauptmann', 'Ordensritter', 'Königsgardist', 'Erzwächter',
   ],
 }
 

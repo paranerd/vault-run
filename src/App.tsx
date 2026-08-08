@@ -157,7 +157,7 @@ function spriteStage(level: number, maximum = 3) {
 }
 
 function PixelSprite({ family, level, className = '' }: { family: UpgradeView['spriteFamily']; level: number; className?: string }) {
-  const maximum = family === 'security' ? 4 : 3
+  const maximum = family === 'miner' || family === 'pack' || family === 'boots' || family === 'lamp' || family === 'pickaxe' || family === 'security' ? 9 : 3
   return <img className={`pixel-sprite ${className}`} src={`${SPRITE_ROOT}/${family}-${spriteStage(level, maximum)}.png`} alt="" aria-hidden="true" draggable={false} />
 }
 
