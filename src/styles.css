@@ -80,7 +80,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: 0 2px 0 #25130b, inset 0 0 0 1px #795033;
 }
 .header-wealth__bar i { position: absolute; inset: 0 auto 0 0; width: var(--vault-fill); background: repeating-linear-gradient(90deg,#d99d30 0 7px,#f5c84d 7px 12px,#ae671d 12px 15px); box-shadow: inset 0 2px rgba(255,239,159,.36), inset 0 -2px rgba(77,38,14,.3); transition: width .1s linear; }
-/* Dieselbe Ampel wie in den Abschnitten: Eine Truhe kurz vor dem Rand nimmt keine Fuhre mehr an. */
+/* Dieselbe Ampel wie in den Abschnitten: Eine Truhe kurz vor dem Rand nimmt keine Ladung mehr an. */
 .header-wealth.is-warning .header-wealth__bar i { background: repeating-linear-gradient(90deg,#ba5e24 0 7px,#df7d2c 7px 12px,#8e3819 12px 15px); }
 .header-wealth.is-alert .header-wealth__bar i { background: repeating-linear-gradient(90deg,#9f3224 0 7px,#d0442d 7px 12px,#722016 12px 15px); }
 .pixel-coin { width: 20px; height: 20px; flex: 0 0 auto; image-rendering: pixelated; }
@@ -195,7 +195,7 @@ button:focus-visible { outline: 3px solid #fff0a8; outline-offset: 2px; }
   box-shadow: inset 0 2px rgba(255,239,159,.36), inset 0 -2px rgba(77,38,14,.3);
   /* Genau ein Tick lang und linear: Damit überbrückt die Leiste die Lücke zwischen zwei
      Spielzuständen und ist am nächsten Tick wieder auf dem Ist-Wert. Eine lange, weiche Kurve tat
-     Werten gut, die in Sprüngen kommen (Lager), dämpfte aber den stetig wachsenden Räuber zur
+     Werten gut, die in Sprüngen kommen (Erzkammer), dämpfte aber den stetig wachsenden Räuber zur
      Zeitlupe: Von einer 850-ms-Kurve, die alle 100 ms neu ansetzt, bleiben pro Tick nur die ersten,
      flachsten Prozent übrig. So laufen beide gleich schnell — nämlich so schnell wie ihr Wert. */
   transition: width .1s linear;

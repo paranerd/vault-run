@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Erzeugt die Sprites für Stiefel, Grubenlampe, Lager, die beiden Aktions-Icons und die Goldmine.
+"""Erzeugt die Sprites für Stiefel, Grubenlampe, Erzkammer, die beiden Aktions-Icons und die Ortsbrust.
 
 PLATZHALTER. Die übrigen Reihen unter `public/sprites` sind gezeichnete 160x160-Bilder mit
 mehreren tausend Farben; was dieses Skript ausgibt, ist bewusst einfacher: ein 32x32-Raster in der
 Palette der vorhandenen Sprites, fünffach vergrößert. Es hält die neuen Karten lesbar, bis
 richtige Grafik da ist — und dokumentiert zugleich, was auf ihnen zu sehen sein soll.
+
+Alles, was dieses Skript schreibt, ist ein Platzhalter. Welche Sprites das sind und welche
+gezeichnet, steht vollständig in `docs/DESIGN.md` unter „Stand der Sprites"; die Liste dort nennt
+zusätzlich die eine gezeichnete Reihe, die inhaltlich veraltet ist.
 
 Aufruf: python3 scripts/generate-sprites.py
 """
@@ -145,33 +149,71 @@ def lamp(stage):
     return cv
 
 
+def rock_block(cv, top=5):
+    """Ein Stück anstehendes Gebirge mit gebrochener Kante — der Träger von Kammer und Ortsbrust.
+
+    Beide Bilder liegen im Fels, stehen aber wie jedes andere Sprite frei auf Transparenz: Der
+    Block hat deshalb eine eigene, unregelmäßige Silhouette, statt das Feld randlos zu füllen.
+    Die Körnung ist bewusst grob und unregelmäßig — ein gleichmäßiges Raster läse sich als Mauer
+    oder Gewebe, und gemauert ist an dieser Stelle nichts.
+    """
+    edges = [0, 1, 1, 2, 2, 1, 0, 1]
+    for x in range(1, 31):
+        edge = top + edges[(x // 2) % len(edges)]
+        for y in range(edge, 29):
+            if (x * 3 + y * 7) % 9 == 0:
+                cv.set(x, y, STONE_LIT)                              # Glimmer im Bruch
+            elif (x * 5 + y * 11) % 13 == 0:
+                cv.set(x, y, DARK)                                   # Kluft
+            else:
+                cv.set(x, y, STONE)
+        cv.set(x, edge - 1, LINE)                                    # Kontur nach oben
+    cv.rect(1, 29, 30, 30, GROUND)                                   # Sohle
+
+
 def stock(stage):
-    """Loser Erzhaufen → gezimmerter Schuppen: erst der Haufen, dann Wände, Körbe, Dach."""
+    """Haufwerk → Berghalle: nicht ein wachsendes Bauwerk, sondern ein wachsender Hohlraum.
+
+    Die Kammer liegt im Fels und wird ausgehauen, nicht gebaut — ein Schuppen oder eine Halle
+    fänden im Stollen keinen Platz. Der Block bleibt darum über alle vier Stufen derselbe; was
+    wächst, ist der Raum darin und die Schüttung. Was an Holz und Stein hinzukommt, kleidet den
+    Hohlraum aus: Türstock (1), Quadergewölbe (2), Pfeilerhalle (3). Deckel oder Tür hat keine
+    Stufe — nach vorn steht die Kammer offen, sonst käme kein Hunt hinein.
+    """
     cv = Canvas()
-    cv.rect(2, 26, 29, 28, GROUND)
-    heap = [6, 8, 9, 10][stage]
-    for row in range(heap):                                          # Haufen aus Stein und Gold
-        y = 25 - row
-        half = max(1, heap - row + 2)
+    rock_block(cv)
+    x0, x1, top = [(12, 19, 22), (9, 22, 17), (6, 25, 12), (3, 28, 8)][stage]
+    heap = [4, 8, 11, 14][stage]
+
+    cv.rect(x0 - 1, top - 1, x1 + 1, 28, LINE)                       # Kontur des Ausbruchs
+    cv.rect(x0, top, x1, 28, DARK)                                   # der ausgehauene Raum
+    for x in range(x0, x1 + 1, 3):                                   # Schrämspuren an der Firste
+        cv.set(x, top, STONE)
+
+    if stage == 1:                                                   # Türstock: zwei Stempel, ein Sturz
+        for x in (x0, x1 - 1):
+            cv.rect(x, top + 2, x + 1, 28, WOOD)
+            cv.rect(x, top + 2, x, 28, WOOD_LIT)
+        cv.rect(x0, top, x1, top + 1, WOOD)
+        cv.rect(x0, top, x1, top, WOOD_LIT)
+    if stage >= 2:                                                   # Gewölbe bzw. Halle aus Quadern
+        pillars = (x0, x1 - 1) if stage == 2 else (x0, x1 - 1, 11, 20)
+        for x in pillars:
+            cv.rect(x, top + 2, x + 1, 28, STONE_LIT)
+            cv.rect(x + 1, top + 2, x + 1, 28, STONE)
+        cv.rect(x0, top, x1, top + 1, STONE_LIT)
+        cv.rect(x0, top + 1, x1, top + 1, STONE)
+        for x in range(x0 + 2, x1 - 1, 4):                           # Fugen
+            cv.rect(x, top, x, top + 1, LINE)
+
+    limit = (x1 - x0) // 2
+    for row in range(heap):                                          # Haufwerk aus Erz und Gold
+        y = 28 - row
+        half = min(limit, max(1, heap - row + 2))
         cv.rect(16 - half, y, 15 + half, y, STONE if row % 2 else STONE_LIT)
         for x in range(16 - half, 16 + half, 4):
             cv.set(x + row % 3, y, GOLD if row % 2 else GOLD_LIT)
-    cv.set(16, 25 - heap, GOLD_HI)
-    if stage >= 1:                                                   # Bretterverschlag
-        cv.outlined(2, 18, 4, 26, WOOD, WOOD_LIT)
-        cv.outlined(27, 18, 29, 26, WOOD, WOOD_LIT)
-    if stage >= 2:                                                   # Erzkörbe davor
-        for x in (5, 21):
-            cv.outlined(x, 21, x + 5, 26, WOOD, WOOD_LIT)
-            cv.rect(x, 23, x + 5, 23, WOOD_LIT)
-            cv.rect(x + 1, 20, x + 4, 20, GOLD_LIT)
-    if stage >= 3:                                                   # Dach auf zwei Pfosten
-        cv.rect(3, 10, 4, 18, WOOD)
-        cv.rect(27, 10, 28, 18, WOOD)
-        for row in range(3):
-            cv.rect(2 + row * 2, 8 + row, 29 - row * 2, 8 + row, WOOD_LIT if row else WOOD)
-        cv.rect(1, 11, 30, 11, LINE)
-        cv.rect(2, 12, 29, 12, WOOD)
+    cv.set(16, 28 - heap, GOLD_HI)
     return cv
 
 
@@ -213,7 +255,7 @@ def action_guard():
 
 
 def action_transport():
-    """Platzhalter „Gold transportieren": praller Goldsack, dahinter ein Pfeil in Richtung Truhe."""
+    """Platzhalter „Ausfahren": praller Goldsack, daneben ein Pfeil nach oben ans Tageslicht."""
     cv = Canvas()
     cv.rect(1, 29, 30, 30, GROUND)
     cv.outlined(3, 13, 17, 27, LEATHER[2], LEATHER_LIT[2])           # Sack
@@ -226,46 +268,44 @@ def action_transport():
     cv.rect(9, 5, 11, 6, GOLD_HI)
     cv.rect(5, 19, 15, 21, GOLD)                                     # Goldband auf dem Bauch
     cv.rect(6, 20, 14, 20, GOLD_LIT)
-    def arrow(colour, grow):                                         # Pfeil Richtung Truhe
-        cv.rect(19, 17 - grow, 24, 19 + grow, colour)                # Schaft
-        for step in range(5 + grow):                                 # Spitze
-            cv.rect(24 + step, 14 + step - grow, 24 + step, 22 - step + grow, colour)
+    def arrow(colour, grow):                                         # Pfeil nach oben: ans Tageslicht
+        cv.rect(22 - grow, 13, 26 + grow, 27 + grow, colour)         # Schaft
+        for step in range(6 + grow):                                 # Spitze
+            half = 5 + grow - step
+            cv.rect(24 - half, 13 - step, 24 + half, 13 - step, colour)
 
     arrow(LINE, 1)                                                   # Kontur wie bei jedem Sprite
     arrow(GOLD_LIT, 0)
-    cv.rect(19, 17, 23, 17, GOLD_HI)
+    cv.rect(22, 14, 22, 26, GOLD_HI)
     return cv
 
 
 def goldmine():
-    """Platzhalter „Goldmine": Berg mit gezimmertem Stolleneingang, Goldadern und Schienen.
+    """Platzhalter „Ortsbrust": die Wand vor dem Hauer, mit der Goldader darin.
 
     Steht links im Minen-Abschnitt an der Stelle, an der vorher die Förderrate stand — der Ort
-    statt seiner Kennzahl, wie Truhe und Lager auch ihr eigenes Bild tragen.
+    statt seiner Kennzahl, wie Truhe und Erzkammer auch ihr eigenes Bild tragen. Bis zur Verlegung
+    unter Tage war das die Goldmine von außen: der einzige Blick der Szene, der im Querschnitt
+    nicht mehr passt, denn von außen sieht man einen Berg und nicht die Ader, auf die der Spieler
+    einschlägt. Derselbe Felsblock trägt die Erzkammer — beide Bilder zeigen denselben Berg, das
+    eine vor dem Schlag, das andere hinter ihm.
     """
     cv = Canvas()
-    cv.rect(0, 28, 31, 31, GROUND)
-    for row in range(20):                                            # Berg als Stufenkegel
-        y = 8 + row
-        half = min(15, 2 + row)
-        cv.rect(16 - half, y, 15 + half, y, STONE if row % 2 else STONE_LIT)
-        cv.set(15 - half, y, LINE)
-        cv.set(16 + half, y, LINE)
-    cv.rect(14, 7, 17, 7, LINE)                                      # Gipfelkante
-    for vein, (x, y) in enumerate(((6, 24), (24, 22), (9, 18), (22, 26), (12, 13))):
-        cv.rect(x, y, x + 1, y, GOLD_LIT if vein % 2 else GOLD)      # Goldadern im Fels
-        cv.set(x + 2, y + 1, GOLD_HI)
-    cv.rect(11, 18, 20, 27, DARK)                                    # Stollen
-    cv.rect(12, 17, 19, 17, DARK)
-    cv.outlined(10, 16, 10, 27, WOOD, WOOD_LIT)                      # linker Pfosten
-    cv.outlined(21, 16, 21, 27, WOOD, WOOD_LIT)                      # rechter Pfosten
-    cv.outlined(10, 14, 21, 15, WOOD, WOOD_LIT)                      # Sturz
-    for x in range(12, 20, 3):                                       # Schwellen der Schiene
-        cv.rect(x, 27, x + 1, 27, WOOD)
-    cv.rect(13, 26, 13, 28, IRON_LIT)                                # Schienen
-    cv.rect(18, 26, 18, 28, IRON_LIT)
-    cv.rect(14, 24, 17, 25, GOLD)                                    # Gold im dunklen Stollen
-    cv.rect(15, 24, 16, 24, GOLD_HI)
+    rock_block(cv, top=3)
+    for step in range(12):                                           # Goldader quer durch die Brust
+        x, y = 2 + step * 2, 22 - step
+        cv.rect(x, y, x + 2, y + 1, GOLD)
+        cv.rect(x, y, x + 1, y, GOLD_LIT)
+        if step % 3 == 0:
+            cv.set(x + 1, y, GOLD_HI)
+    for x, y in ((6, 8), (25, 19), (14, 26), (21, 11)):              # Schlagspuren der Haue
+        cv.rect(x, y, x + 2, y, LINE)
+        cv.set(x + 1, y + 1, LINE)
+    cv.rect(3, 27, 10, 28, STONE)                                    # frisch hereingewonnenes Haufwerk
+    cv.rect(4, 27, 9, 27, STONE_LIT)
+    cv.set(6, 27, GOLD_LIT)
+    cv.rect(19, 28, 27, 28, STONE)
+    cv.set(23, 28, GOLD)
     return cv
 
 

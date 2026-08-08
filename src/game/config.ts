@@ -25,7 +25,7 @@ export const PICKAXES = [
 ] as const
 
 /** Was der Spieler selbst schultert — nicht der Puffer, in den seine Bergleute fördern. Der heißt
-    seit dieser Trennung `STOCKPILES`. */
+    seit dieser Trennung `STOCKPILES` und in der Szene **Erzkammer**. */
 export const PACKS = [
   'Löchriger Lederbeutel', 'Genähter Lederbeutel', 'Verstärkter Goldbeutel', 'Gegurteter Packbeutel',
   'Großer Bergmannssack', 'Zunftsack', 'Eisenbeschlagener Packsack', 'Königlicher Goldsack',
@@ -43,10 +43,13 @@ export const LAMPS = [
   'Zwergenleuchte', 'Spiegelkranzlaterne', 'Bannlaterne', 'Runenlicht', 'Sonnenstein',
 ] as const
 
+/** Die Erzkammer wächst, indem der Berg zurückweicht — jede Stufe ist mehr ausgehauener Raum,
+    nicht mehr gebautes Haus. Die Reihe hieß bis zur Verlegung unter Tage „Lager“ und endete in
+    Schuppen, Depot und Halle: Gebäude, die in einem Stollen keinen Platz finden. */
 export const STOCKPILES = [
-  'Loser Erzhaufen', 'Geflochtene Erzkörbe', 'Bretterverschlag', 'Gezimmerter Schuppen',
-  'Steinernes Erzlager', 'Grubenspeicher', 'Zunftdepot', 'Gewölbelager', 'Runenspeicher',
-  'Hallenlager',
+  'Haufwerk', 'Erztrog', 'Ausgehauene Nische', 'Verzimmerte Kammer',
+  'Gemauerte Erzkammer', 'Gewölbekammer', 'Rollkammer', 'Zwergensaal', 'Runenkammer',
+  'Berghalle',
 ] as const
 
 export const TREASURE_CHESTS = [
@@ -62,7 +65,7 @@ export const SECTION_SLOT_GROUP: Record<SectionId, SlotGroup> = {
 
 export const SECTION_LABEL: Record<SectionId, string> = {
   mine: 'Mine',
-  stock: 'Lager',
+  stock: 'Erzkammer',
   vault: 'Truhe',
 }
 
@@ -73,8 +76,8 @@ const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
     'Zwergenhauer', 'Doppelhauer', 'Runenbrecher', 'Steingolem',
   ],
   transporters: [
-    'Laufbursche', 'Schubkarre', 'Packesel', 'Packpferd', 'Ochsenkarren', 'Panzerkarren',
-    'Vierspänner', 'Königskutsche', 'Greifengespann', 'Torstein',
+    'Sackträger', 'Jochträger', 'Schubkarre', 'Holzhunt', 'Eisenhunt', 'Kipplore',
+    'Lorenzug', 'Zwergenbahn', 'Runenbahn', 'Tagestor',
   ],
   guards: [
     'Nachtwächter', 'Speerknecht', 'Schildwache', 'Hellebardier', 'Söldnerwache', 'Zweihandsöldner',
@@ -83,7 +86,7 @@ const SLOT_STAGE_NAMES: Record<SlotGroup, readonly string[]> = {
 }
 
 const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
-  miners: 'Leerer Stollen',
+  miners: 'Unbesetzte Ortsbrust',
   transporters: 'Kein Transport',
   guards: 'Unbewachte Ecke',
 }
@@ -94,7 +97,7 @@ const SLOT_EMPTY_NAME: Record<SlotGroup, string> = {
     Zahl, die nur zu ihr gehört, und ließe sie sich beim Kauf nebenan ändern. */
 const SLOT_GROUP_HINT: Record<SlotGroup, string> = {
   miners: 'Jeder Bergmann fördert für sich, jede Sekunde einmal. Jede Stufe erhöht allein seine Fördermenge.',
-  transporters: 'Jeder Fuhrknecht fährt für sich, mit eigener Ladung und eigenem Tempo. Deine eigene Fuhre läuft unabhängig daneben.',
+  transporters: 'Jeder Transport fährt für sich, mit eigener Ladung und eigenem Tempo. Deine eigene Ausfahrt läuft unabhängig daneben.',
   guards: 'Jede Wache trägt in ihrem eigenen Takt Risiko ab. Ihre Kraft wirkt dagegen nur zusammen: Jeder Punkt des Trupps senkt den Verlust bei einem Diebeszug um 3 %.',
 }
 
@@ -181,7 +184,7 @@ export const SUSTAINED_TAPS_PER_SECOND = EXHAUSTION_RECOVERY_PER_SECOND / EXHAUS
 export const EXHAUSTION_BREAK_MS = 4_000
 
 /** Ein voller Balken ist in jedem Abschnitt dasselbe: der Punkt, an dem gehandelt werden muss.
-    Risiko, Lager und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
+    Risiko, Erzkammer und Erschöpfung teilen sich darum eine einzige Warnschwelle — die Farbe sagt
     dann überall dasselbe, statt dass jeder Abschnitt sein eigenes „bald" hätte. */
 export const METER_WARNING = 75
 export const METER_ALERT = 90
@@ -189,9 +192,9 @@ export const METER_ALERT = 90
 export const stockCapacity = (state: GameState) => 50 * 1.55 ** state.stockLevel
 export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 
-/** Jede Einheit im Spiel — Bergmann, Fuhrknecht, Wache — arbeitet nach demselben Muster: eine
+/** Jede Einheit im Spiel — Bergmann, Transport, Wache — arbeitet nach demselben Muster: eine
     eigene **Menge** in einem eigenen **Takt**, unabhängig von allen anderen. Nichts wird über eine
-    Gruppe verrechnet, es gibt keine gemeinsame Fuhre und keinen Trupp-Bonus. Der Durchsatz einer
+    Gruppe verrechnet, es gibt keine gemeinsame Fahrt und keinen Trupp-Bonus. Der Durchsatz einer
     Gruppe ist schlicht die Summe ihrer Einheiten, und der Zuwachs eines Aufstiegs hängt nur an der
     Einheit, die aufsteigt.
  *
@@ -202,32 +205,33 @@ export const vaultCapacity = (state: GameState) => 500 * 2.4 ** state.vaultLevel
 export const MIN_CYCLE_SECONDS = 1
 
 // --- Die Ausrüstung des Spielers: eine eigene Größe je Handlung -------------------------------
-/** Der Spieler hat drei Handlungen — schürfen, seine eigene Fuhre tragen, von Hand Wache gehen —
+/** Der Spieler hat drei Handlungen — schürfen, selbst ausfahren, von Hand Wache gehen —
     und für jede ein Ausrüstungsstück, das sie besser macht. Ohne sie wäre nur der Schlag
-    ausbaubar gewesen, und Fuhre wie Wachgang blieben Konstanten in einem Spiel, dessen Automatik
+    ausbaubar gewesen, und Ausfahrt wie Wachgang blieben Konstanten in einem Spiel, dessen Automatik
     unbegrenzt wächst: Aktives Spiel hörte damit zwangsläufig auf, sich zu lohnen.
  *
  *  Die Stiefel sind das einzige Stück, das auf zwei Handlungen wirkt. Das ist kein Sonderfall,
- *  sondern dieselbe Regel: Fuhre und Wachgang sind beide Wege, die er zu Fuß zurücklegt. Wären
- *  sie nur der Fuhre zugeschlagen, bliebe der Wachgang der einzige Teil von ihm, der nie besser
+ *  sondern dieselbe Regel: Ausfahrt und Wachgang sind beide Wege, die er zu Fuß zurücklegt. Wären
+ *  sie nur der Ausfahrt zugeschlagen, bliebe der Wachgang der einzige Teil von ihm, der nie besser
  *  wird — und damit ab dem dritten Wachposten überflüssig. */
 
-/** Die **Ladung**: was er in einer Fuhre schultert. Gedeckelt auf das, was im Lager überhaupt
-    Platz hat — mehr als der Haufen fasst, kann niemand daraus wegtragen. Ohne diesen Deckel wäre
-    ein Beutel über der Lagergröße ein Kauf ohne Wirkung; mit ihm zeigt die Karte vorher und
-    nachher dieselbe Zahl und sagt damit selbst, dass zuerst das Lager wachsen muss. */
+/** Die **Ladung**: was er auf einer Ausfahrt schultert. Gedeckelt auf das, was in der Erzkammer
+    überhaupt Platz hat — mehr als die Kammer fasst, kann niemand daraus wegtragen. Ohne diesen
+    Deckel wäre ein Beutel über der Kammergröße ein Kauf ohne Wirkung; mit ihm zeigt die Karte
+    vorher und nachher dieselbe Zahl und sagt damit selbst, dass zuerst die Kammer wachsen muss. */
 export const packCargo = (state: GameState) => Math.min(Math.round(25 * 1.5 ** state.packLevel), stockCapacity(state))
 
 /** Die beiden Wege, die der Spieler zu Fuß geht, als **Länge**: die Sekunden, die er auf dem
     Tempo einer Einheit der ersten Stufe für Hin- und Rückweg zusammen braucht. Feste Zahlen — was
     sich ändert, ist allein, wie schnell er sie zurücklegt.
  *
- *  Zwölf Sekunden sind die **Standardstrecke** des Spiels: Sie gilt für die Fuhre des Spielers,
- *  für die Fuhre eines Fuhrknechts und für die Runde einer Wache gleichermaßen. Nur der Wachgang
+ *  Zwölf Sekunden sind die **Standardstrecke** des Spiels — die Strecke von der Erzkammer ans
+ *  Tageslicht: Sie gilt für die Ausfahrt des Spielers, für die Fahrt eines Transports und für die
+ *  Runde einer Wache gleichermaßen. Nur der Wachgang
  *  des Spielers ist kürzer — er späht um die Truhe, statt sie ganz zu umrunden. Weil alle vier an
  *  derselben Strecke gemessen werden, heißt „Geschwindigkeit 1,3“ überall dasselbe.
  *
- *  Die Länge wuchs eine Zeit lang mit dem Reich: die Fuhre mit dem Gewicht des Beutels, der
+ *  Die Länge wuchs eine Zeit lang mit dem Reich: die Ausfahrt mit dem Gewicht des Beutels, der
  *  Wachgang mit dem Umfang der Truhe. Beides ist zurückgebaut. Es war fiktional stimmig, machte
  *  aber aus zwei Karten einen Handel, dessen zweite Zeile mit dem Kauf **wuchs** und trotzdem der
  *  Preis war, und band die Zahlen einer Karte an Käufe in einem anderen System — gegen die Regel,
@@ -262,11 +266,11 @@ export const manualSecureSeconds = (state: GameState) =>
   Math.max(MANUAL_SECURE_FLOOR_SECONDS, SECURE_ROUTE_SECONDS / bootsSpeed(state))
 
 /** Das Tempo, das auf der Stiefelkarte steht: nicht das rohe `bootsSpeed`, sondern das, was der
-    Spieler auf der Fuhre tatsächlich erreicht. Beides ist dasselbe, solange kein Boden greift.
+    Spieler auf der Ausfahrt tatsächlich erreicht. Beides ist dasselbe, solange kein Boden greift.
  *
- *  Der Unterschied zählt erst ganz oben: Ab dem Boden der Fuhre wird kein Weg mehr kürzer, und
+ *  Der Unterschied zählt erst ganz oben: Ab dem Boden der Ausfahrt wird kein Weg mehr kürzer, und
  *  eine Karte, die dort weiter steigende Zahlen zeigte, forderte zu einem Kauf ohne Wirkung auf.
- *  Gemessen wird an der Fuhre, weil sie ihren Boden von beiden Wegen als Letzte erreicht — solange
+ *  Gemessen wird an der Ausfahrt, weil sie ihren Boden von beiden Wegen als Letzte erreicht — solange
  *  sie noch schneller wird, tun die Stiefel noch etwas. */
 export const bootsPace = (state: GameState) => TRIP_ROUTE_SECONDS / manualTripSeconds(state)
 
@@ -296,19 +300,19 @@ export const minerRate = (level: number) => level === 0 ? 0 : Math.ceil(1.5 ** (
 export const minerYield = (level: number) => level === 0 ? 0 : minerRate(level) * minerInterval(level)
 export const passiveRate = (state: GameState) => state.minerLevels.reduce((total, level) => total + minerRate(level), 0)
 
-// --- Fuhrknechte: Ladung je Fahrt, Dauer einer Fahrt ---
+// --- Transporte: Ladung je Fahrt, Dauer einer Fahrt ---
 export const activeTransporters = (state: GameState) => state.transporterLevels.filter((level) => level > 0).length
 export const hasAutomaticTransport = (state: GameState) => activeTransporters(state) > 0
 export const transporterCapacity = (level: number) => level === 0 ? 0 : 12 * 1.55 ** (level - 1)
-/** Wie viel schneller ein Fuhrknecht je Stufe wird. Der Faktor ist so gewählt, dass die Fahrzeit
-    über die ersten acht Stufen denselben Bogen nimmt wie früher die gemeinsame Fuhre. */
+/** Wie viel schneller ein Transport je Stufe wird. Der Faktor ist so gewählt, dass die Fahrzeit
+    über die ersten acht Stufen denselben Bogen nimmt wie früher die gemeinsame Fahrt. */
 const TRANSPORTER_SPEED_PER_LEVEL = 0.45
 /** Die Standardstrecke, gegen den Boden von 1 s hin immer schneller zurückgelegt. */
 export const transporterTripSeconds = (level: number) =>
   Math.max(MIN_CYCLE_SECONDS, TRIP_ROUTE_SECONDS / (1 + (level - 1) * TRANSPORTER_SPEED_PER_LEVEL))
-/** Das **Tempo** eines Fuhrknechts — dieselbe Größe, die der Spieler aus seinen Stiefeln bezieht,
+/** Das **Tempo** eines Transports — dieselbe Größe, die der Spieler aus seinen Stiefeln bezieht,
     und darum derselbe Name auf der Karte. Gemessen wird wie überall an der Standardstrecke: Wer
-    sie in zwölf Sekunden schafft, hat Tempo 1. Damit ist „Geschwindigkeit 1,9“ eines Packpferds
+    sie in zwölf Sekunden schafft, hat Tempo 1. Damit ist „Geschwindigkeit 1,9“ einer Schubkarre
     unmittelbar gegen „Geschwindigkeit 1,3“ des Spielers lesbar.
  *
  *  Abgeleitet aus der Dauer, nicht umgekehrt — dieselbe Konstruktion wie `bootsPace`: Am Boden von
@@ -320,7 +324,7 @@ export const automaticTransportRate = (state: GameState) =>
   state.transporterLevels.reduce((total, level) => total + transporterRate(level), 0)
 
 /** Anteil der Schatztruhe, den ein Diebeszug mitnimmt. Deutlich kleiner als der frühere
-    Lager-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt eines Haufens.
+    Kammer-Anteil: Bezugsgröße ist jetzt das gesamte Vermögen, nicht der Inhalt eines Haufens.
     Je Kraftpunkt des Trupps bleiben 97 % des Verlusts übrig; eine Wachenstufe bringt zwei Punkte
     und senkt ihn damit um knapp 6 %.
  *
@@ -344,7 +348,7 @@ export const RISK_ALERT = METER_ALERT
 export const RISK_PER_VAULT_LEVEL = 0.25
 
 /** Risiko-Zuwachs pro Sekunde. Wächst nur, solange etwas in der Schatztruhe liegt, und hängt am
-    Füllstand — die Diebe zielen auf den Hort, nicht auf das Lager. Dazu wächst er mit der Größe
+    Füllstand — die Diebe zielen auf den Hort, nicht auf die Erzkammer. Dazu wächst er mit der Größe
     des Horts: Eine prächtigere Truhe ist ein lohnenderes Ziel, und nur so bleibt der Trupp über
     das ganze Spiel gefordert statt nach den ersten Käufen überflüssig.
  *
@@ -378,17 +382,17 @@ export const guardSight = (level: number) => level === 0 ? 0 : 4 + 2 * level
 /** Wie viel schneller eine Wache je Stufe ihre Runde geht. */
 const GUARD_SPEED_PER_LEVEL = 0.35
 /** Die Runde um die Truhe ist die Standardstrecke: Eine Wache der ersten Stufe braucht dafür zwölf
-    Sekunden, genau wie ein Fuhrknecht der ersten Stufe für seine Fuhre. Der Wachgang des Spielers
+    Sekunden, genau wie ein Transport der ersten Stufe für seine Fahrt. Der Wachgang des Spielers
     ist demgegenüber kurz (1,5 s) — er späht um die Truhe, statt sie ganz zu umrunden. */
 export const guardInterval = (level: number) =>
   Math.max(MIN_CYCLE_SECONDS, TRIP_ROUTE_SECONDS / (1 + (level - 1) * GUARD_SPEED_PER_LEVEL))
-/** Das **Tempo** einer Wache, auf derselben Skala wie das des Fuhrknechts und das des Spielers. */
+/** Das **Tempo** einer Wache, auf derselben Skala wie das des Transports und das des Spielers. */
 export const guardSpeed = (level: number) => TRIP_ROUTE_SECONDS / guardInterval(level)
 export const guardRate = (level: number) => level === 0 ? 0 : guardSight(level) / guardInterval(level)
 
 /** Die **Kraft** dieser einen Wache: was sie beiträgt, wenn die Diebe trotz aller Runden zuschlagen.
-    Das dritte Attribut der Wachen und das einzige, das nicht am Takt hängt — Sichtweite und Dauer
-    verhindern den Diebeszug, Kraft begrenzt ihn.
+    Das dritte Attribut der Wachen und das einzige, das nicht am Takt hängt — Sichtweite und
+    Geschwindigkeit verhindern den Diebeszug, Kraft begrenzt ihn.
  *
  *  Zwei Punkte je Stufe, additiv wie die Sichtweite: Damit gehört die Zeile der Wache allein und
  *  bleibt stehen, wenn nebenan gekauft wird. Wirksam wird sie erst als Summe des Trupps
@@ -466,7 +470,7 @@ const priceFactor = (effectFactor: number) => Math.round(effectFactor * PRICE_SU
  *    Dauerschnäppchen und die Stiefel ein Fehlkauf, obwohl niemand das eine ohne das andere kauft.
  *  - **Die Grubenlampe** hängt am selben Paar-Effekt, nur auf dem anderen Weg des Spielers:
  *    Sichtweite ÷ Dauer des Wachgangs, also 1,25 × 1,14 = 1,42.
- *  - **Fuhrknechte** wachsen in zwei eigenen Größen zugleich (Ladung ×1,55 und ein Tempo, das gegen
+ *  - **Transporte** wachsen in zwei eigenen Größen zugleich (Ladung ×1,55 und ein Tempo, das gegen
  *    den Sekundenboden läuft). Maßgeblich ist, was auf Dauer bleibt: die Ladung. Über die ersten
  *    Stufen ist der Strang deshalb bewusst ein Schnäppchen — dort wächst das Tempo noch mit.
  *  - **Wachen** wachsen in Sichtweite und Tempo beide *linear*, ihre Sicherungsleistung also
@@ -493,7 +497,7 @@ const EFFECT_FACTOR = {
  *  - **Beutel 60.** Seine erste Stufe hebt die Ladung von 25 auf 38 Gold in zwölf Sekunden, bringt
  *    also gut ein Gold je Sekunde. Das ist der beste Einstieg des Spiels — zu Recht, denn in den
  *    ersten Minuten ist die Ladung tatsächlich der Engpass.
- *  - **Stiefel 24.** Ihre erste Stufe verkürzt die Fuhre von 12 auf 10,6 Sekunden und bringt bei
+ *  - **Stiefel 24.** Ihre erste Stufe verkürzt die Ausfahrt von 12 auf 10,6 Sekunden und bringt bei
  *    25 Gold Ladung knapp 0,3 Gold je Sekunde. Der kleinste Preis des Spiels für den kleinsten
  *    Zuwachs; ihr Wert wächst mit dem, was im Beutel liegt, und der Preisfaktor des Paares nimmt
  *    das vorweg.
@@ -514,12 +518,12 @@ const EQUIPMENT_PRICE: Record<'tap' | 'pack' | 'boots' | 'lamp', { base: number;
     fasst.** Sie liefern keinen Durchsatz, den man in Gold je Sekunde messen könnte — sie setzen die
     Grenze, innerhalb derer alles andere arbeitet, und diese Grenze *ist* der Maßstab des Reiches an
     dieser Stelle. Damit kostet ein Ausbau immer dasselbe in der Währung, die der Spieler gerade
-    denkt: drei Lagerfüllungen, eine halbe Truhe.
+    denkt: drei Kammerfüllungen, eine halbe Truhe.
  *
  *  Das ist zugleich die einzige Regel, die von selbst erschwinglich bleibt: Weil der Preis mit der
  *  Kapazität wächst und die Kapazität mit dem Reich, ändert sich das Verhältnis nie. Vorher stiegen
  *  beide getrennt — die Truhe wurde je Stufe um ein Viertel *billiger* gemessen an dem, was sie
- *  fasst, das Lager fast ebenso. */
+ *  fasst, die Erzkammer fast ebenso. */
 const CONTAINER_SHARE = { stock: 3, vault: 0.6 } as const
 
 export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): number {
@@ -530,11 +534,11 @@ export function equipmentUpgradeCost(state: GameState, id: EquipmentUpgradeId): 
 }
 
 /** Grundpreis und Faktor je Slot-Gruppe. Der Bergmann ist die Eichung des Maßstabs und steht
-    deshalb genau auf ihm: 115 Gold für sein erstes Gold je Sekunde. Der Fuhrknecht steht auf
+    deshalb genau auf ihm: 115 Gold für sein erstes Gold je Sekunde. Der Transport steht auf
     demselben Preis, weil seine erste Stufe dasselbe leistet — zwölf Gold in zwölf Sekunden ist ein
     Gold je Sekunde, gemessen an derselben Standardstrecke wie alles andere. Er kostete bis eben
-    180, ohne dass dafür etwas sprach; der erste Fuhrknecht ist die Stelle, an der ein Spieler
-    aufhört, jede Fuhre selbst zu tragen, und die sollte nicht die teuerste des frühen Spiels sein.
+    180, ohne dass dafür etwas sprach; der erste Transport ist die Stelle, an der ein Spieler
+    aufhört, jede Ausfahrt selbst zu gehen, und die sollte nicht die teuerste des frühen Spiels sein.
  *
  *  Die Wache liegt darüber und außerhalb des Maßstabs: Sie liefert kein Gold je Sekunde, sondern
  *  Punkte der Risikoskala. 150 Gold für ihre erste Stufe ist eine gesetzte Zahl. */
@@ -594,7 +598,7 @@ function fact(label: string, before: number | null, after: number, format: (valu
 interface EquipmentSpec {
   section: SectionId
   /** Der Reiter, unter dem das Stück steht. Die vier Stücke am Körper des Spielers teilen sich den
-      Reiter „Ausrüstung“; Lager und Truhe stehen dagegen bei ihrem eigenen Abschnitt, weil sie ihm
+      Reiter „Ausrüstung“; Erzkammer und Truhe stehen dagegen bei ihrem eigenen Abschnitt, weil sie ihm
       gehören und nicht ihm getragen werden. */
   category: UpgradeCategory
   names: readonly string[]
@@ -707,28 +711,28 @@ export const UPGRADE_FILTERS: readonly UpgradeFilter[] = UPGRADE_CATEGORIES
 export const DEFAULT_UPGRADE_FILTER: UpgradeFilter = 'equipment'
 
 /** Die Beschriftung der Reiter. Drei von ihnen heißen wie die Abschnitte der Szene, denn sie
-    zeigen genau das, was dort steht: die Truhe mit ihren Wachen, das Lager mit seinen Fuhrknechten,
+    zeigen genau das, was dort steht: die Truhe mit ihren Wachen, die Erzkammer mit ihren Transporten,
     die Mine mit ihren Bergleuten. Vorher waren sie nach den Angestellten benannt — dann führte ein
     Tap auf die Truhe zu einem Reiter „Wachen“, und der Behälter, den man angetippt hatte, lag
     unter „Ausrüstung“ woanders. Der vierte Reiter trägt weiterhin, was der Spieler am Körper hat. */
 export const UPGRADE_FILTER_LABEL: Record<UpgradeFilter, string> = {
   equipment: 'Ausrüstung',
   miners: 'Mine',
-  transporters: 'Lager',
+  transporters: 'Erzkammer',
   guards: 'Truhe',
 }
 
 /** Die Überschrift über einem Block von Karten. Sie ist bewusst nicht die Reiter-Beschriftung:
-    Der Reiter nennt den Ort, die Überschrift nennt, was in diesem Block steht — unter „Lager“
-    stehen erst das Lager selbst und darunter seine Fuhrknechte. */
+    Der Reiter nennt den Ort, die Überschrift nennt, was in diesem Block steht — unter „Erzkammer“
+    stehen erst die Kammer selbst und darunter ihre Transporte. */
 const SLOT_GROUP_LABEL: Record<SlotGroup, string> = {
   miners: 'Bergleute',
-  transporters: 'Fuhrknechte',
+  transporters: 'Transporte',
   guards: 'Wachen',
 }
 
 /** Die Ausrüstungsstücke eines Reiters, in ihrer Reihenfolge. Die vier Stücke am Körper des
-    Spielers bleiben zusammen; Lager und Truhe stehen bei ihrem eigenen Abschnitt, weil dorthin
+    Spielers bleiben zusammen; Erzkammer und Truhe stehen bei ihrem eigenen Abschnitt, weil dorthin
     zeigt, wer sie in der Szene antippt. */
 const CATEGORY_EQUIPMENT: Record<UpgradeCategory, readonly EquipmentUpgradeId[]> = {
   equipment: ['tap', 'pack', 'boots', 'lamp'],
@@ -765,7 +769,7 @@ export interface UpgradeGroup {
 
 /** Ein Reiter zerfällt in bis zu zwei Blöcke: den Behälter des Abschnitts und seine Angestellten.
     Getrennt, weil der Hinweis nur den Angestellten gilt — stünde er über beiden, erklärte ein Satz
-    über Fuhrknechte auch die Lagerkarte. */
+    über Transporte auch die Kammerkarte. */
 export function getUpgradeGroups(state: GameState, filter: UpgradeFilter): UpgradeGroup[] {
   const equipment = CATEGORY_EQUIPMENT[filter].map((id) => getEquipmentUpgrade(state, id))
   if (filter === 'equipment') {
