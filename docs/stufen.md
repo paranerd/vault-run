@@ -84,7 +84,7 @@ hier einmal; was nur für eine gilt, steht als **Hinweise** unter ihrer Tabelle.
   der Mitte trägt, gehört auf die zehnte — oder es gilt ab seiner Stufe für alle folgenden.
 - **Die Materialleiter läuft überall gleich:** roh → Eisen → Stahl → Zwergenarbeit → Gold → Rune →
   Mythos. Die **neunte** Stufe ist überall die Runenstufe; die **zehnte** ist überall die, die die
-  Form der Reihe verlässt — und nur sie darf das.
+  gewöhnliche Form oder Materiallogik der Reihe verlässt — und nur sie darf das.
 - **Farbe zeigt den Rang, nicht die Laune.** Innerhalb einer Leiter wechselt die Farbe nur dort, wo
   die Stufe einen Rang wechselt: bei den Wachen die Uniform, bei den Lampen das Licht.
 
@@ -281,19 +281,21 @@ gebautes Haus. Ein Gebäude fände im Stollen keinen Platz — ein Hohlraum wird
 | 7 | **Zwergentresor** | Ein Mechanismus aus siebzehn Zahnrädern gibt die runde Tür an der Front frei. Zwerge zählen ihre Sicherheit anders. |
 | 8 | **Juwelentruhe** | Edelsteine in jeder Fuge, und breiter als der Tresor davor: Was hier hineinpasst, füllt einen ganzen Raum. Solcher Glanz spricht sich herum. |
 | 9 | **Runentruhe** | Ein Bannkreis im geschlossenen Deckel dehnt den Innenraum weit über die Wände hinaus. Sein Licht steht durch das Holz. |
-| 10 | **Drachenhort** | Kein Möbelstück mehr, sondern eine Halle voll Gold. Ein Berg dieser Größe zieht Blicke aus dem ganzen Land an. |
+| 10 | **Drachenhort** | Eine gewaltige Truhe aus schwarzem Obsidian, in deren geschlossenen Fugen goldviolettes Licht brennt. Splitter stehen frei um sie, und unbestimmte lilafarbene Energiewirbel lösen sich hinter ihr aus dem Nichts. Ihr Inneres liegt nicht mehr ganz in dieser Welt. |
 
 **Hinweise**
 
 - Alle Truhen im selben Dreiviertelblick, **nach rechts gedreht** — Schloss und Front zum Betrachter,
-  die sichtbare Schmalseite rechts —, gleicher Standfuß, und **alle geschlossen**, auch die
-  Runentruhe: Ihr Bannkreis liegt im zu und leuchtet durch den Deckel.
-- Die Größe wächst monoton. Die Juwelentruhe ist damit die **zweitgrößte** der Reihe: breiter als der
-  Zwergentresor davor, schmaler als die Runentruhe danach.
+  die sichtbare Schmalseite rechts —, gleicher Standfuß, und **alle geschlossen**, auch Runentruhe
+  und Drachenhort: Ihr Licht dringt durch den Deckel, ohne den Inhalt zu zeigen.
+- Die Größe wächst monoton. Die Juwelentruhe ist breiter als der Zwergentresor davor, die Runentruhe
+  überragt sie, und der Drachenhort ist die größte Truhe der Reihe.
 - Beschlag nach Rang: nacktes Holz → Eisenband → Nietwerk → Riegel → Fels → Gold → Zwergenmechanik →
-  Edelstein → Rune.
-- Gold zeigt nur die zehnte Stufe, weil nur sie keinen Deckel mehr hat. Sie ist auch die einzige, die
-  aufhört, ein Möbelstück zu sein.
+  Edelstein → Rune → Obsidian und mystisches Licht.
+- Sichtbarer Truheninhalt bleibt auf jeder Stufe verdeckt. Das Gold der zehnten ist kein offener
+  Münzberg, sondern Licht in ihren Fugen. Nur sie trägt schwebende Splitter und unbestimmte
+  lilafarbene Energieformen; beides bleibt eng an ihrer Silhouette, damit sie auf Daumengröße eine
+  Truhe bleibt.
 
 ## Bergleute (4 Slots, Mine)
 
